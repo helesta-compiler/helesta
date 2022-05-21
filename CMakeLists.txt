@@ -1,4 +1,4 @@
-project(thu-cs-compiler CXX)
+project(helesta CXX)
 cmake_minimum_required(VERSION 3.16)
 #aux_source_directory(. DIR_SRC)
 file(GLOB_RECURSE DIR_SRC "src/*.cpp")
