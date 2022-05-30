@@ -1,6 +1,13 @@
 project(helesta CXX)
 cmake_minimum_required(VERSION 3.16)
 
+if(" ${CMAKE_SOURCE_DIR}" STREQUAL " ${CMAKE_BINARY_DIR}")
+	message(FATAL_ERROR "
+FATAL: In-source builds are not allowed.
+	You should create a separete directory for build files.
+")
+endif()
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 #aux_source_directory(. DIR_SRC)
