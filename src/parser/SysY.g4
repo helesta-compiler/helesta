@@ -65,7 +65,7 @@ primaryExp
     | number # primaryExp3
     ;
 
-number : IntLiteral;
+number : IntLiteral | FloatLiteral;
 
 unaryExp
     : primaryExp # unary1

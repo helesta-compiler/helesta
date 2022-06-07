@@ -12,14 +12,15 @@
 class  SysYLexer : public antlr4::Lexer {
 public:
   enum {
-    T__0 = 1, T__1 = 2, Int = 3, Void = 4, Const = 5, Return = 6, If = 7, 
+    T__0 = 1, Int = 2, Float = 3, Void = 4, Const = 5, Return = 6, If = 7, 
     Else = 8, For = 9, While = 10, Do = 11, Break = 12, Continue = 13, Lparen = 14, 
     Rparen = 15, Lbrkt = 16, Rbrkt = 17, Lbrace = 18, Rbrace = 19, Comma = 20, 
     Semicolon = 21, Question = 22, Colon = 23, Minus = 24, Exclamation = 25, 
     Tilde = 26, Addition = 27, Multiplication = 28, Division = 29, Modulo = 30, 
     LAND = 31, LOR = 32, EQ = 33, NEQ = 34, LT = 35, LE = 36, GT = 37, GE = 38, 
-    IntLiteral = 39, Identifier = 40, STRING = 41, WS = 42, LINE_COMMENT = 43, 
-    COMMENT = 44
+    IntLiteral = 39, HexadecimalDigits = 40, ExponentPart = 41, FractionPart = 42, 
+    FloatLiteral = 43, Identifier = 44, STRING = 45, WS = 46, LINE_COMMENT = 47, 
+    COMMENT = 48
   };
 
   explicit SysYLexer(antlr4::CharStream *input);
