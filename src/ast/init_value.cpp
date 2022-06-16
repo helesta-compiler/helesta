@@ -2,17 +2,18 @@
 
 #include <climits>
 
+#include "ast/symbol_table.hpp"
 #include "common/common.hpp"
 #include "common/errors.hpp"
-#include "ast/symbol_table.hpp"
 
-#define check_and_return(x)                                            \
-  if ((x) < INT32_MIN || (x) > INT32_MAX)                              \
-    throw CompileTimeValueEvalFail("compile-time value out of bound"); \
+#define check_and_return(x)                                                    \
+  if ((x) < INT32_MIN || (x) > INT32_MAX)                                      \
+    throw CompileTimeValueEvalFail("compile-time value out of bound");         \
   return CompileTimeValue{static_cast<int32_t>(x)};
 
 CompileTimeValue CompileTimeValue::operator-() {
-  if (value == INT_MIN) return CompileTimeValue{INT_MIN};
+  if (value == INT_MIN)
+    return CompileTimeValue{INT_MIN};
   int64_t res = -static_cast<int64_t>(value);
   check_and_return(res)
 }

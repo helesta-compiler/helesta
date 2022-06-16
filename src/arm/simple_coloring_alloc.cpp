@@ -47,7 +47,8 @@ void SimpleColoringAllocator::spill(const vector<int> &spill_nodes) {
           need_continue = true;
           break;
         }
-      if (need_continue) continue;
+      if (need_continue)
+        continue;
       for (size_t j = 0; j < spill_nodes.size(); ++j) {
         int id = spill_nodes[j];
         bool cur_def = (*i)->def(Reg{id}), cur_use = (*i)->use(Reg{id});
@@ -100,10 +101,12 @@ void SimpleColoringAllocator::build_graph() {
     set<Reg> live = block->live_out;
     temp.clear();
     for (Reg r : live)
-      if (r.is_pseudo() || allocable(r.id)) temp.push_back(r.id);
+      if (r.is_pseudo() || allocable(r.id))
+        temp.push_back(r.id);
     if (block->insts.size() > 0)
       for (Reg r : (*block->insts.rbegin())->def_reg())
-        if (r.is_pseudo() || allocable(r.id)) temp.push_back(r.id);
+        if (r.is_pseudo() || allocable(r.id))
+          temp.push_back(r.id);
     for (size_t idx1 = 0; idx1 < temp.size(); ++idx1)
       for (size_t idx0 = 0; idx0 < idx1; ++idx0)
         if (temp[idx0] != temp[idx1]) {
@@ -241,7 +244,8 @@ vector<int> SimpleColoringAllocator::run(RegAllocStat *stat) {
        --i) {
     assert(ans[simplify_history[i].first] == -1);
     bool flag[RegCount] = {};
-    for (int neighbor : simplify_history[i].second) flag[ans[neighbor]] = true;
+    for (int neighbor : simplify_history[i].second)
+      flag[ans[neighbor]] = true;
     for (int j = 0; j < RegCount; ++j)
       if ((REGISTER_USAGE[j] == caller_save ||
            (REGISTER_USAGE[j] == callee_save && used[j])) &&
@@ -258,8 +262,9 @@ vector<int> SimpleColoringAllocator::run(RegAllocStat *stat) {
     used[ans[simplify_history[i].first]] = true;
   }
   for (int i = 0; i < RegCount; ++i)
-    if (used[i] && REGISTER_USAGE[i] == callee_save) ++stat->callee_save_used;
+    if (used[i] && REGISTER_USAGE[i] == callee_save)
+      ++stat->callee_save_used;
   return ans;
 }
 
-}  // namespace ARMv7
+} // namespace ARMv7

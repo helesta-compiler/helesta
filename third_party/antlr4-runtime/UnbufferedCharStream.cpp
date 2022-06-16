@@ -3,8 +3,8 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "misc/Interval.h"
 #include "Exceptions.h"
+#include "misc/Interval.h"
 #include "support/Utf8.h"
 
 #include "UnbufferedCharStream.h"
@@ -14,7 +14,8 @@ using namespace antlr4;
 using namespace antlr4::misc;
 
 UnbufferedCharStream::UnbufferedCharStream(std::wistream &input)
-    : _p(0), _numMarkers(0), _lastChar(0), _lastCharBufferStart(0), _currentCharIndex(0), _input(input) {
+    : _p(0), _numMarkers(0), _lastChar(0), _lastCharBufferStart(0),
+      _currentCharIndex(0), _input(input) {
   // The vector's size is what used to be n in Java code.
   fill(1); // prime
 }
@@ -72,13 +73,9 @@ size_t UnbufferedCharStream::fill(size_t n) {
   return n;
 }
 
-char32_t UnbufferedCharStream::nextChar()  {
-  return _input.get();
-}
+char32_t UnbufferedCharStream::nextChar() { return _input.get(); }
 
-void UnbufferedCharStream::add(char32_t c) {
-  _data += c;
-}
+void UnbufferedCharStream::add(char32_t c) { _data += c; }
 
 size_t UnbufferedCharStream::LA(ssize_t i) {
   if (i == -1) { // special case
@@ -129,9 +126,7 @@ void UnbufferedCharStream::release(ssize_t marker) {
   }
 }
 
-size_t UnbufferedCharStream::index() {
-  return _currentCharIndex;
-}
+size_t UnbufferedCharStream::index() { return _currentCharIndex; }
 
 void UnbufferedCharStream::seek(size_t index) {
   if (index == _currentCharIndex) {
@@ -144,13 +139,16 @@ void UnbufferedCharStream::seek(size_t index) {
   }
 
   // index == to bufferStartIndex should set p to 0
-  ssize_t i = static_cast<ssize_t>(index) - static_cast<ssize_t>(getBufferStartIndex());
+  ssize_t i =
+      static_cast<ssize_t>(index) - static_cast<ssize_t>(getBufferStartIndex());
   if (i < 0) {
-    throw IllegalArgumentException(std::string("cannot seek to negative index ") + std::to_string(index));
+    throw IllegalArgumentException(
+        std::string("cannot seek to negative index ") + std::to_string(index));
   } else if (i >= static_cast<ssize_t>(_data.size())) {
-    throw UnsupportedOperationException("Seek to index outside buffer: " + std::to_string(index) +
-                                        " not in " + std::to_string(getBufferStartIndex()) + ".." +
-                                        std::to_string(getBufferStartIndex() + _data.size()));
+    throw UnsupportedOperationException(
+        "Seek to index outside buffer: " + std::to_string(index) + " not in " +
+        std::to_string(getBufferStartIndex()) + ".." +
+        std::to_string(getBufferStartIndex() + _data.size()));
   }
 
   _p = static_cast<size_t>(i);
@@ -182,25 +180,32 @@ std::string UnbufferedCharStream::getText(const misc::Interval &interval) {
   size_t bufferStartIndex = getBufferStartIndex();
   if (!_data.empty() && _data.back() == 0xFFFF) {
     if (interval.a + interval.length() > bufferStartIndex + _data.size()) {
-      throw IllegalArgumentException("the interval extends past the end of the stream");
+      throw IllegalArgumentException(
+          "the interval extends past the end of the stream");
     }
   }
 
-  if (interval.a < static_cast<ssize_t>(bufferStartIndex) || interval.b >= ssize_t(bufferStartIndex + _data.size())) {
-    throw UnsupportedOperationException("interval " + interval.toString() + " outside buffer: " +
-      std::to_string(bufferStartIndex) + ".." + std::to_string(bufferStartIndex + _data.size() - 1));
+  if (interval.a < static_cast<ssize_t>(bufferStartIndex) ||
+      interval.b >= ssize_t(bufferStartIndex + _data.size())) {
+    throw UnsupportedOperationException(
+        "interval " + interval.toString() +
+        " outside buffer: " + std::to_string(bufferStartIndex) + ".." +
+        std::to_string(bufferStartIndex + _data.size() - 1));
   }
   // convert from absolute to local index
   size_t i = interval.a - bufferStartIndex;
-  auto maybeUtf8 = Utf8::strictEncode(std::u32string_view(_data).substr(i, interval.length()));
+  auto maybeUtf8 = Utf8::strictEncode(
+      std::u32string_view(_data).substr(i, interval.length()));
   if (!maybeUtf8.has_value()) {
-    throw IllegalArgumentException("Unbuffered stream contains invalid Unicode code points");
+    throw IllegalArgumentException(
+        "Unbuffered stream contains invalid Unicode code points");
   }
   return std::move(maybeUtf8).value();
 }
 
 std::string UnbufferedCharStream::toString() const {
-  throw UnsupportedOperationException("Unbuffered stream cannot be materialized to a string");
+  throw UnsupportedOperationException(
+      "Unbuffered stream cannot be materialized to a string");
 }
 
 size_t UnbufferedCharStream::getBufferStartIndex() const {

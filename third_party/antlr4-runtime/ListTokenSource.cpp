@@ -3,19 +3,20 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "Token.h"
-#include "CommonToken.h"
 #include "CharStream.h"
+#include "CommonToken.h"
+#include "Token.h"
 
 #include "ListTokenSource.h"
 
 using namespace antlr4;
 
-ListTokenSource::ListTokenSource(std::vector<std::unique_ptr<Token>> tokens_) : ListTokenSource(std::move(tokens_), "") {
-}
+ListTokenSource::ListTokenSource(std::vector<std::unique_ptr<Token>> tokens_)
+    : ListTokenSource(std::move(tokens_), "") {}
 
-ListTokenSource::ListTokenSource(std::vector<std::unique_ptr<Token>> tokens_, const std::string &sourceName_)
-  : tokens(std::move(tokens_)), sourceName(sourceName_) {
+ListTokenSource::ListTokenSource(std::vector<std::unique_ptr<Token>> tokens_,
+                                 const std::string &sourceName_)
+    : tokens(std::move(tokens_)), sourceName(sourceName_) {
   InitializeInstanceFields();
   if (tokens.empty()) {
     throw "tokens cannot be null";
@@ -31,8 +32,10 @@ ListTokenSource::ListTokenSource(std::vector<std::unique_ptr<Token>> tokens_, co
     }
 
     size_t stop = std::max(INVALID_INDEX, start - 1);
-    tokens.emplace_back((_factory->create({ this, getInputStream() }, Token::EOF, "EOF",
-      Token::DEFAULT_CHANNEL, start, stop, static_cast<int>(lastToken->getLine()), lastToken->getCharPositionInLine())));
+    tokens.emplace_back((_factory->create(
+        {this, getInputStream()}, Token::EOF, "EOF", Token::DEFAULT_CHANNEL,
+        start, stop, static_cast<int>(lastToken->getLine()),
+        lastToken->getCharPositionInLine())));
   }
 }
 
@@ -82,7 +85,7 @@ std::string ListTokenSource::getSourceName() {
   return "List";
 }
 
-TokenFactory<CommonToken>* ListTokenSource::getTokenFactory() {
+TokenFactory<CommonToken> *ListTokenSource::getTokenFactory() {
   return _factory;
 }
 

@@ -17,37 +17,42 @@ using namespace antlrcpp;
 
 namespace {
 
-  bool cachedHashCodeEqual(size_t lhs, size_t rhs) {
-    return lhs == rhs || lhs == 0 || rhs == 0;
-  }
-
-  bool predictionContextEqual(const Ref<const PredictionContext> &lhs, const Ref<const PredictionContext> &rhs) {
-    return *lhs == *rhs;
-  }
-
+bool cachedHashCodeEqual(size_t lhs, size_t rhs) {
+  return lhs == rhs || lhs == 0 || rhs == 0;
 }
 
-ArrayPredictionContext::ArrayPredictionContext(const SingletonPredictionContext &predictionContext)
-    : ArrayPredictionContext({ predictionContext.parent }, { predictionContext.returnState }) {}
+bool predictionContextEqual(const Ref<const PredictionContext> &lhs,
+                            const Ref<const PredictionContext> &rhs) {
+  return *lhs == *rhs;
+}
 
-ArrayPredictionContext::ArrayPredictionContext(std::vector<Ref<const PredictionContext>> parents,
-                                               std::vector<size_t> returnStates)
-    : PredictionContext(PredictionContextType::ARRAY), parents(std::move(parents)), returnStates(std::move(returnStates)) {
+} // namespace
+
+ArrayPredictionContext::ArrayPredictionContext(
+    const SingletonPredictionContext &predictionContext)
+    : ArrayPredictionContext({predictionContext.parent},
+                             {predictionContext.returnState}) {}
+
+ArrayPredictionContext::ArrayPredictionContext(
+    std::vector<Ref<const PredictionContext>> parents,
+    std::vector<size_t> returnStates)
+    : PredictionContext(PredictionContextType::ARRAY),
+      parents(std::move(parents)), returnStates(std::move(returnStates)) {
   assert(this->parents.size() > 0);
   assert(this->returnStates.size() > 0);
   assert(this->parents.size() == this->returnStates.size());
 }
 
 bool ArrayPredictionContext::isEmpty() const {
-  // Since EMPTY_RETURN_STATE can only appear in the last position, we don't need to verify that size == 1.
+  // Since EMPTY_RETURN_STATE can only appear in the last position, we don't
+  // need to verify that size == 1.
   return returnStates[0] == EMPTY_RETURN_STATE;
 }
 
-size_t ArrayPredictionContext::size() const {
-  return returnStates.size();
-}
+size_t ArrayPredictionContext::size() const { return returnStates.size(); }
 
-const Ref<const PredictionContext>& ArrayPredictionContext::getParent(size_t index) const {
+const Ref<const PredictionContext> &
+ArrayPredictionContext::getParent(size_t index) const {
   return parents[index];
 }
 
@@ -74,12 +79,15 @@ bool ArrayPredictionContext::equals(const PredictionContext &other) const {
   if (getContextType() != other.getContextType()) {
     return false;
   }
-  const auto &array = downCast<const ArrayPredictionContext&>(other);
+  const auto &array = downCast<const ArrayPredictionContext &>(other);
   return returnStates.size() == array.returnStates.size() &&
          parents.size() == array.parents.size() &&
          cachedHashCodeEqual(cachedHashCode(), array.cachedHashCode()) &&
-         std::memcmp(returnStates.data(), array.returnStates.data(), returnStates.size() * sizeof(decltype(returnStates)::value_type)) == 0 &&
-         std::equal(parents.begin(), parents.end(), array.parents.begin(), predictionContextEqual);
+         std::memcmp(returnStates.data(), array.returnStates.data(),
+                     returnStates.size() *
+                         sizeof(decltype(returnStates)::value_type)) == 0 &&
+         std::equal(parents.begin(), parents.end(), array.parents.begin(),
+                    predictionContextEqual);
 }
 
 std::string ArrayPredictionContext::toString() const {

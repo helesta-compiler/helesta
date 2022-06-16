@@ -4,9 +4,9 @@
  */
 
 #include "Exceptions.h"
-#include "ParserRuleContext.h"
 #include "InputMismatchException.h"
 #include "Parser.h"
+#include "ParserRuleContext.h"
 
 #include "BailErrorStrategy.h"
 
@@ -22,7 +22,8 @@ void BailErrorStrategy::recover(Parser *recognizer, std::exception_ptr e) {
   } while (true);
 
   try {
-    std::rethrow_exception(e); // Throw the exception to be able to catch and rethrow nested.
+    std::rethrow_exception(
+        e); // Throw the exception to be able to catch and rethrow nested.
 #if defined(_MSC_FULL_VER) && _MSC_FULL_VER < 190023026
   } catch (RecognitionException &inner) {
     throw ParseCancellationException(inner.what());
@@ -33,7 +34,7 @@ void BailErrorStrategy::recover(Parser *recognizer, std::exception_ptr e) {
   }
 }
 
-Token* BailErrorStrategy::recoverInline(Parser *recognizer)  {
+Token *BailErrorStrategy::recoverInline(Parser *recognizer) {
   InputMismatchException e(recognizer);
   std::exception_ptr exception = std::make_exception_ptr(e);
 
@@ -57,5 +58,4 @@ Token* BailErrorStrategy::recoverInline(Parser *recognizer)  {
   }
 }
 
-void BailErrorStrategy::sync(Parser * /*recognizer*/) {
-}
+void BailErrorStrategy::sync(Parser * /*recognizer*/) {}

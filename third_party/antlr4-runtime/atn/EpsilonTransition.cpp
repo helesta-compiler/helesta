@@ -7,22 +7,22 @@
 
 using namespace antlr4::atn;
 
-EpsilonTransition::EpsilonTransition(ATNState *target) : EpsilonTransition(target, INVALID_INDEX) {
-}
+EpsilonTransition::EpsilonTransition(ATNState *target)
+    : EpsilonTransition(target, INVALID_INDEX) {}
 
-EpsilonTransition::EpsilonTransition(ATNState *target, size_t outermostPrecedenceReturn)
-  : Transition(TransitionType::EPSILON, target), _outermostPrecedenceReturn(outermostPrecedenceReturn) {
-}
+EpsilonTransition::EpsilonTransition(ATNState *target,
+                                     size_t outermostPrecedenceReturn)
+    : Transition(TransitionType::EPSILON, target),
+      _outermostPrecedenceReturn(outermostPrecedenceReturn) {}
 
 size_t EpsilonTransition::outermostPrecedenceReturn() const {
   return _outermostPrecedenceReturn;
 }
 
-bool EpsilonTransition::isEpsilon() const {
-  return true;
-}
+bool EpsilonTransition::isEpsilon() const { return true; }
 
-bool EpsilonTransition::matches(size_t /*symbol*/, size_t /*minVocabSymbol*/, size_t /*maxVocabSymbol*/) const {
+bool EpsilonTransition::matches(size_t /*symbol*/, size_t /*minVocabSymbol*/,
+                                size_t /*maxVocabSymbol*/) const {
   return false;
 }
 

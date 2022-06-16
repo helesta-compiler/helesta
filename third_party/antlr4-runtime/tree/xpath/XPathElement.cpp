@@ -14,8 +14,7 @@ XPathElement::XPathElement(const std::string &nodeName) {
   _nodeName = nodeName;
 }
 
-XPathElement::~XPathElement() {
-}
+XPathElement::~XPathElement() {}
 
 std::vector<ParseTree *> XPathElement::evaluate(ParseTree * /*t*/) {
   return {};
@@ -26,6 +25,4 @@ std::string XPathElement::toString() const {
   return antlrcpp::toString(*this) + "[" + inv + _nodeName + "]";
 }
 
-void XPathElement::setInvert(bool value) {
-  _invert = value;
-}
+void XPathElement::setInvert(bool value) { _invert = value; }

@@ -60,7 +60,8 @@ void more_constant_info(Func *func) {
 
 static map<int32_t, int> log2_map = []() {
   map<int32_t, int> ret;
-  for (int i = 0; i < 31; ++i) ret[1 << i] = i;
+  for (int i = 0; i < 31; ++i)
+    ret[1 << i] = i;
   ret[numeric_limits<int32_t>::min()] = 31;
   return ret;
 }();
@@ -214,10 +215,10 @@ void inline_constant(Func *func) {
         if (func->stack_addr_reg.find(load->base) !=
             func->stack_addr_reg.end()) {
           auto info = func->stack_addr_reg[load->base];
-          inst = set_cond(
-              make_unique<LoadStack>(load->dst, load->offset_imm + info.second,
-                                     info.first),
-              load->cond);
+          inst = set_cond(make_unique<LoadStack>(load->dst,
+                                                 load->offset_imm + info.second,
+                                                 info.first),
+                          load->cond);
         }
       } else if (Store *store = inst->as<Store>()) {
         if (func->stack_addr_reg.find(store->base) !=
@@ -270,7 +271,8 @@ void spill_constant_to_first_use(Func *func) {
           def_constant = true;
           break;
         }
-      if (def_constant) continue;
+      if (def_constant)
+        continue;
       for (Reg r : (*it)->use_reg())
         if (constant_reg.find(r) != constant_reg.end()) {
           if (def_this_block.find(r) == def_this_block.end()) {
@@ -293,7 +295,8 @@ void remove_unused(Func *func) {
     bool use_cpsr = false;
     for (auto it = block->insts.rbegin(); it != block->insts.rend();) {
       bool used = (*it)->side_effect();
-      if ((*it)->change_cpsr() && use_cpsr) used = true;
+      if ((*it)->change_cpsr() && use_cpsr)
+        used = true;
       for (Reg r : (*it)->def_reg())
         if ((r.is_machine() && !allocable(r.id)) || live.find(r) != live.end())
           used = true;
@@ -305,8 +308,10 @@ void remove_unused(Func *func) {
         block->insts.erase(std::prev(base));
         it = std::make_reverse_iterator(base);
       } else {
-        if ((*it)->change_cpsr()) use_cpsr = false;
-        if ((*it)->use_cpsr()) use_cpsr = true;
+        if ((*it)->change_cpsr())
+          use_cpsr = false;
+        if ((*it)->use_cpsr())
+          use_cpsr = true;
         (*it)->update_live(live);
         ++it;
       }
@@ -319,7 +324,8 @@ void remove_identical_move(Func *func) {
     for (auto it = block->insts.begin(); it != block->insts.end();) {
       auto nxt = std::next(it);
       if (MoveReg *move_reg = (*it)->as<MoveReg>())
-        if (move_reg->dst == move_reg->src) block->insts.erase(it);
+        if (move_reg->dst == move_reg->src)
+          block->insts.erase(it);
       it = nxt;
     }
 }
@@ -334,24 +340,26 @@ void remove_no_effect(Func *func) {
 
     RegStatus() : type(Unknown) {}
     bool operator==(const RegStatus &y) const {
-      if (type != y.type) return false;
+      if (type != y.type)
+        return false;
       switch (type) {
-        case Constant:
-          return const_value == y.const_value;
-        case Symbol:
-          return symbol == y.symbol;
-        case StackValue:
-          return stack_value.first == y.stack_value.first &&
-                 stack_value.second == y.stack_value.second;
-        default:
-          return false;
+      case Constant:
+        return const_value == y.const_value;
+      case Symbol:
+        return symbol == y.symbol;
+      case StackValue:
+        return stack_value.first == y.stack_value.first &&
+               stack_value.second == y.stack_value.second;
+      default:
+        return false;
       }
     }
   };
   RegStatus status[RegCount];
   for (size_t i = 0; i < func->blocks.size(); ++i) {
     if (branch_in_deg[i] > 0) {
-      for (auto &s : status) s.type = RegStatus::Unknown;
+      for (auto &s : status)
+        s.type = RegStatus::Unknown;
     }
     auto &block = func->blocks[i];
     for (auto it = block->insts.begin(); it != block->insts.end();) {
@@ -501,10 +509,12 @@ void remove_no_effect(Func *func) {
         }
       }
       for (Reg r : (*it)->def_reg())
-        if (allocable(r.id)) status[r.id].type = RegStatus::Unknown;
+        if (allocable(r.id))
+          status[r.id].type = RegStatus::Unknown;
       if ((*it)->side_effect())
         for (RegStatus &s : status)
-          if (s.type == RegStatus::StackValue) s.type = RegStatus::Unknown;
+          if (s.type == RegStatus::StackValue)
+            s.type = RegStatus::Unknown;
       ++it;
     }
   }
@@ -515,13 +525,15 @@ void direct_jump(Func *func) {
   size_t n = func->blocks.size();
   parent.resize(n);
   map<Block *, size_t> pos;
-  for (size_t i = 0; i < n; ++i) pos[func->blocks[i].get()] = i;
+  for (size_t i = 0; i < n; ++i)
+    pos[func->blocks[i].get()] = i;
   for (size_t i = 0; i < n; ++i) {
     parent[i] = i;
     Block *cur = func->blocks[i].get();
     if (cur->insts.size() == 1) {
       if (Branch *b = (*cur->insts.begin())->as<Branch>())
-        if (b->cond == InstCond::Always) parent[i] = pos[b->target];
+        if (b->cond == InstCond::Always)
+          parent[i] = pos[b->target];
     } else if (cur->insts.size() == 0) {
       assert(i + 1 < n);
       parent[i] = i + 1;
@@ -542,7 +554,8 @@ void direct_jump(Func *func) {
   vector<int> in_deg = func->get_in_deg();
   vector<std::unique_ptr<Block>> useful_blocks;
   for (size_t i = 0; i < n; ++i)
-    if (in_deg[i]) useful_blocks.push_back(std::move(func->blocks[i]));
+    if (in_deg[i])
+      useful_blocks.push_back(std::move(func->blocks[i]));
   func->blocks = std::move(useful_blocks);
 }
 
@@ -572,7 +585,8 @@ void eliminate_branch(Func *func) {
   remove_unreachable(func);
   size_t n = func->blocks.size();
   map<Block *, size_t> pos;
-  for (size_t i = 0; i < n; ++i) pos[func->blocks[i].get()] = i;
+  for (size_t i = 0; i < n; ++i)
+    pos[func->blocks[i].get()] = i;
   vector<int> branch_in_deg = func->get_branch_in_deg();
   for (size_t i = 0; i < func->blocks.size(); ++i) {
     auto &block = func->blocks[i];
@@ -586,16 +600,20 @@ void eliminate_branch(Func *func) {
       if (pos[b->target] == i + 2 && b->cond != InstCond::Always &&
           branch_in_deg[i + 1] == 0) {
         bool ok = true;
-        if (func->blocks[i + 1]->insts.size() > 2) ok = false;
+        if (func->blocks[i + 1]->insts.size() > 2)
+          ok = false;
         for (auto it = func->blocks[i + 1]->insts.begin();
              ok && it != func->blocks[i + 1]->insts.end(); ++it) {
-          if ((*it)->as<Return>()) ok = false;
-          if ((*it)->use_cpsr()) ok = false;
+          if ((*it)->as<Return>())
+            ok = false;
+          if ((*it)->use_cpsr())
+            ok = false;
           if ((*it)->change_cpsr() &&
               std::next(it) != func->blocks[i + 1]->insts.end())
             ok = false;
         }
-        if (!ok) break;
+        if (!ok)
+          break;
         InstCond c = logical_not(b->cond);
         block->insts.erase(std::prev(block->insts.end()));
         for (auto &succ_inst : func->blocks[i + 1]->insts)
@@ -604,7 +622,8 @@ void eliminate_branch(Func *func) {
         branch_in_deg.erase(branch_in_deg.begin() + i + 1);
         func->blocks.erase(func->blocks.begin() + i + 1);
         for (auto &pos_i : pos)
-          if (pos_i.second > i) --pos_i.second;
+          if (pos_i.second > i)
+            --pos_i.second;
         continue;
       }
       break;
@@ -613,12 +632,17 @@ void eliminate_branch(Func *func) {
 }
 
 void optimize_before_reg_alloc(Program *prog) {
-  for (auto &f : prog->funcs) more_constant_info(f.get());
-  for (auto &f : prog->funcs) inline_constant(f.get());
+  for (auto &f : prog->funcs)
+    more_constant_info(f.get());
+  for (auto &f : prog->funcs)
+    inline_constant(f.get());
   // for (auto &f : prog->funcs) spill_constant_to_first_use(f.get());
-  for (auto &f : prog->funcs) merge_shift_binary_op(f.get());
-  for (auto &f : prog->funcs) merge_add_ldr_str(f.get());
-  for (auto &f : prog->funcs) remove_unused(f.get());
+  for (auto &f : prog->funcs)
+    merge_shift_binary_op(f.get());
+  for (auto &f : prog->funcs)
+    merge_add_ldr_str(f.get());
+  for (auto &f : prog->funcs)
+    remove_unused(f.get());
 }
 
 void optimize_after_reg_alloc(Func *func) {
@@ -628,4 +652,4 @@ void optimize_after_reg_alloc(Func *func) {
   direct_jump(func);
   eliminate_branch(func);
 }
-}  // namespace ARMv7
+} // namespace ARMv7

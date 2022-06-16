@@ -17,3 +17,7 @@ add_compile_options(-g -std=c++17 -O2)
 include_directories(src)
 include_directories(third_party/antlr4-runtime)
 add_executable(compiler ${DIR_SRC} ${DIR_LIB_SRC})
+
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+include(ClangFormat)
+target_clangformat_setup(compiler)

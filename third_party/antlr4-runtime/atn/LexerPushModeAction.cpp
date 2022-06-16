@@ -3,8 +3,8 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "misc/MurmurHash.h"
 #include "Lexer.h"
+#include "misc/MurmurHash.h"
 #include "support/Casts.h"
 
 #include "atn/LexerPushModeAction.h"
@@ -14,7 +14,8 @@ using namespace antlr4::atn;
 using namespace antlr4::misc;
 using namespace antlrcpp;
 
-LexerPushModeAction::LexerPushModeAction(int mode) : LexerAction(LexerActionType::PUSH_MODE, false), _mode(mode) {}
+LexerPushModeAction::LexerPushModeAction(int mode)
+    : LexerAction(LexerActionType::PUSH_MODE, false), _mode(mode) {}
 
 void LexerPushModeAction::execute(Lexer *lexer) const {
   lexer->pushMode(getMode());
@@ -34,7 +35,7 @@ bool LexerPushModeAction::equals(const LexerAction &other) const {
   if (getActionType() != other.getActionType()) {
     return false;
   }
-  const auto &lexerAction = downCast<const LexerPushModeAction&>(other);
+  const auto &lexerAction = downCast<const LexerPushModeAction &>(other);
   return getMode() == lexerAction.getMode();
 }
 

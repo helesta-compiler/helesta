@@ -3,8 +3,8 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "misc/MurmurHash.h"
 #include "Lexer.h"
+#include "misc/MurmurHash.h"
 #include "support/CPPUtils.h"
 #include "support/Casts.h"
 
@@ -17,14 +17,16 @@ using namespace antlrcpp;
 
 namespace {
 
-  bool cachedHashCodeEqual(size_t lhs, size_t rhs) {
-    return lhs == rhs || lhs == 0 || rhs == 0;
-  }
-
+bool cachedHashCodeEqual(size_t lhs, size_t rhs) {
+  return lhs == rhs || lhs == 0 || rhs == 0;
 }
 
-LexerIndexedCustomAction::LexerIndexedCustomAction(int offset, Ref<const LexerAction> action)
-    : LexerAction(LexerActionType::INDEXED_CUSTOM, true), _action(std::move(action)), _offset(offset) {}
+} // namespace
+
+LexerIndexedCustomAction::LexerIndexedCustomAction(
+    int offset, Ref<const LexerAction> action)
+    : LexerAction(LexerActionType::INDEXED_CUSTOM, true),
+      _action(std::move(action)), _offset(offset) {}
 
 void LexerIndexedCustomAction::execute(Lexer *lexer) const {
   // assume the input stream position was properly set by the calling code
@@ -46,12 +48,13 @@ bool LexerIndexedCustomAction::equals(const LexerAction &other) const {
   if (getActionType() != other.getActionType()) {
     return false;
   }
-  const auto &lexerAction = downCast<const LexerIndexedCustomAction&>(other);
+  const auto &lexerAction = downCast<const LexerIndexedCustomAction &>(other);
   return getOffset() == lexerAction.getOffset() &&
          cachedHashCodeEqual(cachedHashCode(), lexerAction.cachedHashCode()) &&
          *getAction() == *lexerAction.getAction();
 }
 
 std::string LexerIndexedCustomAction::toString() const {
-  return "indexedCustom(" + std::to_string(getOffset()) + ", " + getAction()->toString() + ")";
+  return "indexedCustom(" + std::to_string(getOffset()) + ", " +
+         getAction()->toString() + ")";
 }

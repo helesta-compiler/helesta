@@ -12,7 +12,8 @@ using namespace antlr4;
 using namespace antlr4::atn;
 using namespace antlrcpp;
 
-Transition::Transition(TransitionType transitionType, ATNState *target) : _transitionType(transitionType) {
+Transition::Transition(TransitionType transitionType, ATNState *target)
+    : _transitionType(transitionType) {
   if (target == nullptr) {
     throw NullPointerException("target cannot be null.");
   }
@@ -20,9 +21,7 @@ Transition::Transition(TransitionType transitionType, ATNState *target) : _trans
   this->target = target;
 }
 
-bool Transition::isEpsilon() const {
-  return false;
-}
+bool Transition::isEpsilon() const { return false; }
 
 misc::IntervalSet Transition::label() const {
   return misc::IntervalSet::EMPTY_SET;
@@ -30,7 +29,8 @@ misc::IntervalSet Transition::label() const {
 
 std::string Transition::toString() const {
   std::stringstream ss;
-  ss << "(Transition " << std::hex << this << ", target: " << std::hex << target << ')';
+  ss << "(Transition " << std::hex << this << ", target: " << std::hex << target
+     << ')';
 
   return ss.str();
 }

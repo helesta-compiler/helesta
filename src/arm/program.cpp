@@ -59,21 +59,21 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Reg dst = info->from_ir_reg(unary->d1),
           src = info->from_ir_reg(unary->s1);
       switch (unary->op.type) {
-        case IR::UnaryOp::LNOT:
-          push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
-          push_back(make_unique<RegImmCmp>(RegImmCmp::Cmp, src, 0));
-          push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1), Eq));
-          // TODO: this can be done better with "rsbs dst, src, #0; adc dst,
-          // src, dst" or "clz dst, src; lsr dst, dst, #5"
-          break;
-        case IR::UnaryOp::NEG:
-          push_back(make_unique<RegImmInst>(RegImmInst::RevSub, dst, src, 0));
-          break;
-        case IR::UnaryOp::ID:
-          push_back(make_unique<MoveReg>(dst, src));
-          break;
-        default:
-          unreachable();
+      case IR::UnaryOp::LNOT:
+        push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
+        push_back(make_unique<RegImmCmp>(RegImmCmp::Cmp, src, 0));
+        push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1), Eq));
+        // TODO: this can be done better with "rsbs dst, src, #0; adc dst,
+        // src, dst" or "clz dst, src; lsr dst, dst, #5"
+        break;
+      case IR::UnaryOp::NEG:
+        push_back(make_unique<RegImmInst>(RegImmInst::RevSub, dst, src, 0));
+        break;
+      case IR::UnaryOp::ID:
+        push_back(make_unique<MoveReg>(dst, src));
+        break;
+      default:
+        unreachable();
       }
     } else if (auto binary = dynamic_cast<IR::BinaryOpInstr *>(cur)) {
       Reg dst = info->from_ir_reg(binary->d1),
@@ -202,7 +202,8 @@ void Block::push_back(unique_ptr<Inst> inst) {
 }
 
 void Block::push_back(std::list<unique_ptr<Inst>> inst_list) {
-  for (auto &i : inst_list) insts.push_back(std::move(i));
+  for (auto &i : inst_list)
+    insts.push_back(std::move(i));
 }
 
 void Block::insert_before_jump(unique_ptr<Inst> inst) {
@@ -220,13 +221,16 @@ void Block::insert_before_jump(unique_ptr<Inst> inst) {
 
 void Block::gen_asm(ostream &out, AsmContext *ctx) {
   ctx->temp_sp_offset = 0;
-  if (label_used) out << name << ":\n";
-  for (auto &i : insts) i->gen_asm(out, ctx);
+  if (label_used)
+    out << name << ":\n";
+  for (auto &i : insts)
+    i->gen_asm(out, ctx);
 }
 
 void Block::print(ostream &out) {
   out << '\n' << name << ":\n";
-  for (auto &i : insts) i->print(out);
+  for (auto &i : insts)
+    i->print(out);
 }
 
 MappingInfo::MappingInfo() : reg_n(RegCount) {}
@@ -235,7 +239,8 @@ Reg MappingInfo::new_reg() { return Reg{reg_n++}; }
 
 Reg MappingInfo::from_ir_reg(IR::Reg ir_reg) {
   auto it = reg_mapping.find(ir_reg.id);
-  if (it != reg_mapping.end()) return it->second;
+  if (it != reg_mapping.end())
+    return it->second;
   Reg ret = new_reg();
   reg_mapping[ir_reg.id] = ret;
   return ret;
@@ -246,7 +251,8 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
   MappingInfo info;
   for (size_t i = 0; i < ir_func->scope.objects.size(); ++i) {
     IR::MemObject *cur = ir_func->scope.objects[i].get();
-    if (cur->size == 0) continue;
+    if (cur->size == 0)
+      continue;
     unique_ptr<StackObject> res = make_unique<StackObject>();
     res->size = cur->size;
     res->position = -1;
@@ -294,10 +300,11 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     if (blocks[i].get() != entry) {
       IR::BB *cur_ir_bb = info.rev_block_mapping[blocks[i].get()];
       Block *next_block = nullptr;
-      if (i + 1 < blocks.size()) next_block = blocks[i + 1].get();
+      if (i + 1 < blocks.size())
+        next_block = blocks[i + 1].get();
       blocks[i]->construct(cur_ir_bb, this, &info, next_block,
-                           cmp_info);  // maintain in_edge, out_edge,
-                                       // reg_mapping, ignore phi function
+                           cmp_info); // maintain in_edge, out_edge,
+                                      // reg_mapping, ignore phi function
     }
   struct PendingMove {
     Block *block;
@@ -320,13 +327,17 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
 }
 
 void Func::erase_def_use(const OccurPoint &p, Inst *inst) {
-  for (Reg r : inst->def_reg()) reg_def[r.id].erase(p);
-  for (Reg r : inst->use_reg()) reg_use[r.id].erase(p);
+  for (Reg r : inst->def_reg())
+    reg_def[r.id].erase(p);
+  for (Reg r : inst->use_reg())
+    reg_use[r.id].erase(p);
 }
 
 void Func::add_def_use(const OccurPoint &p, Inst *inst) {
-  for (Reg r : inst->def_reg()) reg_def[r.id].insert(p);
-  for (Reg r : inst->use_reg()) reg_use[r.id].insert(p);
+  for (Reg r : inst->def_reg())
+    reg_def[r.id].insert(p);
+  for (Reg r : inst->use_reg())
+    reg_use[r.id].insert(p);
 }
 
 void Func::build_def_use() {
@@ -362,7 +373,8 @@ void Func::calc_live() {
           block->live_use.insert(r);
         }
     }
-    for (Reg r : block->live_use) update.emplace_back(block.get(), r);
+    for (Reg r : block->live_use)
+      update.emplace_back(block.get(), r);
     block->live_in = block->live_use;
     block->live_out.clear();
   }
@@ -384,7 +396,8 @@ void Func::calc_live() {
 vector<int> Func::get_in_deg() {
   size_t n = blocks.size();
   map<Block *, size_t> pos;
-  for (size_t i = 0; i < n; ++i) pos[blocks[i].get()] = i;
+  for (size_t i = 0; i < n; ++i)
+    pos[blocks[i].get()] = i;
   vector<int> ret;
   ret.resize(n, 0);
   ret[0] = 1;
@@ -394,7 +407,8 @@ vector<int> Func::get_in_deg() {
     for (auto &inst : block->insts)
       if (Branch *b = inst->as<Branch>()) {
         ++ret[pos[b->target]];
-        if (b->cond == InstCond::Always) go_next = false;
+        if (b->cond == InstCond::Always)
+          go_next = false;
       } else if (Return *r = inst->as<Return>()) {
         go_next = false;
       }
@@ -409,7 +423,8 @@ vector<int> Func::get_in_deg() {
 vector<int> Func::get_branch_in_deg() {
   size_t n = blocks.size();
   map<Block *, size_t> pos;
-  for (size_t i = 0; i < n; ++i) pos[blocks[i].get()] = i;
+  for (size_t i = 0; i < n; ++i)
+    pos[blocks[i].get()] = i;
   vector<int> ret;
   ret.resize(n, 0);
   for (size_t i = 0; i < n; ++i) {
@@ -431,14 +446,16 @@ vector<int> Func::reg_allocate(RegAllocStat *stat) {
     while (true) {
       ColoringAllocator allocator(this);
       vector<int> ret = allocator.run(stat);
-      if (stat->succeed) return ret;
+      if (stat->succeed)
+        return ret;
     }
   } else {
     info << "using SimpleColoringAllocator\n";
     while (true) {
       SimpleColoringAllocator allocator(this);
       vector<int> ret = allocator.run(stat);
-      if (stat->succeed) return ret;
+      if (stat->succeed)
+        return ret;
     }
   }
 }
@@ -473,7 +490,8 @@ void Func::replace_with_reg_alloc(const vector<int> &reg_alloc) {
   for (auto &block : blocks)
     for (auto &inst : block->insts)
       for (Reg *i : inst->regs())
-        if (i->is_pseudo()) i->id = reg_alloc[i->id];
+        if (i->is_pseudo())
+          i->id = reg_alloc[i->id];
 }
 
 void Func::replace_complex_inst() {
@@ -521,7 +539,8 @@ void Func::gen_asm(ostream &out) {
     vector<Reg> save_regs;
     bool used[RegCount] = {};
     for (int i : reg_alloc)
-      if (i >= 0) used[i] = true;
+      if (i >= 0)
+        used[i] = true;
     for (int i = 0; i < RegCount; ++i)
       if (REGISTER_USAGE[i] == callee_save && used[i])
         save_regs.emplace_back(i);
@@ -529,20 +548,24 @@ void Func::gen_asm(ostream &out) {
       if (save_regs.size()) {
         out << "push {";
         for (size_t i = 0; i < save_regs.size(); ++i) {
-          if (i > 0) out << ',';
+          if (i > 0)
+            out << ',';
           out << save_regs[i];
         }
         out << "}\n";
       }
-      if (stack_size != 0) sp_move_asm(-stack_size, out);
+      if (stack_size != 0)
+        sp_move_asm(-stack_size, out);
     };
     ctx.epilogue = [save_regs, stack_size](ostream &out) -> bool {
-      if (stack_size != 0) sp_move_asm(stack_size, out);
+      if (stack_size != 0)
+        sp_move_asm(stack_size, out);
       bool pop_lr = false;
       if (save_regs.size()) {
         out << "pop {";
         for (size_t i = 0; i < save_regs.size(); ++i) {
-          if (i > 0) out << ',';
+          if (i > 0)
+            out << ',';
           if (save_regs[i].id == lr) {
             pop_lr = true;
             out << "pc";
@@ -558,7 +581,8 @@ void Func::gen_asm(ostream &out) {
       i->position = cur_pos;
       cur_pos += i->size;
     }
-    if (check_store_stack()) break;
+    if (check_store_stack())
+      break;
   }
   info << "Register allocation:\n"
        << "spill: " << stat.spill_cnt << '\n'
@@ -569,18 +593,21 @@ void Func::gen_asm(ostream &out) {
   optimize_after_reg_alloc(this);
   out << '\n' << name << ":\n";
   prologue(out);
-  for (auto &block : blocks) block->gen_asm(out, &ctx);
+  for (auto &block : blocks)
+    block->gen_asm(out, &ctx);
 }
 
 void Func::print(ostream &out) {
   out << '\n' << name << ":\n[prologue]\n";
-  for (auto &block : blocks) block->print(out);
+  for (auto &block : blocks)
+    block->print(out);
 }
 
 Program::Program(IR::CompileUnit *ir) : block_n(0) {
   for (size_t i = 0; i < ir->scope.objects.size(); ++i) {
     IR::MemObject *cur = ir->scope.objects[i].get();
-    if (cur->size == 0) continue;
+    if (cur->size == 0)
+      continue;
     unique_ptr<GlobalObject> res = make_unique<GlobalObject>();
     res->name = mangle_global_var_name(cur->name);
     res->size = cur->size;
@@ -613,7 +640,8 @@ void Program::gen_global_var_asm(ostream &out) {
           out << obj->name << ":\n";
           out << "    .4byte ";
           for (int i = 0; i < obj->size / 4; ++i) {
-            if (i > 0) out << ',';
+            if (i > 0)
+              out << ',';
             out << init[i];
           }
           out << '\n';
@@ -641,7 +669,8 @@ void Program::gen_asm(ostream &out) {
   gen_global_var_asm(out);
   out << ".global main\n";
   out << ".section .text\n";
-  for (auto &func : funcs) func->gen_asm(out);
+  for (auto &func : funcs)
+    func->gen_asm(out);
 }
 
-}  // namespace ARMv7
+} // namespace ARMv7

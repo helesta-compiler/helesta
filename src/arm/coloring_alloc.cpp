@@ -17,8 +17,10 @@ ColoringAllocator::ColoringAllocator(Func *_func) : func(_func) {}
 
 void ColoringAllocator::for_each_node(std::function<void(int)> f) {
   for (int i = 0; i < RegCount; ++i)
-    if (occur[i]) f(i);
-  for (int i : remain_pesudo_nodes) f(i);
+    if (occur[i])
+      f(i);
+  for (int i : remain_pesudo_nodes)
+    f(i);
 }
 
 void ColoringAllocator::build() {
@@ -35,10 +37,12 @@ void ColoringAllocator::build() {
     set<Reg> live = block->live_out;
     temp.clear();
     for (Reg r : live)
-      if (r.is_pseudo() || allocable(r.id)) temp.push_back(r.id);
+      if (r.is_pseudo() || allocable(r.id))
+        temp.push_back(r.id);
     if (block->insts.size() > 0)
       for (Reg r : (*block->insts.rbegin())->def_reg())
-        if (r.is_pseudo() || allocable(r.id)) temp.push_back(r.id);
+        if (r.is_pseudo() || allocable(r.id))
+          temp.push_back(r.id);
     for (size_t idx1 = 0; idx1 < temp.size(); ++idx1)
       for (size_t idx0 = 0; idx0 < idx1; ++idx0)
         if (temp[idx0] != temp[idx1]) {
@@ -56,13 +60,15 @@ void ColoringAllocator::build() {
       new_nodes.clear();
       for (Reg r : (*i)->def_reg())
         if (r.is_pseudo() || allocable(r.id)) {
-          if (r.is_pseudo()) store_weight[r.id] += cur_block_prob;
+          if (r.is_pseudo())
+            store_weight[r.id] += cur_block_prob;
           occur[r.id] = 1;
           live.erase(r);
         }
       for (Reg r : (*i)->use_reg())
         if (r.is_pseudo() || allocable(r.id)) {
-          if (r.is_pseudo()) load_weight[r.id] += cur_block_prob;
+          if (r.is_pseudo())
+            load_weight[r.id] += cur_block_prob;
           occur[r.id] = 1;
           if (live.find(r) == live.end()) {
             for (Reg o : live) {
@@ -94,7 +100,8 @@ void ColoringAllocator::build() {
   for (int i = 0; i < func->reg_n; ++i)
     if (occur[i]) {
       parent[i] = i;
-      if (i >= RegCount) remain_pesudo_nodes.insert(i);
+      if (i >= RegCount)
+        remain_pesudo_nodes.insert(i);
     }
 }
 
@@ -151,7 +158,8 @@ int ColoringAllocator::coalesce() {
       ret += cur.w;
       continue;
     }
-    if (u < RegCount && v < RegCount) continue;
+    if (u < RegCount && v < RegCount)
+      continue;
     if (interfere_edge[u].find(v) == interfere_edge[u].end() &&
         conservative_check(u, v)) {
       merge(u, v);
@@ -169,7 +177,8 @@ bool ColoringAllocator::freeze() {
           interfere_edge[i].size() > interfere_edge[selected].size())
         selected = i;
     }
-  if (selected == -1) return false;
+  if (selected == -1)
+    return false;
   for (auto &i : move_edge[selected]) {
     freezed_move_edge.emplace_back(selected, i.first, i.second);
     move_edge[i.first].erase(selected);
@@ -202,8 +211,10 @@ int ColoringAllocator::spill() {
     }
   assert(spill_node != -1);
   remain_pesudo_nodes.erase(spill_node);
-  for (int i : interfere_edge[spill_node]) interfere_edge[i].erase(spill_node);
-  for (auto &i : move_edge[spill_node]) move_edge[i.first].erase(spill_node);
+  for (int i : interfere_edge[spill_node])
+    interfere_edge[i].erase(spill_node);
+  for (auto &i : move_edge[spill_node])
+    move_edge[i.first].erase(spill_node);
   interfere_edge[spill_node].clear();
   move_edge[spill_node].clear();
   return spill_node;
@@ -240,7 +251,8 @@ void ColoringAllocator::add_spill_code(const vector<int> &spill_nodes) {
           need_continue = true;
           break;
         }
-      if (need_continue) continue;
+      if (need_continue)
+        continue;
       for (size_t j = 0; j < spill_nodes.size(); ++j) {
         int id = spill_nodes[j];
         bool cur_def = (*i)->def(Reg{id}), cur_use = (*i)->use(Reg{id});
@@ -288,7 +300,8 @@ bool ColoringAllocator::conservative_check(int u, int v) {
     if (i != v) {
       int deg = interfere_edge[i].size();
       if (interfere_edge[v].find(i) != interfere_edge[v].end()) {
-        if (deg > ALLOCABLE_REGISTER_COUNT) ++significant_neighbors;
+        if (deg > ALLOCABLE_REGISTER_COUNT)
+          ++significant_neighbors;
       } else if (deg >= ALLOCABLE_REGISTER_COUNT)
         ++significant_neighbors;
     }
@@ -302,7 +315,8 @@ bool ColoringAllocator::conservative_check(int u, int v) {
 
 void ColoringAllocator::merge(int u, int v) {
   assert(u >= RegCount || v >= RegCount);
-  if (u < RegCount) std::swap(u, v);
+  if (u < RegCount)
+    std::swap(u, v);
   remain_pesudo_nodes.erase(u);
   parent[u] = v;
   for (int i : interfere_edge[u]) {
@@ -328,12 +342,14 @@ vector<int> ColoringAllocator::run(RegAllocStat *stat) {
   vector<int> spill_list;
   while (remain_pesudo_nodes.size()) {
     simplify();
-    if (remain_pesudo_nodes.size() == 0) break;
+    if (remain_pesudo_nodes.size() == 0)
+      break;
     if (auto tmp = coalesce()) {
       stat->move_eliminated += tmp;
       continue;
     }
-    if (freeze()) continue;
+    if (freeze())
+      continue;
     stat->succeed = false;
     ++stat->spill_cnt;
     spill_list.push_back(spill());
@@ -375,22 +391,27 @@ vector<int> ColoringAllocator::run(RegAllocStat *stat) {
       }
     for (auto &j : freezed[simplify_history[i].first]) {
       int v = get_root(j.first);
-      if (ans[v] != -1) score[ans[v]] += j.second;
+      if (ans[v] != -1)
+        score[ans[v]] += j.second;
     }
     int cur_ans = -1;
     for (int j = 0; j < RegCount; ++j)
       if (allocable(j) && !flag[j])
-        if (cur_ans == -1 || score[j] > score[cur_ans]) cur_ans = j;
-    if (score[cur_ans] > 0) stat->move_eliminated += score[cur_ans] - 1;
+        if (cur_ans == -1 || score[j] > score[cur_ans])
+          cur_ans = j;
+    if (score[cur_ans] > 0)
+      stat->move_eliminated += score[cur_ans] - 1;
     ans[simplify_history[i].first] = cur_ans;
     used[cur_ans] = true;
   }
   for (int i = RegCount; i < func->reg_n; ++i)
-    if (occur[i] && parent[i] != i) ans[i] = ans[get_root(i)];
+    if (occur[i] && parent[i] != i)
+      ans[i] = ans[get_root(i)];
   stat->callee_save_used = 0;
   for (int i = 0; i < RegCount; ++i)
-    if (used[i] && REGISTER_USAGE[i] == callee_save) ++stat->callee_save_used;
+    if (used[i] && REGISTER_USAGE[i] == callee_save)
+      ++stat->callee_save_used;
   return ans;
 }
 
-}  // namespace ARMv7
+} // namespace ARMv7

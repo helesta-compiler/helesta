@@ -21,28 +21,29 @@ void initializeDefaultATNDeserializationOptions() {
   defaultATNDeserializationOptions.reset(new ATNDeserializationOptions());
 }
 
-}
+} // namespace
 
-ATNDeserializationOptions::ATNDeserializationOptions(ATNDeserializationOptions *options)
+ATNDeserializationOptions::ATNDeserializationOptions(
+    ATNDeserializationOptions *options)
     : _readOnly(false), _verifyATN(options->_verifyATN),
       _generateRuleBypassTransitions(options->_generateRuleBypassTransitions) {}
 
-const ATNDeserializationOptions& ATNDeserializationOptions::getDefaultOptions() {
+const ATNDeserializationOptions &
+ATNDeserializationOptions::getDefaultOptions() {
   std::call_once(defaultATNDeserializationOptionsOnceFlag,
                  initializeDefaultATNDeserializationOptions);
   return *defaultATNDeserializationOptions;
 }
 
-void ATNDeserializationOptions::makeReadOnly() {
-  _readOnly = true;
-}
+void ATNDeserializationOptions::makeReadOnly() { _readOnly = true; }
 
 void ATNDeserializationOptions::setVerifyATN(bool verify) {
   throwIfReadOnly();
   _verifyATN = verify;
 }
 
-void ATNDeserializationOptions::setGenerateRuleBypassTransitions(bool generate) {
+void ATNDeserializationOptions::setGenerateRuleBypassTransitions(
+    bool generate) {
   throwIfReadOnly();
   _generateRuleBypassTransitions = generate;
 }

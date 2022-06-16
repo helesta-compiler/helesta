@@ -3,10 +3,10 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "misc/MurmurHash.h"
-#include "Lexer.h"
 #include "Exceptions.h"
+#include "Lexer.h"
 #include "Vocabulary.h"
+#include "misc/MurmurHash.h"
 
 #include "misc/IntervalSet.h"
 
@@ -18,48 +18,39 @@ IntervalSet const IntervalSet::COMPLETE_CHAR_SET =
 
 IntervalSet const IntervalSet::EMPTY_SET;
 
-IntervalSet::IntervalSet() : _intervals() {
-}
+IntervalSet::IntervalSet() : _intervals() {}
 
 IntervalSet::IntervalSet(const IntervalSet &set) : IntervalSet() {
   _intervals = set._intervals;
 }
 
-IntervalSet::IntervalSet(IntervalSet&& set) : IntervalSet(std::move(set._intervals)) {
-}
+IntervalSet::IntervalSet(IntervalSet &&set)
+    : IntervalSet(std::move(set._intervals)) {}
 
-IntervalSet::IntervalSet(std::vector<Interval>&& intervals) : _intervals(std::move(intervals)) {
-}
+IntervalSet::IntervalSet(std::vector<Interval> &&intervals)
+    : _intervals(std::move(intervals)) {}
 
-IntervalSet& IntervalSet::operator=(const IntervalSet& other) {
+IntervalSet &IntervalSet::operator=(const IntervalSet &other) {
   _intervals = other._intervals;
   return *this;
 }
 
-IntervalSet& IntervalSet::operator=(IntervalSet&& other) {
+IntervalSet &IntervalSet::operator=(IntervalSet &&other) {
   _intervals = move(other._intervals);
   return *this;
 }
 
-IntervalSet IntervalSet::of(ssize_t a) {
-  return IntervalSet({ Interval(a, a) });
-}
+IntervalSet IntervalSet::of(ssize_t a) { return IntervalSet({Interval(a, a)}); }
 
 IntervalSet IntervalSet::of(ssize_t a, ssize_t b) {
-  return IntervalSet({ Interval(a, b) });
+  return IntervalSet({Interval(a, b)});
 }
 
-void IntervalSet::clear() {
-  _intervals.clear();
-}
+void IntervalSet::clear() { _intervals.clear(); }
 
-void IntervalSet::add(ssize_t el) {
-  add(el, el);
-}
+void IntervalSet::add(ssize_t el) { add(el, el); }
 
-void IntervalSet::add(ssize_t a, ssize_t b) {
-  add(Interval(a, b));
-}
+void IntervalSet::add(ssize_t a, ssize_t b) { add(Interval(a, b)); }
 
 void IntervalSet::add(const Interval &addition) {
   if (addition.b < addition.a) {
@@ -67,7 +58,8 @@ void IntervalSet::add(const Interval &addition) {
   }
 
   // find position in list
-  for (auto iterator = _intervals.begin(); iterator != _intervals.end(); ++iterator) {
+  for (auto iterator = _intervals.begin(); iterator != _intervals.end();
+       ++iterator) {
     Interval r = *iterator;
     if (addition == r) {
       return;
@@ -87,10 +79,12 @@ void IntervalSet::add(const Interval &addition) {
         }
 
         // if we bump up against or overlap next, merge
-        iterator = _intervals.erase(iterator);// remove this one
-        --iterator; // move backwards to what we just set
+        iterator = _intervals.erase(iterator); // remove this one
+        --iterator;                     // move backwards to what we just set
         *iterator = bigger.Union(next); // set to 3 merged ones
-        // ml: no need to advance iterator, we do that in the next round anyway. ++iterator; // first call to next after previous duplicates the result
+        // ml: no need to advance iterator, we do that in the next round anyway.
+        // ++iterator; // first call to next after previous duplicates the
+        // result
       }
       return;
     }
@@ -118,15 +112,16 @@ IntervalSet IntervalSet::Or(const std::vector<IntervalSet> &sets) {
   return result;
 }
 
-IntervalSet& IntervalSet::addAll(const IntervalSet &set) {
+IntervalSet &IntervalSet::addAll(const IntervalSet &set) {
   // walk set and add each interval
-  for (auto const& interval : set._intervals) {
+  for (auto const &interval : set._intervals) {
     add(interval);
   }
   return *this;
 }
 
-IntervalSet IntervalSet::complement(ssize_t minElement, ssize_t maxElement) const {
+IntervalSet IntervalSet::complement(ssize_t minElement,
+                                    ssize_t maxElement) const {
   return complement(IntervalSet::of(minElement, maxElement));
 }
 
@@ -138,7 +133,8 @@ IntervalSet IntervalSet::subtract(const IntervalSet &other) const {
   return subtract(*this, other);
 }
 
-IntervalSet IntervalSet::subtract(const IntervalSet &left, const IntervalSet &right) {
+IntervalSet IntervalSet::subtract(const IntervalSet &left,
+                                  const IntervalSet &right) {
   if (left.isEmpty()) {
     return IntervalSet();
   }
@@ -151,7 +147,8 @@ IntervalSet IntervalSet::subtract(const IntervalSet &left, const IntervalSet &ri
   IntervalSet result(left);
   size_t resultI = 0;
   size_t rightI = 0;
-  while (resultI < result._intervals.size() && rightI < right._intervals.size()) {
+  while (resultI < result._intervals.size() &&
+         rightI < right._intervals.size()) {
     Interval &resultInterval = result._intervals[resultI];
     const Interval &rightInterval = right._intervals[rightI];
 
@@ -181,7 +178,8 @@ IntervalSet IntervalSet::subtract(const IntervalSet &left, const IntervalSet &ri
       if (afterCurrent.a > -1) {
         // split the current interval into two
         result._intervals[resultI] = beforeCurrent;
-        result._intervals.insert(result._intervals.begin() + resultI + 1, afterCurrent);
+        result._intervals.insert(result._intervals.begin() + resultI + 1,
+                                 afterCurrent);
         resultI++;
         rightI++;
       } else {
@@ -201,9 +199,9 @@ IntervalSet IntervalSet::subtract(const IntervalSet &left, const IntervalSet &ri
     }
   }
 
-  // If rightI reached right.intervals.size(), no more intervals to subtract from result.
-  // If resultI reached result.intervals.size(), we would be subtracting from an empty set.
-  // Either way, we are done.
+  // If rightI reached right.intervals.size(), no more intervals to subtract
+  // from result. If resultI reached result.intervals.size(), we would be
+  // subtracting from an empty set. Either way, we are done.
   return result;
 }
 
@@ -265,18 +263,17 @@ bool IntervalSet::contains(size_t el) const {
 }
 
 bool IntervalSet::contains(ssize_t el) const {
-  if (_intervals.empty() || el < _intervals.front().a || el > _intervals.back().b) {
+  if (_intervals.empty() || el < _intervals.front().a ||
+      el > _intervals.back().b) {
     return false;
   }
 
-  return std::binary_search(_intervals.begin(), _intervals.end(), Interval(el, el), [](const Interval &lhs, const Interval &rhs) {
-    return lhs.b < rhs.a;
-  });
+  return std::binary_search(
+      _intervals.begin(), _intervals.end(), Interval(el, el),
+      [](const Interval &lhs, const Interval &rhs) { return lhs.b < rhs.a; });
 }
 
-bool IntervalSet::isEmpty() const {
-  return _intervals.empty();
-}
+bool IntervalSet::isEmpty() const { return _intervals.empty(); }
 
 ssize_t IntervalSet::getSingleElement() const {
   if (_intervals.size() == 1) {
@@ -285,7 +282,8 @@ ssize_t IntervalSet::getSingleElement() const {
     }
   }
 
-  return Token::INVALID_TYPE; // XXX: this value is 0, but 0 is a valid interval range, how can that work?
+  return Token::INVALID_TYPE; // XXX: this value is 0, but 0 is a valid interval
+                              // range, how can that work?
 }
 
 ssize_t IntervalSet::getMaxElement() const {
@@ -304,7 +302,7 @@ ssize_t IntervalSet::getMinElement() const {
   return _intervals.front().a;
 }
 
-std::vector<Interval> const& IntervalSet::getIntervals() const {
+std::vector<Interval> const &IntervalSet::getIntervals() const {
   return _intervals;
 }
 
@@ -318,19 +316,18 @@ size_t IntervalSet::hashCode() const {
   return MurmurHash::finish(hash, _intervals.size() * 2);
 }
 
-bool IntervalSet::operator == (const IntervalSet &other) const {
+bool IntervalSet::operator==(const IntervalSet &other) const {
   if (_intervals.empty() && other._intervals.empty())
     return true;
 
   if (_intervals.size() != other._intervals.size())
     return false;
 
-  return std::equal(_intervals.begin(), _intervals.end(), other._intervals.begin());
+  return std::equal(_intervals.begin(), _intervals.end(),
+                    other._intervals.begin());
 }
 
-std::string IntervalSet::toString() const {
-  return toString(false);
-}
+std::string IntervalSet::toString() const { return toString(false); }
 
 std::string IntervalSet::toString(bool elemAreChar) const {
   if (_intervals.empty()) {
@@ -361,7 +358,8 @@ std::string IntervalSet::toString(bool elemAreChar) const {
       }
     } else {
       if (elemAreChar) {
-        ss << "'" << static_cast<char>(a) << "'..'" << static_cast<char>(b) << "'";
+        ss << "'" << static_cast<char>(a) << "'..'" << static_cast<char>(b)
+           << "'";
       } else {
         ss << a << ".." << b;
       }
@@ -411,7 +409,8 @@ std::string IntervalSet::toString(const dfa::Vocabulary &vocabulary) const {
   return ss.str();
 }
 
-std::string IntervalSet::elementName(const dfa::Vocabulary &vocabulary, ssize_t a) const {
+std::string IntervalSet::elementName(const dfa::Vocabulary &vocabulary,
+                                     ssize_t a) const {
   if (a == -1) {
     return "<EOF>";
   } else if (a == -2) {
@@ -468,9 +467,7 @@ ssize_t IntervalSet::get(size_t i) const {
   return -1;
 }
 
-void IntervalSet::remove(size_t el) {
-  remove(symbolToNumeric(el));
-}
+void IntervalSet::remove(size_t el) { remove(symbolToNumeric(el)); }
 
 void IntervalSet::remove(ssize_t el) {
   for (size_t i = 0; i < _intervals.size(); ++i) {
@@ -500,9 +497,10 @@ void IntervalSet::remove(ssize_t el) {
     if (el > a && el < b) { // found in this interval
       ssize_t oldb = interval.b;
       interval.b = el - 1; // [a..x-1]
-      add(el + 1, oldb); // add [x+1..b]
+      add(el + 1, oldb);   // add [x+1..b]
 
-      break; // ml: not in the Java code but I believe we also should stop searching here, as we found x.
+      break; // ml: not in the Java code but I believe we also should stop
+             // searching here, as we found x.
     }
   }
 }

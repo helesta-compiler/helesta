@@ -7,32 +7,32 @@
 
 namespace antlrcpp {
 
-  std::string escapeWhitespace(std::string_view in) {
-    std::string out;
-    escapeWhitespace(out, in);
-    out.shrink_to_fit();
-    return out;
-  }
+std::string escapeWhitespace(std::string_view in) {
+  std::string out;
+  escapeWhitespace(out, in);
+  out.shrink_to_fit();
+  return out;
+}
 
-  std::string& escapeWhitespace(std::string& out, std::string_view in) {
-    out.reserve(in.size());  // Best case, no escaping.
-    for (const auto &c : in) {
-      switch (c) {
-        case '\t':
-          out.append("\\t");
-          break;
-        case '\r':
-          out.append("\\r");
-          break;
-        case '\n':
-          out.append("\\n");
-          break;
-        default:
-          out.push_back(c);
-          break;
-      }
+std::string &escapeWhitespace(std::string &out, std::string_view in) {
+  out.reserve(in.size()); // Best case, no escaping.
+  for (const auto &c : in) {
+    switch (c) {
+    case '\t':
+      out.append("\\t");
+      break;
+    case '\r':
+      out.append("\\r");
+      break;
+    case '\n':
+      out.append("\\n");
+      break;
+    default:
+      out.push_back(c);
+      break;
     }
-    return out;
   }
+  return out;
+}
 
-} // namespace antrlcpp
+} // namespace antlrcpp

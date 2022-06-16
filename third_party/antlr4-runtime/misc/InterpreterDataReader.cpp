@@ -3,9 +3,9 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
+#include "Vocabulary.h"
 #include "atn/ATN.h"
 #include "atn/ATNDeserializer.h"
-#include "Vocabulary.h"
 
 #include "misc/InterpreterDataReader.h"
 
@@ -13,13 +13,13 @@ using namespace antlr4::dfa;
 using namespace antlr4::atn;
 using namespace antlr4::misc;
 
-InterpreterData::InterpreterData(std::vector<std::string> const& literalNames, std::vector<std::string> const& symbolicNames)
-: vocabulary(literalNames, symbolicNames) {
-}
+InterpreterData::InterpreterData(std::vector<std::string> const &literalNames,
+                                 std::vector<std::string> const &symbolicNames)
+    : vocabulary(literalNames, symbolicNames) {}
 
-InterpreterData InterpreterDataReader::parseFile(std::string const& fileName) {
-  // The structure of the data file is very simple. Everything is line based with empty lines
-  // separating the different parts. For lexers the layout is:
+InterpreterData InterpreterDataReader::parseFile(std::string const &fileName) {
+  // The structure of the data file is very simple. Everything is line based
+  // with empty lines separating the different parts. For lexers the layout is:
   // token literal names:
   // ...
   //
@@ -36,7 +36,8 @@ InterpreterData InterpreterDataReader::parseFile(std::string const& fileName) {
   // ...
   //
   // atn:
-  // <a single line with comma separated int values> enclosed in a pair of squared brackets.
+  // <a single line with comma separated int values> enclosed in a pair of
+  // squared brackets.
   //
   // Data for a parser does not contain channel and mode names.
 

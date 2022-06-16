@@ -3,8 +3,8 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "misc/MurmurHash.h"
 #include "Lexer.h"
+#include "misc/MurmurHash.h"
 #include "support/Casts.h"
 
 #include "atn/LexerTypeAction.h"
@@ -14,11 +14,10 @@ using namespace antlr4::atn;
 using namespace antlr4::misc;
 using namespace antlrcpp;
 
-LexerTypeAction::LexerTypeAction(int type) : LexerAction(LexerActionType::TYPE, false), _type(type) {}
+LexerTypeAction::LexerTypeAction(int type)
+    : LexerAction(LexerActionType::TYPE, false), _type(type) {}
 
-void LexerTypeAction::execute(Lexer *lexer) const {
-  lexer->setType(getType());
-}
+void LexerTypeAction::execute(Lexer *lexer) const { lexer->setType(getType()); }
 
 size_t LexerTypeAction::hashCodeImpl() const {
   size_t hash = MurmurHash::initialize();
@@ -34,7 +33,7 @@ bool LexerTypeAction::equals(const LexerAction &other) const {
   if (getActionType() != other.getActionType()) {
     return false;
   }
-  const auto &lexerAction = downCast<const LexerTypeAction&>(other);
+  const auto &lexerAction = downCast<const LexerTypeAction &>(other);
   return getType() == lexerAction.getType();
 }
 

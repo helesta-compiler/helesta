@@ -31,7 +31,8 @@ MemSize Type::count_elements() const {
   if (omit_first_dim)
     throw RuntimeError("Type::count_elements() called on a not sized type");
   MemSize ret = 1;
-  for (MemSize i : array_dims) ret *= i;
+  for (MemSize i : array_dims)
+    ret *= i;
   return ret;
 }
 
@@ -39,10 +40,13 @@ MemSize Type::size() const { return INT_SIZE * count_elements(); }
 
 bool Type::check_assign(const Type &rhs) const {
   if (omit_first_dim) {
-    if (rhs.omit_first_dim) return array_dims == rhs.array_dims;
-    if (rhs.array_dims.size() != array_dims.size() + 1) return false;
+    if (rhs.omit_first_dim)
+      return array_dims == rhs.array_dims;
+    if (rhs.array_dims.size() != array_dims.size() + 1)
+      return false;
     for (size_t i = 1; i < rhs.array_dims.size(); ++i)
-      if (rhs.array_dims[i] != array_dims[i - 1]) return false;
+      if (rhs.array_dims[i] != array_dims[i - 1])
+        return false;
     return true;
   } else {
     return (!rhs.omit_first_dim) && array_dims == rhs.array_dims;
@@ -50,13 +54,16 @@ bool Type::check_assign(const Type &rhs) const {
 }
 
 bool Type::check_index(const vector<MemSize> &index) {
-  if (index.size() != count_array_dims()) return false;
+  if (index.size() != count_array_dims())
+    return false;
   if (omit_first_dim) {
     for (size_t i = 1; i < index.size(); ++i)
-      if (index[i] >= array_dims[i - 1]) return false;
+      if (index[i] >= array_dims[i - 1])
+        return false;
   } else {
     for (size_t i = 0; i < index.size(); ++i)
-      if (index[i] >= array_dims[i]) return false;
+      if (index[i] >= array_dims[i])
+        return false;
   }
   return true;
 }
@@ -110,8 +117,10 @@ VariableTableEntry *VariableTable::resolve(const string &name) {
 
 VariableTableEntry *VariableTable::recursively_resolve(const string &name) {
   auto it = mapping.find(name);
-  if (it != mapping.end()) return it->second.get();
-  if (parent) return parent->recursively_resolve(name);
+  if (it != mapping.end())
+    return it->second.get();
+  if (parent)
+    return parent->recursively_resolve(name);
   return nullptr;
 }
 

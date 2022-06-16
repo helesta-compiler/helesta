@@ -10,13 +10,16 @@
 using namespace antlr4;
 using namespace antlr4::atn;
 
-NotSetTransition::NotSetTransition(ATNState *target, misc::IntervalSet set) : SetTransition(TransitionType::NOT_SET, target, std::move(set)) {}
+NotSetTransition::NotSetTransition(ATNState *target, misc::IntervalSet set)
+    : SetTransition(TransitionType::NOT_SET, target, std::move(set)) {}
 
-bool NotSetTransition::matches(size_t symbol, size_t minVocabSymbol, size_t maxVocabSymbol) const {
-  return symbol >= minVocabSymbol && symbol <= maxVocabSymbol
-    && !SetTransition::matches(symbol, minVocabSymbol, maxVocabSymbol);
+bool NotSetTransition::matches(size_t symbol, size_t minVocabSymbol,
+                               size_t maxVocabSymbol) const {
+  return symbol >= minVocabSymbol && symbol <= maxVocabSymbol &&
+         !SetTransition::matches(symbol, minVocabSymbol, maxVocabSymbol);
 }
 
 std::string NotSetTransition::toString() const {
-  return "NOT_SET " + Transition::toString() + " { " + SetTransition::toString() + " }";
+  return "NOT_SET " + Transition::toString() + " { " +
+         SetTransition::toString() + " }";
 }

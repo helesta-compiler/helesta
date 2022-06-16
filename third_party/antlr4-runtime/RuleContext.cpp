@@ -3,12 +3,12 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "tree/Trees.h"
-#include "misc/Interval.h"
 #include "Parser.h"
 #include "atn/ATN.h"
 #include "atn/ATNState.h"
+#include "misc/Interval.h"
 #include "tree/ParseTreeVisitor.h"
+#include "tree/Trees.h"
 
 #include "RuleContext.h"
 
@@ -20,7 +20,8 @@ RuleContext::RuleContext() : ParseTree(ParseTreeType::RULE) {
   InitializeInstanceFields();
 }
 
-RuleContext::RuleContext(RuleContext *parent_, size_t invokingState_) : ParseTree(ParseTreeType::RULE) {
+RuleContext::RuleContext(RuleContext *parent_, size_t invokingState_)
+    : ParseTree(ParseTreeType::RULE) {
   InitializeInstanceFields();
   this->parent = parent_;
   this->invokingState = invokingState_;
@@ -61,16 +62,13 @@ std::string RuleContext::getText() {
   return ss.str();
 }
 
-size_t RuleContext::getRuleIndex() const {
-  return INVALID_INDEX;
-}
+size_t RuleContext::getRuleIndex() const { return INVALID_INDEX; }
 
 size_t RuleContext::getAltNumber() const {
   return atn::ATN::INVALID_ALT_NUMBER;
 }
 
-void RuleContext::setAltNumber(size_t /*altNumber*/) {
-}
+void RuleContext::setAltNumber(size_t /*altNumber*/) {}
 
 std::any RuleContext::accept(tree::ParseTreeVisitor *visitor) {
   return visitor->visitChildren(this);
@@ -80,7 +78,8 @@ std::string RuleContext::toStringTree(Parser *recog, bool pretty) {
   return tree::Trees::toStringTree(this, recog, pretty);
 }
 
-std::string RuleContext::toStringTree(std::vector<std::string> &ruleNames, bool pretty) {
+std::string RuleContext::toStringTree(std::vector<std::string> &ruleNames,
+                                      bool pretty) {
   return tree::Trees::toStringTree(this, ruleNames, pretty);
 }
 
@@ -88,13 +87,12 @@ std::string RuleContext::toStringTree(bool pretty) {
   return toStringTree(nullptr, pretty);
 }
 
-
 std::string RuleContext::toString(const std::vector<std::string> &ruleNames) {
   return toString(ruleNames, nullptr);
 }
 
-
-std::string RuleContext::toString(const std::vector<std::string> &ruleNames, RuleContext *stop) {
+std::string RuleContext::toString(const std::vector<std::string> &ruleNames,
+                                  RuleContext *stop) {
   std::stringstream ss;
 
   RuleContext *currentParent = this;
@@ -107,7 +105,9 @@ std::string RuleContext::toString(const std::vector<std::string> &ruleNames, Rul
     } else {
       size_t ruleIndex = currentParent->getRuleIndex();
 
-      std::string ruleName = (ruleIndex < ruleNames.size()) ? ruleNames[ruleIndex] : std::to_string(ruleIndex);
+      std::string ruleName = (ruleIndex < ruleNames.size())
+                                 ? ruleNames[ruleIndex]
+                                 : std::to_string(ruleIndex);
       ss << ruleName;
     }
 
@@ -124,9 +124,7 @@ std::string RuleContext::toString(const std::vector<std::string> &ruleNames, Rul
   return ss.str();
 }
 
-std::string RuleContext::toString() {
-  return toString(nullptr);
-}
+std::string RuleContext::toString() { return toString(nullptr); }
 
 std::string RuleContext::toString(Recognizer *recog) {
   return toString(recog, &ParserRuleContext::EMPTY);
@@ -134,11 +132,10 @@ std::string RuleContext::toString(Recognizer *recog) {
 
 std::string RuleContext::toString(Recognizer *recog, RuleContext *stop) {
   if (recog == nullptr)
-    return toString(std::vector<std::string>(), stop); // Don't use an initializer {} here or we end up calling ourselve recursivly.
+    return toString(std::vector<std::string>(),
+                    stop); // Don't use an initializer {} here or we end up
+                           // calling ourselve recursivly.
   return toString(recog->getRuleNames(), stop);
 }
 
-void RuleContext::InitializeInstanceFields() {
-  invokingState = INVALID_INDEX;
-}
-
+void RuleContext::InitializeInstanceFields() { invokingState = INVALID_INDEX; }

@@ -21,7 +21,8 @@ struct MulExpr : Printable {
   void print(std::ostream &os) const override {
     bool flag = 0;
     for (Reg r : terms) {
-      if (flag) os << "*";
+      if (flag)
+        os << "*";
       os << r;
       flag = 1;
     }
@@ -39,7 +40,8 @@ struct AddExpr : Printable {
   bool is_const(std::function<bool(Reg)> f) const {
     for (auto &kv : terms) {
       for (Reg r : kv.first.terms)
-        if (!f(r)) return 0;
+        if (!f(r))
+          return 0;
     }
     return 1;
   }
@@ -101,16 +103,19 @@ struct AddExpr : Printable {
   }
   size_t size() const {
     size_t s = 0;
-    for (auto &kv : terms) s += kv.first.size();
+    for (auto &kv : terms)
+      s += kv.first.size();
     return s;
   }
   void print(std::ostream &os) const override {
     for (auto &kv1 : terms) {
       os << kv1.first;
-      if (kv1.second != 1) os << "*" << kv1.second;
+      if (kv1.second != 1)
+        os << "*" << kv1.second;
       os << " + ";
     }
-    if (c || terms.empty()) os << c;
+    if (c || terms.empty())
+      os << c;
   }
 };
 
@@ -141,7 +146,7 @@ struct ArrayIndexExpr : Printable {
   }
 };
 
-}  // namespace ExprUtil
+} // namespace ExprUtil
 
 std::unordered_map<BB *, double> estimate_BB_prob(NormalFunc *f) {
   auto S = build_dom_tree(f);
@@ -193,8 +198,10 @@ void seperate_loops(NormalFunc *f) {
   auto S = build_dom_tree(f);
   f->for_each([&](BB *w) {
     Case(BranchInstr, x0, w->back()) {
-      if (S[x0->target1].loop_depth > S[w].loop_depth) assert(0);
-      if (S[x0->target0].loop_depth > S[w].loop_depth) assert(0);
+      if (S[x0->target1].loop_depth > S[w].loop_depth)
+        assert(0);
+      if (S[x0->target0].loop_depth > S[w].loop_depth)
+        assert(0);
     }
   });
 }
@@ -203,15 +210,19 @@ void loop_tree_dfs(DomTree &S, NormalFunc *f, std::function<void(BB *)> F) {
   std::vector<BB *> bbs;
   f->for_each([&](BB *w) {
     auto &sw = S[w];
-    if (!sw.loop_rt) return;
-    if (sw.loop_fa) return;
+    if (!sw.loop_rt)
+      return;
+    if (sw.loop_fa)
+      return;
     bbs.push_back(w);
   });
   std::function<void(BB *)> dfs;
   dfs = [&](BB *bb) {
     F(bb);
     for (BB *ch : S[bb].loop_ch)
-      if (S[ch].loop_rt) dfs(ch);
+      if (S[ch].loop_rt)
+        dfs(ch);
   };
-  for (BB *bb : bbs) dfs(bb);
+  for (BB *bb : bbs)
+    dfs(bb);
 }

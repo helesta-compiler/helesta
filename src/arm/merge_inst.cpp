@@ -13,11 +13,14 @@ void merge_inst(Func *func, function<bool(Inst *)> check_def,
                 function<unique_ptr<Inst>(Inst *, Reg, Inst *)> check_use) {
   func->build_def_use();
   for (int r = RegCount; r < func->reg_n; ++r) {
-    if (func->reg_def[r].size() != 1) continue;
+    if (func->reg_def[r].size() != 1)
+      continue;
     OccurPoint def = *func->reg_def[r].begin();
     Inst *def_inst = def.it->get();
-    if (def_inst->cond != Always) continue;
-    if (!check_def(def_inst)) continue;
+    if (def_inst->cond != Always)
+      continue;
+    if (!check_def(def_inst))
+      continue;
     bool flag = true;
     int max_pos = -1;
     vector<OccurPoint> uses;
@@ -30,9 +33,11 @@ void merge_inst(Func *func, function<bool(Inst *)> check_def,
       }
       uses.push_back(use);
       replace.push_back(set_cond(std::move(cur_replace), (*use.it)->cond));
-      if (use.b == def.b) max_pos = std::max(max_pos, use.pos);
+      if (use.b == def.b)
+        max_pos = std::max(max_pos, use.pos);
     }
-    if (!flag) continue;
+    if (!flag)
+      continue;
     for (Reg rely : (*def.it)->use_reg()) {
       for (const OccurPoint &rely_def : func->reg_def[rely.id])
         if (rely_def.b == def.b && rely_def.pos >= def.pos &&
@@ -40,9 +45,11 @@ void merge_inst(Func *func, function<bool(Inst *)> check_def,
           flag = false;
           break;
         }
-      if (!flag) break;
+      if (!flag)
+        break;
     }
-    if (!flag) continue;
+    if (!flag)
+      continue;
     for (size_t i = 0; i < uses.size(); ++i) {
       func->erase_def_use(uses[i], uses[i].it->get());
       *uses[i].it = std::move(replace[i]);
@@ -60,24 +67,27 @@ void merge_shift_binary_op(Func *func) {
         if (RegRegInst *b = use->as<RegRegInst>()) {
           if (b->op == RegRegInst::Mul || b->op == RegRegInst::Div)
             return nullptr;
-          if (b->lhs == r && b->rhs == r) return nullptr;
-          if (b->lhs != r && b->rhs != r) return nullptr;
+          if (b->lhs == r && b->rhs == r)
+            return nullptr;
+          if (b->lhs != r && b->rhs != r)
+            return nullptr;
           if (b->lhs == r) {
-            if (b->shift.w != 0) return nullptr;
+            if (b->shift.w != 0)
+              return nullptr;
             switch (b->op) {
-              case RegRegInst::Add:
-                return make_unique<RegRegInst>(RegRegInst::Add, b->dst, b->rhs,
-                                               s->src, s->shift);
-              case RegRegInst::Sub:
-                return make_unique<RegRegInst>(RegRegInst::RevSub, b->dst,
-                                               b->rhs, s->src, s->shift);
-              case RegRegInst::RevSub:
-                return make_unique<RegRegInst>(RegRegInst::Sub, b->dst, b->rhs,
-                                               s->src, s->shift);
-              default:
-                unreachable();
+            case RegRegInst::Add:
+              return make_unique<RegRegInst>(RegRegInst::Add, b->dst, b->rhs,
+                                             s->src, s->shift);
+            case RegRegInst::Sub:
+              return make_unique<RegRegInst>(RegRegInst::RevSub, b->dst, b->rhs,
+                                             s->src, s->shift);
+            case RegRegInst::RevSub:
+              return make_unique<RegRegInst>(RegRegInst::Sub, b->dst, b->rhs,
+                                             s->src, s->shift);
+            default:
+              unreachable();
             }
-          } else {  // b->rhs == r
+          } else { // b->rhs == r
             if (b->shift.w != 0) {
               if (b->shift.type != s->shift.type ||
                   !Shift::legal_width(b->shift.w + s->shift.w))
@@ -85,39 +95,41 @@ void merge_shift_binary_op(Func *func) {
               Shift new_shift = s->shift;
               new_shift.w += b->shift.w;
               switch (b->op) {
-                case RegRegInst::Add:
-                  return make_unique<RegRegInst>(RegRegInst::Add, b->dst,
-                                                 b->lhs, s->src, new_shift);
-                case RegRegInst::Sub:
-                  return make_unique<RegRegInst>(RegRegInst::RevSub, b->dst,
-                                                 b->lhs, s->src, new_shift);
-                case RegRegInst::RevSub:
-                  return make_unique<RegRegInst>(RegRegInst::Sub, b->dst,
-                                                 b->lhs, s->src, new_shift);
-                default:
-                  unreachable();
+              case RegRegInst::Add:
+                return make_unique<RegRegInst>(RegRegInst::Add, b->dst, b->lhs,
+                                               s->src, new_shift);
+              case RegRegInst::Sub:
+                return make_unique<RegRegInst>(RegRegInst::RevSub, b->dst,
+                                               b->lhs, s->src, new_shift);
+              case RegRegInst::RevSub:
+                return make_unique<RegRegInst>(RegRegInst::Sub, b->dst, b->lhs,
+                                               s->src, new_shift);
+              default:
+                unreachable();
               }
             } else {
               switch (b->op) {
-                case RegRegInst::Add:
-                  return make_unique<RegRegInst>(RegRegInst::Add, b->dst,
-                                                 b->lhs, s->src, s->shift);
-                case RegRegInst::Sub:
-                  return make_unique<RegRegInst>(RegRegInst::RevSub, b->dst,
-                                                 b->lhs, s->src, s->shift);
-                case RegRegInst::RevSub:
-                  return make_unique<RegRegInst>(RegRegInst::Sub, b->dst,
-                                                 b->lhs, s->src, s->shift);
-                default:
-                  unreachable();
+              case RegRegInst::Add:
+                return make_unique<RegRegInst>(RegRegInst::Add, b->dst, b->lhs,
+                                               s->src, s->shift);
+              case RegRegInst::Sub:
+                return make_unique<RegRegInst>(RegRegInst::RevSub, b->dst,
+                                               b->lhs, s->src, s->shift);
+              case RegRegInst::RevSub:
+                return make_unique<RegRegInst>(RegRegInst::Sub, b->dst, b->lhs,
+                                               s->src, s->shift);
+              default:
+                unreachable();
               }
             }
           }
           unreachable();
           return nullptr;
         } else if (ComplexStore *cs = use->as<ComplexStore>()) {
-          if (cs->base == r && cs->offset == r) return nullptr;
-          if (cs->base != r && cs->offset != r) return nullptr;
+          if (cs->base == r && cs->offset == r)
+            return nullptr;
+          if (cs->base != r && cs->offset != r)
+            return nullptr;
           if (cs->offset == r) {
             if (cs->shift.w == 0)
               return make_unique<ComplexStore>(cs->src, cs->base, s->src,
@@ -130,15 +142,17 @@ void merge_shift_binary_op(Func *func) {
                                                new_shift);
             } else
               return nullptr;
-          } else {  // cs->base == r
+          } else { // cs->base == r
             if (cs->shift.w == 0)
               return make_unique<ComplexStore>(cs->src, cs->offset, s->src,
                                                s->shift);
             return nullptr;
           }
         } else if (ComplexLoad *l = use->as<ComplexLoad>()) {
-          if (l->base == r && l->offset == r) return nullptr;
-          if (l->base != r && l->offset != r) return nullptr;
+          if (l->base == r && l->offset == r)
+            return nullptr;
+          if (l->base != r && l->offset != r)
+            return nullptr;
           if (l->offset == r) {
             if (l->shift.w == 0)
               return make_unique<ComplexLoad>(l->dst, l->base, s->src,
@@ -151,7 +165,7 @@ void merge_shift_binary_op(Func *func) {
                                               new_shift);
             } else
               return nullptr;
-          } else {  // l->base == r
+          } else { // l->base == r
             if (l->shift.w == 0)
               return make_unique<ComplexLoad>(l->dst, l->offset, s->src,
                                               s->shift);
@@ -195,7 +209,8 @@ void merge_add_ldr_str(Func *func) {
           assert(ri->dst == r);
           Reg base = ri->lhs;
           int64_t offset = ri->rhs;
-          if (ri->op == RegImmInst::Sub) offset = -offset;
+          if (ri->op == RegImmInst::Sub)
+            offset = -offset;
           if (Load *l = use->as<Load>()) {
             if (l->base == r && load_store_offset_range(offset + l->offset_imm))
               return make_unique<Load>(
@@ -214,4 +229,4 @@ void merge_add_ldr_str(Func *func) {
       });
 }
 
-}  // namespace ARMv7
+} // namespace ARMv7

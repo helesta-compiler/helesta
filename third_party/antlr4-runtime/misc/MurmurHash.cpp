@@ -11,9 +11,10 @@
 
 using namespace antlr4::misc;
 
-// A variation of the MurmurHash3 implementation (https://github.com/aappleby/smhasher/blob/master/src/MurmurHash3.cpp)
-// Here we unrolled the loop used there into individual calls to update(), as we usually hash object fields
-// instead of entire buffers.
+// A variation of the MurmurHash3 implementation
+// (https://github.com/aappleby/smhasher/blob/master/src/MurmurHash3.cpp) Here
+// we unrolled the loop used there into individual calls to update(), as we
+// usually hash object fields instead of entire buffers.
 
 // Platform-specific functions and macros
 
@@ -23,15 +24,16 @@ using namespace antlr4::misc;
 
 #include <stdlib.h>
 
-#define ROTL32(x,y)	_rotl(x,y)
-#define ROTL64(x,y)	_rotl64(x,y)
+#define ROTL32(x, y) _rotl(x, y)
+#define ROTL64(x, y) _rotl64(x, y)
 
-#elif ANTLR4CPP_HAVE_BUILTIN(__builtin_rotateleft32) && ANTLR4CPP_HAVE_BUILTIN(__builtin_rotateleft64)
+#elif ANTLR4CPP_HAVE_BUILTIN(__builtin_rotateleft32) &&                        \
+    ANTLR4CPP_HAVE_BUILTIN(__builtin_rotateleft64)
 
 #define ROTL32(x, y) __builtin_rotateleft32(x, y)
 #define ROTL64(x, y) __builtin_rotateleft64(x, y)
 
-#else	// defined(_MSC_VER)
+#else // defined(_MSC_VER)
 
 // Other compilers
 
@@ -44,7 +46,7 @@ constexpr uint64_t ROTL64(uint64_t x, int r) {
   return (x << r) | (x >> (64 - r));
 }
 
-}
+} // namespace
 
 #endif // !defined(_MSC_VER)
 
@@ -65,7 +67,7 @@ size_t MurmurHash::update(size_t hash, size_t value) {
 
 size_t MurmurHash::update(size_t hash, const void *data, size_t size) {
   size_t value;
-  const uint8_t *bytes = static_cast<const uint8_t*>(data);
+  const uint8_t *bytes = static_cast<const uint8_t *>(data);
   while (size >= sizeof(size_t)) {
     std::memcpy(&value, bytes, sizeof(size_t));
     hash = update(hash, value);

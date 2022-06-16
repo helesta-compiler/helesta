@@ -128,7 +128,8 @@ void code_reorder_naive(NormalFunc *f) {
   std::unordered_map<BB *, int> order;
   int tk = 0;
   dfs = [&](BB *w) {
-    if (order[w]) return;
+    if (order[w])
+      return;
     order[w] = ++tk;
     Instr *x = w->back();
     Case(JumpInstr, y, x) { dfs(y->target); }
@@ -156,7 +157,8 @@ void code_reorder(NormalFunc *f) {
 #if 1
   f->for_each([&](BB *bb) { bb->id = 0; });
   dfs = [&](BB *w) {
-    if (w->id) return;
+    if (w->id)
+      return;
     w->id = ++tk;
     Instr *x = w->back();
     Case(JumpInstr, y, x) { dfs(y->target); }
@@ -199,15 +201,15 @@ void compute_thread_local(CompileUnit &c) {
             flag = 0;
           }
         }
-        if (flag) Case(RegWriteInstr, x0, x) {
-            f->thread_local_regs.insert(x0->d1);
-          }
+        if (flag)
+          Case(RegWriteInstr, x0, x) { f->thread_local_regs.insert(x0->d1); }
       });
       if (flag) {
         std::unordered_set<BB *> visited;
         std::queue<BB *> q;
         auto visit = [&](BB *bb) {
-          if (visited.count(bb)) return;
+          if (visited.count(bb))
+            return;
           visited.insert(bb);
           q.push(bb);
         };
@@ -223,13 +225,16 @@ void compute_thread_local(CompileUnit &c) {
                   flag = 0;
                 }
               }
-              if (flag) Case(RegWriteInstr, x0, x) {
+              if (flag)
+                Case(RegWriteInstr, x0, x) {
                   f->thread_local_regs.insert(x0->d1);
                 }
             });
-            if (!flag) continue;
+            if (!flag)
+              continue;
           }
-          for (BB *bb2 : S[bb1].out) visit(bb2);
+          for (BB *bb2 : S[bb1].out)
+            visit(bb2);
         }
       }
     });
@@ -272,11 +277,11 @@ struct Value {
   Value(Reg r) : r(r) {}
 };
 
-#define DEF_BIN_OP(op, name)                                    \
-  Value operator op(const Value &a, const Value &b) {           \
-    Value c(__f->new_Reg());                                    \
-    bb->push(new BinaryOpInstr(c.r, a.r, b.r, BinaryOp::name)); \
-    return c;                                                   \
+#define DEF_BIN_OP(op, name)                                                   \
+  Value operator op(const Value &a, const Value &b) {                          \
+    Value c(__f->new_Reg());                                                   \
+    bb->push(new BinaryOpInstr(c.r, a.r, b.r, BinaryOp::name));                \
+    return c;                                                                  \
   }
 
 DEF_BIN_OP(+, ADD)
@@ -292,11 +297,11 @@ DEF_BIN_OP(%, MOD)
 Value operator>(const Value &a, const Value &b) { return b < a; }
 Value operator>=(const Value &a, const Value &b) { return b <= a; }
 
-#define DEF_UOP(op, name)                                \
-  Value operator op(Value &a) {                          \
-    Value c(__f->new_Reg());                             \
-    bb->push(new UnaryOpInstr(c.r, a.r, UnaryOp::name)); \
-    return c;                                            \
+#define DEF_UOP(op, name)                                                      \
+  Value operator op(Value &a) {                                                \
+    Value c(__f->new_Reg());                                                   \
+    bb->push(new UnaryOpInstr(c.r, a.r, UnaryOp::name));                       \
+    return c;                                                                  \
   }
 
 DEF_UOP(-, NEG)
@@ -325,7 +330,8 @@ struct LValue {
     auto dims0 = dims;
     dims0.erase(dims0.begin());
     int sz = 4;
-    for (int x : dims0) sz *= x;
+    for (int x : dims0)
+      sz *= x;
     Reg r0 = __f->new_Reg();
     bb->push(new ArrayIndex(r0, r, b.r, sz, dims[0]));
     // return LValue(name,(Value(r)+b*sz).r,dims0);
@@ -341,7 +347,8 @@ struct VarDef {
       : name(name), dims(dims) {
     m = scope->new_MemObject(name);
     m->size = 4;
-    for (int x : dims) m->size *= x;
+    for (int x : dims)
+      m->size *= x;
     if (__f) {
       assert(bb);
       bb->push(new LocalVarDef(m));
@@ -374,21 +381,22 @@ struct _BB {
   BB *w;
 };
 
-#define newbb(name)             \
-  _BB name{__f->new_BB(#name)}; \
-  if (!__f->entry) __f->entry = name.w;
-#define func(name)          \
-  FuncDef name(ctx, #name); \
+#define newbb(name)                                                            \
+  _BB name{__f->new_BB(#name)};                                                \
+  if (!__f->entry)                                                             \
+    __f->entry = name.w;
+#define func(name)                                                             \
+  FuncDef name(ctx, #name);                                                    \
   {
-#define endfunc   \
-  __f = NULL;     \
-  scope = gscope; \
+#define endfunc                                                                \
+  __f = NULL;                                                                  \
+  scope = gscope;                                                              \
   }
 #define var VarDef
 #define defbb(name) bb = name.w;
-#define endbb                        \
-  Case(ControlInstr, _, bb->back()); \
-  else assert(0);                    \
+#define endbb                                                                  \
+  Case(ControlInstr, _, bb->back());                                           \
+  else assert(0);                                                              \
   bb = NULL;
 
 void Goto(const _BB &x) { bb->push(new JumpInstr(x.w)); }
@@ -397,7 +405,8 @@ void Branch(Value v, const _BB &t1, const _BB &t2) {
 }
 Value Call(Func *fn, std::vector<Value> args) {
   std::vector<Reg> regs;
-  for (Value v : args) regs.push_back(v.r);
+  for (Value v : args)
+    regs.push_back(v.r);
   Reg r = __f->new_Reg();
   bb->push(new CallInstr(r, fn, regs, 0));
   return Value(r);

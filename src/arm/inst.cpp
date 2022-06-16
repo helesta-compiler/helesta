@@ -13,36 +13,36 @@ namespace ARMv7 {
 
 InstCond logical_not(InstCond c) {
   switch (c) {
-    case Always:
-      unreachable();
-      return Always;
-    case Eq:
-      return Ne;
-    case Ne:
-      return Eq;
-    case Ge:
-      return Lt;
-    case Gt:
-      return Le;
-    case Le:
-      return Gt;
-    case Lt:
-      return Ge;
+  case Always:
+    unreachable();
+    return Always;
+  case Eq:
+    return Ne;
+  case Ne:
+    return Eq;
+  case Ge:
+    return Lt;
+  case Gt:
+    return Le;
+  case Le:
+    return Gt;
+  case Lt:
+    return Ge;
   }
 }
 
 InstCond reverse_operand(InstCond c) {
   switch (c) {
-    case Ge:
-      return Le;
-    case Gt:
-      return Lt;
-    case Le:
-      return Ge;
-    case Lt:
-      return Gt;
-    default:
-      return c;
+  case Ge:
+    return Le;
+  case Gt:
+    return Lt;
+  case Le:
+    return Ge;
+  case Lt:
+    return Gt;
+  default:
+    return c;
   }
 }
 
@@ -60,45 +60,45 @@ ostream &operator<<(ostream &os, const Reg &reg) {
 
 ostream &operator<<(ostream &os, const InstCond &cond) {
   switch (cond) {
-    case Always:
-      break;
-    case Eq:
-      os << "eq";
-      break;
-    case Ne:
-      os << "ne";
-      break;
-    case Ge:
-      os << "ge";
-      break;
-    case Gt:
-      os << "gt";
-      break;
-    case Le:
-      os << "le";
-      break;
-    case Lt:
-      os << "lt";
-      break;
-    default:
-      unreachable();
+  case Always:
+    break;
+  case Eq:
+    os << "eq";
+    break;
+  case Ne:
+    os << "ne";
+    break;
+  case Ge:
+    os << "ge";
+    break;
+  case Gt:
+    os << "gt";
+    break;
+  case Le:
+    os << "le";
+    break;
+  case Lt:
+    os << "lt";
+    break;
+  default:
+    unreachable();
   }
   return os;
 }
 
 InstCond from_ir_binary_op(IR::BinaryOp::Type op) {
   switch (op) {
-    case IR::BinaryOp::LEQ:
-      return Le;
-    case IR::BinaryOp::LESS:
-      return Lt;
-    case IR::BinaryOp::EQ:
-      return Eq;
-    case IR::BinaryOp::NEQ:
-      return Ne;
-    default:
-      unreachable();
-      return Eq;
+  case IR::BinaryOp::LEQ:
+    return Le;
+  case IR::BinaryOp::LESS:
+    return Lt;
+  case IR::BinaryOp::EQ:
+    return Eq;
+  case IR::BinaryOp::NEQ:
+    return Ne;
+  default:
+    unreachable();
+    return Eq;
   }
 }
 
@@ -106,18 +106,18 @@ ostream &operator<<(ostream &os, const Shift &shift) {
   if (shift.w != 0) {
     os << ',';
     switch (shift.type) {
-      case Shift::LSL:
-        os << "LSL";
-        break;
-      case Shift::LSR:
-        os << "LSR";
-        break;
-      case Shift::ASR:
-        os << "ASR";
-        break;
-      case Shift::ROR:
-        os << "ROR";
-        break;
+    case Shift::LSL:
+      os << "LSL";
+      break;
+    case Shift::LSR:
+      os << "LSR";
+      break;
+    case Shift::ASR:
+      os << "ASR";
+      break;
+    case Shift::ROR:
+      os << "ROR";
+      break;
     }
     os << " #" << shift.w;
   }
@@ -130,13 +130,15 @@ unique_ptr<Inst> set_cond(unique_ptr<Inst> inst, InstCond cond) {
 }
 
 list<unique_ptr<Inst>> set_cond(list<unique_ptr<Inst>> inst, InstCond cond) {
-  for (auto &i : inst) i->cond = cond;
+  for (auto &i : inst)
+    i->cond = cond;
   return inst;
 }
 
 void insert(list<unique_ptr<Inst>> &inserted_list,
             list<unique_ptr<Inst>>::iterator pos, list<unique_ptr<Inst>> inst) {
-  for (auto &i : inst) inserted_list.insert(pos, std::move(i));
+  for (auto &i : inst)
+    inserted_list.insert(pos, std::move(i));
 }
 
 void replace(list<unique_ptr<Inst>> &inserted_list,
@@ -152,23 +154,23 @@ void replace(list<unique_ptr<Inst>> &inserted_list,
 
 void RegRegInst::gen_asm(ostream &out, AsmContext *ctx) {
   switch (op) {
-    case Add:
-      out << "add";
-      break;
-    case Sub:
-      out << "sub";
-      break;
-    case Mul:
-      out << "mul";
-      break;
-    case Div:
-      out << "sdiv";
-      break;
-    case RevSub:
-      out << "rsb";
-      break;
-    default:
-      unreachable();
+  case Add:
+    out << "add";
+    break;
+  case Sub:
+    out << "sub";
+    break;
+  case Mul:
+    out << "mul";
+    break;
+  case Div:
+    out << "sdiv";
+    break;
+  case RevSub:
+    out << "rsb";
+    break;
+  default:
+    unreachable();
   }
   out << cond << ' ' << dst << ',' << lhs << ',' << rhs << shift << '\n';
 }
@@ -185,17 +187,17 @@ void ML::gen_asm(ostream &out, AsmContext *ctx) {
 
 void RegImmInst::gen_asm(ostream &out, AsmContext *ctx) {
   switch (op) {
-    case Add:
-      out << "add";
-      break;
-    case Sub:
-      out << "sub";
-      break;
-    case RevSub:
-      out << "rsb";
-      break;
-    default:
-      unreachable();
+  case Add:
+    out << "add";
+    break;
+  case Sub:
+    out << "sub";
+    break;
+  case RevSub:
+    out << "rsb";
+    break;
+  default:
+    unreachable();
   }
   out << cond << ' ' << dst << ',' << lhs << ",#" << rhs << '\n';
 }
@@ -210,14 +212,14 @@ void ShiftInst::gen_asm(ostream &out, AsmContext *ctx) {
 
 void MoveImm::gen_asm(ostream &out, AsmContext *ctx) {
   switch (op) {
-    case Mov:
-      out << "mov";
-      break;
-    case Mvn:
-      out << "mvn";
-      break;
-    default:
-      unreachable();
+  case Mov:
+    out << "mov";
+    break;
+  case Mvn:
+    out << "mvn";
+    break;
+  default:
+    unreachable();
   }
   out << cond << ' ' << dst << ",#" << src << '\n';
 }
@@ -248,7 +250,8 @@ std::list<unique_ptr<Inst>> load_imm(Reg dst, int32_t imm) {
     uint32_t u = static_cast<uint32_t>(imm);
     uint32_t top = u >> 16, bot = u & 0xffffu;
     ret.push_back(make_unique<MoveW>(dst, static_cast<int32_t>(bot)));
-    if (top) ret.push_back(make_unique<MoveT>(dst, static_cast<int32_t>(top)));
+    if (top)
+      ret.push_back(make_unique<MoveT>(dst, static_cast<int32_t>(top)));
   }
   return ret;
 }
@@ -262,7 +265,8 @@ void load_imm_asm(ostream &out, Reg dst, int32_t imm, InstCond cond) {
     uint32_t u = static_cast<uint32_t>(imm);
     uint32_t top = u >> 16, bot = u & 0xffffu;
     out << "movw" << cond << ' ' << dst << ",#" << bot << '\n';
-    if (top) out << "movt" << cond << ' ' << dst << ",#" << top << '\n';
+    if (top)
+      out << "movt" << cond << ' ' << dst << ",#" << top << '\n';
   }
 }
 
@@ -274,7 +278,8 @@ std::list<unique_ptr<Inst>> reg_imm_sum(Reg dst, Reg lhs, int32_t rhs) {
     ret.push_back(make_unique<RegImmInst>(RegImmInst::Sub, dst, lhs, -rhs));
   else {
     // TODO: can be done better if rhs is sum of 2 legal immediates
-    for (auto &i : load_imm(dst, rhs)) ret.push_back(std::move(i));
+    for (auto &i : load_imm(dst, rhs))
+      ret.push_back(std::move(i));
     ret.push_back(make_unique<RegRegInst>(RegRegInst::Add, dst, lhs, dst));
   }
   return ret;
@@ -332,7 +337,8 @@ void StoreStack::gen_asm(ostream &out, AsmContext *ctx) {
 void Push::gen_asm(ostream &out, AsmContext *ctx) {
   out << "push" << cond << " {";
   for (size_t i = 0; i < src.size(); ++i) {
-    if (i > 0) out << ',';
+    if (i > 0)
+      out << ',';
     out << src[i];
   }
   out << "}\n";
@@ -349,26 +355,30 @@ void ChangeSP::gen_asm(ostream &out, AsmContext *ctx) {
 }
 
 std::list<unique_ptr<Inst>> sp_move(int32_t change) {
-  if (change == 0) return {};
+  if (change == 0)
+    return {};
   std::list<unique_ptr<Inst>> ret;
   if (is_legal_immediate(change) || is_legal_immediate(-change))
     ret.push_back(make_unique<ChangeSP>(change));
   else if (change > 0) {
     for (int i = 0; i < 4; ++i) {
       int32_t cur = change & (0xff << (i * 8));
-      if (cur) ret.push_back(make_unique<ChangeSP>(cur));
+      if (cur)
+        ret.push_back(make_unique<ChangeSP>(cur));
     }
   } else {
     for (int i = 0; i < 4; ++i) {
       int32_t cur = (-change) & (0xff << (i * 8));
-      if (cur) ret.push_back(make_unique<ChangeSP>(-cur));
+      if (cur)
+        ret.push_back(make_unique<ChangeSP>(-cur));
     }
   }
   return ret;
 }
 
 void sp_move_asm(int32_t change, ostream &out) {
-  if (change == 0) return;
+  if (change == 0)
+    return;
   if (is_legal_immediate(change)) {
     out << "add sp,sp,#" << change << '\n';
     return;
@@ -380,12 +390,14 @@ void sp_move_asm(int32_t change, ostream &out) {
   if (change > 0) {
     for (int i = 0; i < 4; ++i) {
       int32_t cur = change & (0xff << (i * 8));
-      if (cur) out << "add sp,sp,#" << cur << '\n';
+      if (cur)
+        out << "add sp,sp,#" << cur << '\n';
     }
   } else {
     for (int i = 0; i < 4; ++i) {
       int32_t cur = (-change) & (0xff << (i * 8));
-      if (cur) out << "sub sp,sp,#" << cur << '\n';
+      if (cur)
+        out << "sub sp,sp,#" << cur << '\n';
     }
   }
 }
@@ -402,28 +414,28 @@ void LoadGlobalAddr::gen_asm(ostream &out, AsmContext *ctx) {
 
 void RegRegCmp::gen_asm(ostream &out, AsmContext *ctx) {
   switch (op) {
-    case Cmp:
-      out << "cmp";
-      break;
-    case Cmn:
-      out << "cmn";
-      break;
-    default:
-      unreachable();
+  case Cmp:
+    out << "cmp";
+    break;
+  case Cmn:
+    out << "cmn";
+    break;
+  default:
+    unreachable();
   }
   out << cond << ' ' << lhs << ',' << rhs << '\n';
 }
 
 void RegImmCmp::gen_asm(ostream &out, AsmContext *ctx) {
   switch (op) {
-    case Cmp:
-      out << "cmp";
-      break;
-    case Cmn:
-      out << "cmn";
-      break;
-    default:
-      unreachable();
+  case Cmp:
+    out << "cmp";
+    break;
+  case Cmn:
+    out << "cmn";
+    break;
+  default:
+    unreachable();
   }
   out << cond << ' ' << lhs << ",#" << rhs << '\n';
 }
@@ -446,9 +458,10 @@ void FuncCall::gen_asm(ostream &out, AsmContext *ctx) {
 }
 
 void Return::gen_asm(ostream &out, AsmContext *ctx) {
-  if (!ctx->epilogue(out)) out << "bx lr\n";
+  if (!ctx->epilogue(out))
+    out << "bx lr\n";
 }
 
 Branch::Branch(Block *_target) : target(_target) { target->label_used = true; }
 
-}  // namespace ARMv7
+} // namespace ARMv7

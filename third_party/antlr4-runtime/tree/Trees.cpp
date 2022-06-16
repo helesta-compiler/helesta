@@ -3,16 +3,16 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "tree/ErrorNode.h"
+#include "CommonToken.h"
 #include "Parser.h"
 #include "ParserRuleContext.h"
-#include "support/CPPUtils.h"
-#include "tree/TerminalNodeImpl.h"
+#include "Token.h"
 #include "atn/ATN.h"
 #include "misc/Interval.h"
-#include "Token.h"
-#include "CommonToken.h"
 #include "misc/Predicate.h"
+#include "support/CPPUtils.h"
+#include "tree/ErrorNode.h"
+#include "tree/TerminalNodeImpl.h"
 
 #include "tree/Trees.h"
 
@@ -22,8 +22,7 @@ using namespace antlr4::tree;
 
 using namespace antlrcpp;
 
-Trees::Trees() {
-}
+Trees::Trees() {}
 
 std::string Trees::toStringTree(ParseTree *t, bool pretty) {
   return toStringTree(t, nullptr, pretty);
@@ -35,8 +34,11 @@ std::string Trees::toStringTree(ParseTree *t, Parser *recog, bool pretty) {
   return toStringTree(t, recog->getRuleNames(), pretty);
 }
 
-std::string Trees::toStringTree(ParseTree *t, const std::vector<std::string> &ruleNames, bool pretty) {
-  std::string temp = antlrcpp::escapeWhitespace(Trees::getNodeText(t, ruleNames), false);
+std::string Trees::toStringTree(ParseTree *t,
+                                const std::vector<std::string> &ruleNames,
+                                bool pretty) {
+  std::string temp =
+      antlrcpp::escapeWhitespace(Trees::getNodeText(t, ruleNames), false);
   if (t->children.empty()) {
     return temp;
   }
@@ -44,7 +46,8 @@ std::string Trees::toStringTree(ParseTree *t, const std::vector<std::string> &ru
   std::stringstream ss;
   ss << "(" << temp << ' ';
 
-  // Implement the recursive walk as iteration to avoid trouble with deep nesting.
+  // Implement the recursive walk as iteration to avoid trouble with deep
+  // nesting.
   std::stack<size_t> stack;
   size_t childIndex = 0;
   ParseTree *run = t;
@@ -54,7 +57,8 @@ std::string Trees::toStringTree(ParseTree *t, const std::vector<std::string> &ru
       ss << ' ';
     }
     ParseTree *child = run->children[childIndex];
-    temp = antlrcpp::escapeWhitespace(Trees::getNodeText(child, ruleNames), false);
+    temp =
+        antlrcpp::escapeWhitespace(Trees::getNodeText(child, ruleNames), false);
     if (!child->children.empty()) {
       // Go deeper one level.
       stack.push(childIndex);
@@ -72,7 +76,8 @@ std::string Trees::toStringTree(ParseTree *t, const std::vector<std::string> &ru
       ss << temp;
       while (++childIndex == run->children.size()) {
         if (stack.size() > 0) {
-          // Reached the end of the current level. See if we can step up from here.
+          // Reached the end of the current level. See if we can step up from
+          // here.
           childIndex = stack.top();
           stack.pop();
           run = run->parent;
@@ -95,7 +100,8 @@ std::string Trees::getNodeText(ParseTree *t, Parser *recog) {
   return getNodeText(t, recog->getRuleNames());
 }
 
-std::string Trees::getNodeText(ParseTree *t, const std::vector<std::string> &ruleNames) {
+std::string Trees::getNodeText(ParseTree *t,
+                               const std::vector<std::string> &ruleNames) {
   if (ruleNames.size() > 0) {
     if (is<RuleContext *>(t)) {
       size_t ruleIndex = dynamic_cast<RuleContext *>(t)->getRuleIndex();
@@ -137,8 +143,9 @@ std::vector<ParseTree *> Trees::getAncestors(ParseTree *t) {
   return ancestors;
 }
 
-template<typename T>
-static void _findAllNodes(ParseTree *t, size_t index, bool findTokens, std::vector<T> &nodes) {
+template <typename T>
+static void _findAllNodes(ParseTree *t, size_t index, bool findTokens,
+                          std::vector<T> &nodes) {
   // check this node (the root) first
   if (findTokens && is<TerminalNode *>(t)) {
     TerminalNode *tnode = dynamic_cast<TerminalNode *>(t);
@@ -176,11 +183,13 @@ std::vector<ParseTree *> Trees::findAllTokenNodes(ParseTree *t, size_t ttype) {
   return findAllNodes(t, ttype, true);
 }
 
-std::vector<ParseTree *> Trees::findAllRuleNodes(ParseTree *t, size_t ruleIndex) {
+std::vector<ParseTree *> Trees::findAllRuleNodes(ParseTree *t,
+                                                 size_t ruleIndex) {
   return findAllNodes(t, ruleIndex, false);
 }
 
-std::vector<ParseTree *> Trees::findAllNodes(ParseTree *t, size_t index, bool findTokens) {
+std::vector<ParseTree *> Trees::findAllNodes(ParseTree *t, size_t index,
+                                             bool findTokens) {
   std::vector<ParseTree *> nodes;
   _findAllNodes<ParseTree *>(t, index, findTokens, nodes);
   return nodes;
@@ -190,9 +199,9 @@ std::vector<ParseTree *> Trees::getDescendants(ParseTree *t) {
   std::vector<ParseTree *> nodes;
   nodes.push_back(t);
   std::size_t n = t->children.size();
-  for (size_t i = 0 ; i < n ; i++) {
+  for (size_t i = 0; i < n; i++) {
     auto descentants = getDescendants(t->children[i]);
-    for (auto *entry: descentants) {
+    for (auto *entry : descentants) {
       nodes.push_back(entry);
     }
   }
@@ -203,10 +212,13 @@ std::vector<ParseTree *> Trees::descendants(ParseTree *t) {
   return getDescendants(t);
 }
 
-ParserRuleContext* Trees::getRootOfSubtreeEnclosingRegion(ParseTree *t, size_t startTokenIndex, size_t stopTokenIndex) {
+ParserRuleContext *
+Trees::getRootOfSubtreeEnclosingRegion(ParseTree *t, size_t startTokenIndex,
+                                       size_t stopTokenIndex) {
   size_t n = t->children.size();
   for (size_t i = 0; i < n; i++) {
-    ParserRuleContext *r = getRootOfSubtreeEnclosingRegion(t->children[i], startTokenIndex, stopTokenIndex);
+    ParserRuleContext *r = getRootOfSubtreeEnclosingRegion(
+        t->children[i], startTokenIndex, stopTokenIndex);
     if (r != nullptr) {
       return r;
     }
@@ -214,22 +226,25 @@ ParserRuleContext* Trees::getRootOfSubtreeEnclosingRegion(ParseTree *t, size_t s
 
   if (is<ParserRuleContext *>(t)) {
     ParserRuleContext *r = dynamic_cast<ParserRuleContext *>(t);
-    if (startTokenIndex >= r->getStart()->getTokenIndex() && // is range fully contained in t?
-        (r->getStop() == nullptr || stopTokenIndex <= r->getStop()->getTokenIndex())) {
-      // note: r.getStop()==null likely implies that we bailed out of parser and there's nothing to the right
+    if (startTokenIndex >=
+            r->getStart()->getTokenIndex() && // is range fully contained in t?
+        (r->getStop() == nullptr ||
+         stopTokenIndex <= r->getStop()->getTokenIndex())) {
+      // note: r.getStop()==null likely implies that we bailed out of parser and
+      // there's nothing to the right
       return r;
     }
   }
   return nullptr;
 }
 
-ParseTree * Trees::findNodeSuchThat(ParseTree *t, Ref<Predicate> const& pred) {
+ParseTree *Trees::findNodeSuchThat(ParseTree *t, Ref<Predicate> const &pred) {
   if (pred->test(t)) {
     return t;
   }
 
   size_t n = t->children.size();
-  for (size_t i = 0 ; i < n ; ++i) {
+  for (size_t i = 0; i < n; ++i) {
     ParseTree *u = findNodeSuchThat(t->children[i], pred);
     if (u != nullptr) {
       return u;
@@ -238,4 +253,3 @@ ParseTree * Trees::findNodeSuchThat(ParseTree *t, Ref<Predicate> const& pred) {
 
   return nullptr;
 }
-
