@@ -1,7 +1,7 @@
 *.swp
 .DS_Store
 build
-cache
+.cache
 
 # CMake
 CMakeLists.txt.user
