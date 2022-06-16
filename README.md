@@ -8,4 +8,7 @@ cd helesta
 mkdir build
 cd build
 cmake ..
+# Build
 make -j6
+# Format
+make clangformat
