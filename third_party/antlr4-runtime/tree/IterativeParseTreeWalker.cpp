@@ -6,27 +6,26 @@
 #include "support/CPPUtils.h"
 #include "support/Casts.h"
 
-#include "tree/ErrorNode.h"
-#include "tree/ParseTree.h"
 #include "tree/ParseTreeListener.h"
+#include "tree/ParseTree.h"
+#include "tree/ErrorNode.h"
 
 #include "IterativeParseTreeWalker.h"
 
 using namespace antlr4::tree;
 using namespace antlrcpp;
 
-void IterativeParseTreeWalker::walk(ParseTreeListener *listener,
-                                    ParseTree *t) const {
-  std::vector<std::pair<ParseTree *, size_t>> stack;
+void IterativeParseTreeWalker::walk(ParseTreeListener *listener, ParseTree *t) const {
+  std::vector<std::pair<ParseTree*, size_t>> stack;
   ParseTree *currentNode = t;
   size_t currentIndex = 0;
 
   while (currentNode != nullptr) {
     // pre-order visit
     if (ErrorNode::is(*currentNode)) {
-      listener->visitErrorNode(downCast<ErrorNode *>(currentNode));
+      listener->visitErrorNode(downCast<ErrorNode*>(currentNode));
     } else if (TerminalNode::is(*currentNode)) {
-      listener->visitTerminal(downCast<TerminalNode *>(currentNode));
+      listener->visitTerminal(downCast<TerminalNode*>(currentNode));
     } else {
       enterRule(listener, currentNode);
     }

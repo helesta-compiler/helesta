@@ -3,9 +3,9 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "SemanticContext.h"
-#include "atn/PredictionContext.h"
 #include "misc/MurmurHash.h"
+#include "atn/PredictionContext.h"
+#include "SemanticContext.h"
 
 #include "atn/ATNConfig.h"
 
@@ -20,50 +20,31 @@ namespace {
  */
 inline constexpr size_t SUPPRESS_PRECEDENCE_FILTER = 0x40000000;
 
-} // namespace
-
-ATNConfig::ATNConfig(ATNState *state, size_t alt,
-                     Ref<const PredictionContext> context)
-    : ATNConfig(state, alt, std::move(context), 0, SemanticContext::NONE) {}
-
-ATNConfig::ATNConfig(ATNState *state, size_t alt,
-                     Ref<const PredictionContext> context,
-                     Ref<const SemanticContext> semanticContext)
-    : ATNConfig(state, alt, std::move(context), 0, std::move(semanticContext)) {
 }
 
-ATNConfig::ATNConfig(ATNConfig const &other,
-                     Ref<const SemanticContext> semanticContext)
-    : ATNConfig(other.state, other.alt, other.context,
-                other.reachesIntoOuterContext, std::move(semanticContext)) {}
+ATNConfig::ATNConfig(ATNState *state, size_t alt, Ref<const PredictionContext> context)
+    : ATNConfig(state, alt, std::move(context), 0, SemanticContext::NONE) {}
 
-ATNConfig::ATNConfig(ATNConfig const &other, ATNState *state)
-    : ATNConfig(state, other.alt, other.context, other.reachesIntoOuterContext,
-                other.semanticContext) {}
+ATNConfig::ATNConfig(ATNState *state, size_t alt, Ref<const PredictionContext> context, Ref<const SemanticContext> semanticContext)
+    : ATNConfig(state, alt, std::move(context), 0, std::move(semanticContext)) {}
 
-ATNConfig::ATNConfig(ATNConfig const &other, ATNState *state,
-                     Ref<const SemanticContext> semanticContext)
-    : ATNConfig(state, other.alt, other.context, other.reachesIntoOuterContext,
-                std::move(semanticContext)) {}
+ATNConfig::ATNConfig(ATNConfig const& other, Ref<const SemanticContext> semanticContext)
+    : ATNConfig(other.state, other.alt, other.context, other.reachesIntoOuterContext, std::move(semanticContext)) {}
 
-ATNConfig::ATNConfig(ATNConfig const &other, ATNState *state,
-                     Ref<const PredictionContext> context)
-    : ATNConfig(state, other.alt, std::move(context),
-                other.reachesIntoOuterContext, other.semanticContext) {}
+ATNConfig::ATNConfig(ATNConfig const& other, ATNState *state)
+    : ATNConfig(state, other.alt, other.context, other.reachesIntoOuterContext, other.semanticContext) {}
 
-ATNConfig::ATNConfig(ATNConfig const &other, ATNState *state,
-                     Ref<const PredictionContext> context,
-                     Ref<const SemanticContext> semanticContext)
-    : ATNConfig(state, other.alt, std::move(context),
-                other.reachesIntoOuterContext, std::move(semanticContext)) {}
+ATNConfig::ATNConfig(ATNConfig const& other, ATNState *state, Ref<const SemanticContext> semanticContext)
+    : ATNConfig(state, other.alt, other.context, other.reachesIntoOuterContext, std::move(semanticContext)) {}
 
-ATNConfig::ATNConfig(ATNState *state, size_t alt,
-                     Ref<const PredictionContext> context,
-                     size_t reachesIntoOuterContext,
-                     Ref<const SemanticContext> semanticContext)
-    : state(state), alt(alt), context(std::move(context)),
-      reachesIntoOuterContext(reachesIntoOuterContext),
-      semanticContext(std::move(semanticContext)) {}
+ATNConfig::ATNConfig(ATNConfig const& other, ATNState *state, Ref<const PredictionContext> context)
+    : ATNConfig(state, other.alt, std::move(context), other.reachesIntoOuterContext, other.semanticContext) {}
+
+ATNConfig::ATNConfig(ATNConfig const& other, ATNState *state, Ref<const PredictionContext> context, Ref<const SemanticContext> semanticContext)
+    : ATNConfig(state, other.alt, std::move(context), other.reachesIntoOuterContext, std::move(semanticContext)) {}
+
+ATNConfig::ATNConfig(ATNState *state, size_t alt, Ref<const PredictionContext> context, size_t reachesIntoOuterContext, Ref<const SemanticContext> semanticContext)
+    : state(state), alt(alt), context(std::move(context)), reachesIntoOuterContext(reachesIntoOuterContext), semanticContext(std::move(semanticContext)) {}
 
 size_t ATNConfig::hashCode() const {
   size_t hashCode = misc::MurmurHash::initialize(7);
@@ -93,12 +74,14 @@ void ATNConfig::setPrecedenceFilterSuppressed(bool value) {
 
 bool ATNConfig::operator==(const ATNConfig &other) const {
   return state->stateNumber == other.state->stateNumber && alt == other.alt &&
-         ((context == other.context) || (*context == *other.context)) &&
-         *semanticContext == *other.semanticContext &&
-         isPrecedenceFilterSuppressed() == other.isPrecedenceFilterSuppressed();
+    ((context == other.context) || (*context == *other.context)) &&
+    *semanticContext == *other.semanticContext &&
+    isPrecedenceFilterSuppressed() == other.isPrecedenceFilterSuppressed();
 }
 
-std::string ATNConfig::toString() const { return toString(true); }
+std::string ATNConfig::toString() const {
+  return toString(true);
+}
 
 std::string ATNConfig::toString(bool showAlt) const {
   std::stringstream ss;

@@ -3,8 +3,8 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "Lexer.h"
 #include "misc/MurmurHash.h"
+#include "Lexer.h"
 #include "support/Casts.h"
 
 #include "atn/LexerCustomAction.h"
@@ -15,8 +15,7 @@ using namespace antlr4::misc;
 using namespace antlrcpp;
 
 LexerCustomAction::LexerCustomAction(size_t ruleIndex, size_t actionIndex)
-    : LexerAction(LexerActionType::CUSTOM, true), _ruleIndex(ruleIndex),
-      _actionIndex(actionIndex) {}
+    : LexerAction(LexerActionType::CUSTOM, true), _ruleIndex(ruleIndex), _actionIndex(actionIndex) {}
 
 void LexerCustomAction::execute(Lexer *lexer) const {
   lexer->action(nullptr, getRuleIndex(), getActionIndex());
@@ -37,12 +36,10 @@ bool LexerCustomAction::equals(const LexerAction &other) const {
   if (getActionType() != other.getActionType()) {
     return false;
   }
-  const auto &lexerAction = downCast<const LexerCustomAction &>(other);
-  return getRuleIndex() == lexerAction.getRuleIndex() &&
-         getActionIndex() == lexerAction.getActionIndex();
+  const auto &lexerAction = downCast<const LexerCustomAction&>(other);
+  return getRuleIndex() == lexerAction.getRuleIndex() && getActionIndex() == lexerAction.getActionIndex();
 }
 
 std::string LexerCustomAction::toString() const {
-  return "custom(" + std::to_string(getRuleIndex()) + ", " +
-         std::to_string(getActionIndex()) + ")";
+  return "custom(" + std::to_string(getRuleIndex()) + ", " + std::to_string(getActionIndex()) + ")";
 }

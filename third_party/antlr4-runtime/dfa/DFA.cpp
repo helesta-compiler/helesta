@@ -3,11 +3,11 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "atn/ATNConfigSet.h"
-#include "atn/StarLoopEntryState.h"
 #include "dfa/DFASerializer.h"
 #include "dfa/LexerDFASerializer.h"
 #include "support/CPPUtils.h"
+#include "atn/StarLoopEntryState.h"
+#include "atn/ATNConfigSet.h"
 #include "support/Casts.h"
 
 #include "dfa/DFA.h"
@@ -16,27 +16,24 @@ using namespace antlr4;
 using namespace antlr4::dfa;
 using namespace antlrcpp;
 
-DFA::DFA(atn::DecisionState *atnStartState) : DFA(atnStartState, 0) {}
+DFA::DFA(atn::DecisionState *atnStartState) : DFA(atnStartState, 0) {
+}
 
 DFA::DFA(atn::DecisionState *atnStartState, size_t decision)
-    : atnStartState(atnStartState), s0(nullptr), decision(decision) {
+  : atnStartState(atnStartState), s0(nullptr), decision(decision) {
 
   _precedenceDfa = false;
   if (atn::StarLoopEntryState::is(atnStartState)) {
-    if (downCast<atn::StarLoopEntryState *>(atnStartState)
-            ->isPrecedenceDecision) {
+    if (downCast<atn::StarLoopEntryState*>(atnStartState)->isPrecedenceDecision) {
       _precedenceDfa = true;
-      s0 = new DFAState(
-          std::unique_ptr<atn::ATNConfigSet>(new atn::ATNConfigSet()));
+      s0 = new DFAState(std::unique_ptr<atn::ATNConfigSet>(new atn::ATNConfigSet()));
       s0->isAcceptState = false;
       s0->requiresFullContext = false;
     }
   }
 }
 
-DFA::DFA(DFA &&other)
-    : atnStartState(other.atnStartState), s0(other.s0),
-      decision(other.decision) {
+DFA::DFA(DFA &&other) : atnStartState(other.atnStartState), s0(other.s0), decision(other.decision) {
   // Source states are implicitly cleared by the move.
   states = std::move(other.states);
 
@@ -60,11 +57,12 @@ DFA::~DFA() {
   }
 }
 
-bool DFA::isPrecedenceDfa() const { return _precedenceDfa; }
+bool DFA::isPrecedenceDfa() const {
+  return _precedenceDfa;
+}
 
-DFAState *DFA::getPrecedenceStartState(int precedence) const {
-  assert(_precedenceDfa); // Only precedence DFAs may contain a precedence start
-                          // state.
+DFAState* DFA::getPrecedenceStartState(int precedence) const {
+  assert(_precedenceDfa); // Only precedence DFAs may contain a precedence start state.
 
   auto iterator = s0->edges.find(precedence);
   if (iterator == s0->edges.end())
@@ -75,8 +73,7 @@ DFAState *DFA::getPrecedenceStartState(int precedence) const {
 
 void DFA::setPrecedenceStartState(int precedence, DFAState *startState) {
   if (!isPrecedenceDfa()) {
-    throw IllegalStateException(
-        "Only precedence DFAs may contain a precedence start state.");
+    throw IllegalStateException("Only precedence DFAs may contain a precedence start state.");
   }
 
   if (precedence < 0) {
@@ -91,10 +88,9 @@ std::vector<DFAState *> DFA::getStates() const {
   for (auto *state : states)
     result.push_back(state);
 
-  std::sort(result.begin(), result.end(),
-            [](DFAState *o1, DFAState *o2) -> bool {
-              return o1->stateNumber < o2->stateNumber;
-            });
+  std::sort(result.begin(), result.end(), [](DFAState *o1, DFAState *o2) -> bool {
+    return o1->stateNumber < o2->stateNumber;
+  });
 
   return result;
 }
@@ -116,3 +112,4 @@ std::string DFA::toLexerString() const {
 
   return serializer.toString();
 }
+

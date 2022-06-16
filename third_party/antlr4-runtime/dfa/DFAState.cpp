@@ -3,9 +3,9 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "atn/ATNConfig.h"
 #include "atn/ATNConfigSet.h"
 #include "atn/SemanticContext.h"
+#include "atn/ATNConfig.h"
 #include "misc/MurmurHash.h"
 
 #include "dfa/DFAState.h"
@@ -36,8 +36,7 @@ bool DFAState::equals(const DFAState &other) const {
     return true;
   }
   return configs == other.configs ||
-         (configs != nullptr && other.configs != nullptr &&
-          *configs == *other.configs);
+         (configs != nullptr && other.configs != nullptr && *configs == *other.configs);
 }
 
 std::string DFAState::toString() const {

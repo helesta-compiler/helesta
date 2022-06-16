@@ -24,7 +24,9 @@ bool Interval::startsBeforeNonDisjoint(const Interval &other) const {
   return a <= other.a && b >= other.a;
 }
 
-bool Interval::startsAfter(const Interval &other) const { return a > other.a; }
+bool Interval::startsAfter(const Interval &other) const {
+  return a > other.a;
+}
 
 bool Interval::startsAfterDisjoint(const Interval &other) const {
   return a > other.b;

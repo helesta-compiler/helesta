@@ -3,15 +3,15 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "Vocabulary.h"
 #include "dfa/DFA.h"
+#include "Vocabulary.h"
 
 #include "dfa/DFASerializer.h"
 
 using namespace antlr4::dfa;
 
-DFASerializer::DFASerializer(const DFA *dfa, const Vocabulary &vocabulary)
-    : _dfa(dfa), _vocabulary(vocabulary) {}
+DFASerializer::DFASerializer(const DFA *dfa, const Vocabulary &vocabulary) : _dfa(dfa), _vocabulary(vocabulary) {
+}
 
 std::string DFASerializer::toString() const {
   if (_dfa->s0 == nullptr) {
@@ -35,16 +35,14 @@ std::string DFASerializer::toString() const {
 }
 
 std::string DFASerializer::getEdgeLabel(size_t i) const {
-  return _vocabulary.getDisplayName(
-      i); // ml: no longer needed -1 as we use a map for edges, without offset.
+  return _vocabulary.getDisplayName(i); // ml: no longer needed -1 as we use a map for edges, without offset.
 }
 
 std::string DFASerializer::getStateString(DFAState *s) const {
   size_t n = s->stateNumber;
 
-  const std::string baseStateStr = std::string(s->isAcceptState ? ":" : "") +
-                                   "s" + std::to_string(n) +
-                                   (s->requiresFullContext ? "^" : "");
+  const std::string baseStateStr = std::string(s->isAcceptState ? ":" : "") + "s" + std::to_string(n) +
+    (s->requiresFullContext ? "^" : "");
 
   if (s->isAcceptState) {
     if (!s->predicates.empty()) {

@@ -3,35 +3,31 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "ParserRuleContext.h"
-#include "Recognizer.h"
 #include "atn/ATN.h"
+#include "Recognizer.h"
+#include "ParserRuleContext.h"
 #include "misc/IntervalSet.h"
 
 #include "RecognitionException.h"
 
 using namespace antlr4;
 
-RecognitionException::RecognitionException(Recognizer *recognizer,
-                                           IntStream *input,
-                                           ParserRuleContext *ctx,
+RecognitionException::RecognitionException(Recognizer *recognizer, IntStream *input, ParserRuleContext *ctx,
                                            Token *offendingToken)
-    : RecognitionException("", recognizer, input, ctx, offendingToken) {}
+  : RecognitionException("", recognizer, input, ctx, offendingToken) {
+}
 
-RecognitionException::RecognitionException(const std::string &message,
-                                           Recognizer *recognizer,
-                                           IntStream *input,
-                                           ParserRuleContext *ctx,
-                                           Token *offendingToken)
-    : RuntimeException(message), _recognizer(recognizer), _input(input),
-      _ctx(ctx), _offendingToken(offendingToken) {
+RecognitionException::RecognitionException(const std::string &message, Recognizer *recognizer, IntStream *input,
+                                           ParserRuleContext *ctx, Token *offendingToken)
+  : RuntimeException(message), _recognizer(recognizer), _input(input), _ctx(ctx), _offendingToken(offendingToken) {
   InitializeInstanceFields();
   if (recognizer != nullptr) {
     _offendingState = recognizer->getState();
   }
 }
 
-RecognitionException::~RecognitionException() {}
+RecognitionException::~RecognitionException() {
+}
 
 size_t RecognitionException::getOffendingState() const {
   return _offendingState;
@@ -48,15 +44,21 @@ misc::IntervalSet RecognitionException::getExpectedTokens() const {
   return misc::IntervalSet::EMPTY_SET;
 }
 
-RuleContext *RecognitionException::getCtx() const { return _ctx; }
+RuleContext* RecognitionException::getCtx() const {
+  return _ctx;
+}
 
-IntStream *RecognitionException::getInputStream() const { return _input; }
+IntStream* RecognitionException::getInputStream() const {
+  return _input;
+}
 
-Token *RecognitionException::getOffendingToken() const {
+Token* RecognitionException::getOffendingToken() const {
   return _offendingToken;
 }
 
-Recognizer *RecognitionException::getRecognizer() const { return _recognizer; }
+Recognizer* RecognitionException::getRecognizer() const {
+  return _recognizer;
+}
 
 void RecognitionException::InitializeInstanceFields() {
   _offendingState = INVALID_INDEX;

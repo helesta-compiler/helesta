@@ -12,7 +12,8 @@
 using namespace antlr4::tree;
 using namespace antlr4::tree::xpath;
 
-XPathWildcardElement::XPathWildcardElement() : XPathElement(XPath::WILDCARD) {}
+XPathWildcardElement::XPathWildcardElement() : XPathElement(XPath::WILDCARD) {
+}
 
 std::vector<ParseTree *> XPathWildcardElement::evaluate(ParseTree *t) {
   if (_invert) {

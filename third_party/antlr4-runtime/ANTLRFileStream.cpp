@@ -18,4 +18,6 @@ void ANTLRFileStream::loadFromFile(const std::string &fileName) {
   ANTLRInputStream::load(stream);
 }
 
-std::string ANTLRFileStream::getSourceName() const { return _fileName; }
+std::string ANTLRFileStream::getSourceName() const {
+  return _fileName;
+}

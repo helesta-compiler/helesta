@@ -3,8 +3,8 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "Lexer.h"
 #include "misc/MurmurHash.h"
+#include "Lexer.h"
 #include "support/Casts.h"
 
 #include "atn/LexerChannelAction.h"
@@ -34,7 +34,7 @@ bool LexerChannelAction::equals(const LexerAction &other) const {
   if (getActionType() != other.getActionType()) {
     return false;
   }
-  const auto &lexerAction = downCast<const LexerChannelAction &>(other);
+  const auto &lexerAction = downCast<const LexerChannelAction&>(other);
   return getChannel() == lexerAction.getChannel();
 }
 

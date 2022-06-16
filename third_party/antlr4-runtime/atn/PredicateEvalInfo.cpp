@@ -10,12 +10,8 @@
 using namespace antlr4;
 using namespace antlr4::atn;
 
-PredicateEvalInfo::PredicateEvalInfo(size_t decision, TokenStream *input,
-                                     size_t startIndex, size_t stopIndex,
-                                     Ref<const SemanticContext> semctx,
-                                     bool evalResult, size_t predictedAlt,
-                                     bool fullCtx)
-    : DecisionEventInfo(decision, nullptr, input, startIndex, stopIndex,
-                        fullCtx),
-      semctx(std::move(semctx)), predictedAlt(predictedAlt),
-      evalResult(evalResult) {}
+PredicateEvalInfo::PredicateEvalInfo(size_t decision, TokenStream *input, size_t startIndex, size_t stopIndex,
+  Ref<const SemanticContext> semctx, bool evalResult, size_t predictedAlt, bool fullCtx)
+  : DecisionEventInfo(decision, nullptr, input, startIndex, stopIndex, fullCtx),
+    semctx(std::move(semctx)), predictedAlt(predictedAlt), evalResult(evalResult) {
+}

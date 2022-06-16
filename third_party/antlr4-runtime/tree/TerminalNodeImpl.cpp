@@ -3,9 +3,9 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "RuleContext.h"
-#include "Token.h"
 #include "misc/Interval.h"
+#include "Token.h"
+#include "RuleContext.h"
 #include "tree/ParseTreeVisitor.h"
 
 #include "tree/TerminalNodeImpl.h"
@@ -13,7 +13,9 @@
 using namespace antlr4;
 using namespace antlr4::tree;
 
-Token *TerminalNodeImpl::getSymbol() const { return symbol; }
+Token* TerminalNodeImpl::getSymbol() const {
+  return symbol;
+}
 
 void TerminalNodeImpl::setParent(RuleContext *parent_) {
   this->parent = parent_;
@@ -32,10 +34,11 @@ std::any TerminalNodeImpl::accept(ParseTreeVisitor *visitor) {
   return visitor->visitTerminal(this);
 }
 
-std::string TerminalNodeImpl::getText() { return symbol->getText(); }
+std::string TerminalNodeImpl::getText() {
+  return symbol->getText();
+}
 
-std::string TerminalNodeImpl::toStringTree(Parser * /*parser*/,
-                                           bool /*pretty*/) {
+std::string TerminalNodeImpl::toStringTree(Parser * /*parser*/, bool /*pretty*/) {
   return toString();
 }
 

@@ -3,8 +3,8 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "Lexer.h"
 #include "misc/MurmurHash.h"
+#include "Lexer.h"
 
 #include "atn/LexerMoreAction.h"
 
@@ -12,12 +12,14 @@ using namespace antlr4;
 using namespace antlr4::atn;
 using namespace antlr4::misc;
 
-const Ref<const LexerMoreAction> &LexerMoreAction::getInstance() {
+const Ref<const LexerMoreAction>& LexerMoreAction::getInstance() {
   static const Ref<const LexerMoreAction> instance(new LexerMoreAction());
   return instance;
 }
 
-void LexerMoreAction::execute(Lexer *lexer) const { lexer->more(); }
+void LexerMoreAction::execute(Lexer *lexer) const {
+  lexer->more();
+}
 
 size_t LexerMoreAction::hashCodeImpl() const {
   size_t hash = MurmurHash::initialize();
@@ -29,4 +31,6 @@ bool LexerMoreAction::equals(const LexerAction &other) const {
   return this == std::addressof(other);
 }
 
-std::string LexerMoreAction::toString() const { return "more"; }
+std::string LexerMoreAction::toString() const {
+  return "more";
+}

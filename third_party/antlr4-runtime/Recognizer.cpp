@@ -5,6 +5,7 @@
 
 #include "ConsoleErrorListener.h"
 #include "RecognitionException.h"
+#include "support/CPPUtils.h"
 #include "Token.h"
 #include "atn/ATN.h"
 #include "atn/ATNSimulator.h"
@@ -18,20 +19,19 @@
 using namespace antlr4;
 using namespace antlr4::atn;
 
-std::map<const dfa::Vocabulary *, std::map<std::string_view, size_t>>
-    Recognizer::_tokenTypeMapCache;
-std::map<std::vector<std::string>, std::map<std::string, size_t>>
-    Recognizer::_ruleIndexMapCache;
+std::map<const dfa::Vocabulary*, std::map<std::string_view, size_t>> Recognizer::_tokenTypeMapCache;
+std::map<std::vector<std::string>, std::map<std::string, size_t>> Recognizer::_ruleIndexMapCache;
 
 Recognizer::Recognizer() {
   InitializeInstanceFields();
   _proxListener.addErrorListener(&ConsoleErrorListener::INSTANCE);
 }
 
-Recognizer::~Recognizer() {}
+Recognizer::~Recognizer() {
+}
 
 std::map<std::string_view, size_t> Recognizer::getTokenTypeMap() {
-  const dfa::Vocabulary &vocabulary = getVocabulary();
+  const dfa::Vocabulary& vocabulary = getVocabulary();
 
   std::lock_guard<std::mutex> lck(_mutex);
   std::map<std::string_view, size_t> result;
@@ -58,7 +58,7 @@ std::map<std::string_view, size_t> Recognizer::getTokenTypeMap() {
 }
 
 std::map<std::string, size_t> Recognizer::getRuleIndexMap() {
-  const std::vector<std::string> &ruleNames = getRuleNames();
+  const std::vector<std::string>& ruleNames = getRuleNames();
   if (ruleNames.empty()) {
     throw "The current recognizer does not provide a list of rule names.";
   }
@@ -85,19 +85,19 @@ size_t Recognizer::getTokenType(std::string_view tokenName) {
 }
 
 void Recognizer::setInterpreter(atn::ATNSimulator *interpreter) {
-  // Usually the interpreter is set by the descendant (lexer or parser
-  // (simulator), but can also be exchanged by the profiling ATN simulator.
+  // Usually the interpreter is set by the descendant (lexer or parser (simulator), but can also be exchanged
+  // by the profiling ATN simulator.
   delete _interpreter;
   _interpreter = interpreter;
 }
 
 std::string Recognizer::getErrorHeader(RecognitionException *e) {
-  // We're having issues with cross header dependencies, these two classes will
-  // need to be rewritten to remove that.
+  // We're having issues with cross header dependencies, these two classes will need to be
+  // rewritten to remove that.
   size_t line = e->getOffendingToken()->getLine();
   size_t charPositionInLine = e->getOffendingToken()->getCharPositionInLine();
-  return std::string("line ") + std::to_string(line) + ":" +
-         std::to_string(charPositionInLine);
+  return std::string("line ") + std::to_string(line) + ":" + std::to_string(charPositionInLine);
+
 }
 
 std::string Recognizer::getTokenErrorDisplay(Token *t) {
@@ -134,12 +134,11 @@ void Recognizer::removeErrorListeners() {
   _proxListener.removeErrorListeners();
 }
 
-ProxyErrorListener &Recognizer::getErrorListenerDispatch() {
+ProxyErrorListener& Recognizer::getErrorListenerDispatch() {
   return _proxListener;
 }
 
-bool Recognizer::sempred(RuleContext * /*localctx*/, size_t /*ruleIndex*/,
-                         size_t /*actionIndex*/) {
+bool Recognizer::sempred(RuleContext * /*localctx*/, size_t /*ruleIndex*/, size_t /*actionIndex*/) {
   return true;
 }
 
@@ -147,10 +146,11 @@ bool Recognizer::precpred(RuleContext * /*localctx*/, int /*precedence*/) {
   return true;
 }
 
-void Recognizer::action(RuleContext * /*localctx*/, size_t /*ruleIndex*/,
-                        size_t /*actionIndex*/) {}
+void Recognizer::action(RuleContext * /*localctx*/, size_t /*ruleIndex*/, size_t /*actionIndex*/) {
+}
 
 void Recognizer::InitializeInstanceFields() {
   _stateNumber = ATNState::INVALID_STATE_NUMBER;
   _interpreter = nullptr;
 }
+

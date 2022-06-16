@@ -7,6 +7,6 @@
 
 using namespace antlr4::tree;
 
-bool ParseTree::operator==(const ParseTree &other) const {
+bool ParseTree::operator == (const ParseTree &other) const {
   return &other == this;
 }

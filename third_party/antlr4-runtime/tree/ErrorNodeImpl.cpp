@@ -3,9 +3,9 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-#include "RuleContext.h"
-#include "Token.h"
 #include "misc/Interval.h"
+#include "Token.h"
+#include "RuleContext.h"
 #include "tree/ParseTreeVisitor.h"
 
 #include "tree/ErrorNodeImpl.h"
@@ -13,9 +13,13 @@
 using namespace antlr4;
 using namespace antlr4::tree;
 
-Token *ErrorNodeImpl::getSymbol() const { return symbol; }
+Token* ErrorNodeImpl::getSymbol() const {
+  return symbol;
+}
 
-void ErrorNodeImpl::setParent(RuleContext *parent_) { this->parent = parent_; }
+void ErrorNodeImpl::setParent(RuleContext *parent_) {
+  this->parent = parent_;
+}
 
 misc::Interval ErrorNodeImpl::getSourceInterval() {
   if (symbol == nullptr) {
@@ -30,7 +34,9 @@ std::any ErrorNodeImpl::accept(ParseTreeVisitor *visitor) {
   return visitor->visitErrorNode(this);
 }
 
-std::string ErrorNodeImpl::getText() { return symbol->getText(); }
+std::string ErrorNodeImpl::getText() {
+  return symbol->getText();
+}
 
 std::string ErrorNodeImpl::toStringTree(Parser * /*parser*/, bool /*pretty*/) {
   return toString();
@@ -43,4 +49,6 @@ std::string ErrorNodeImpl::toString() {
   return symbol->getText();
 }
 
-std::string ErrorNodeImpl::toStringTree(bool /*pretty*/) { return toString(); }
+std::string ErrorNodeImpl::toStringTree(bool /*pretty*/) {
+  return toString();
+}

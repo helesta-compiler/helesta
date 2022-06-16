@@ -6,11 +6,11 @@
 #include <string.h>
 
 #include "Exceptions.h"
-#include "IntStream.h"
 #include "misc/Interval.h"
+#include "IntStream.h"
 
-#include "support/CPPUtils.h"
 #include "support/Utf8.h"
+#include "support/CPPUtils.h"
 
 #include "ANTLRInputStream.h"
 
@@ -19,10 +19,11 @@ using namespace antlrcpp;
 
 using misc::Interval;
 
-ANTLRInputStream::ANTLRInputStream() { InitializeInstanceFields(); }
+ANTLRInputStream::ANTLRInputStream() {
+  InitializeInstanceFields();
+}
 
-ANTLRInputStream::ANTLRInputStream(std::string_view input)
-    : ANTLRInputStream() {
+ANTLRInputStream::ANTLRInputStream(std::string_view input): ANTLRInputStream() {
   load(input.data(), input.length());
 }
 
@@ -30,7 +31,7 @@ ANTLRInputStream::ANTLRInputStream(const char *data, size_t length) {
   load(data, length);
 }
 
-ANTLRInputStream::ANTLRInputStream(std::istream &stream) : ANTLRInputStream() {
+ANTLRInputStream::ANTLRInputStream(std::istream &stream): ANTLRInputStream() {
   load(stream);
 }
 
@@ -50,8 +51,7 @@ void ANTLRInputStream::load(const char *data, size_t length, bool lenient) {
   } else {
     auto maybe_utf32 = Utf8::strictDecode(std::string_view(data, length));
     if (!maybe_utf32.has_value()) {
-      throw IllegalArgumentException(
-          "UTF-8 string contains an illegal byte sequence");
+      throw IllegalArgumentException("UTF-8 string contains an illegal byte sequence");
     }
     _data = std::move(maybe_utf32).value();
   }
@@ -64,12 +64,13 @@ void ANTLRInputStream::load(std::istream &stream, bool lenient) {
 
   _data.clear();
 
-  std::string s((std::istreambuf_iterator<char>(stream)),
-                std::istreambuf_iterator<char>());
+  std::string s((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
   load(s.data(), s.length(), lenient);
 }
 
-void ANTLRInputStream::reset() { p = 0; }
+void ANTLRInputStream::reset() {
+  p = 0;
+}
 
 void ANTLRInputStream::consume() {
   if (p >= _data.size()) {
@@ -102,16 +103,25 @@ size_t ANTLRInputStream::LA(ssize_t i) {
   return _data[static_cast<size_t>((position + i - 1))];
 }
 
-size_t ANTLRInputStream::LT(ssize_t i) { return LA(i); }
+size_t ANTLRInputStream::LT(ssize_t i) {
+  return LA(i);
+}
 
-size_t ANTLRInputStream::index() { return p; }
+size_t ANTLRInputStream::index() {
+  return p;
+}
 
-size_t ANTLRInputStream::size() { return _data.size(); }
+size_t ANTLRInputStream::size() {
+  return _data.size();
+}
 
 // Mark/release do nothing. We have entire buffer.
-ssize_t ANTLRInputStream::mark() { return -1; }
+ssize_t ANTLRInputStream::mark() {
+  return -1;
+}
 
-void ANTLRInputStream::release(ssize_t /* marker */) {}
+void ANTLRInputStream::release(ssize_t /* marker */) {
+}
 
 void ANTLRInputStream::seek(size_t index) {
   if (index <= p) {
@@ -133,6 +143,7 @@ std::string ANTLRInputStream::getText(const Interval &interval) {
   size_t start = static_cast<size_t>(interval.a);
   size_t stop = static_cast<size_t>(interval.b);
 
+
   if (stop >= _data.size()) {
     stop = _data.size() - 1;
   }
@@ -142,11 +153,9 @@ std::string ANTLRInputStream::getText(const Interval &interval) {
     return "";
   }
 
-  auto maybeUtf8 =
-      Utf8::strictEncode(std::u32string_view(_data).substr(start, count));
+  auto maybeUtf8 = Utf8::strictEncode(std::u32string_view(_data).substr(start, count));
   if (!maybeUtf8.has_value()) {
-    throw IllegalArgumentException(
-        "Input stream contains invalid Unicode code points");
+    throw IllegalArgumentException("Input stream contains invalid Unicode code points");
   }
   return std::move(maybeUtf8).value();
 }
@@ -161,10 +170,11 @@ std::string ANTLRInputStream::getSourceName() const {
 std::string ANTLRInputStream::toString() const {
   auto maybeUtf8 = Utf8::strictEncode(_data);
   if (!maybeUtf8.has_value()) {
-    throw IllegalArgumentException(
-        "Input stream contains invalid Unicode code points");
+    throw IllegalArgumentException("Input stream contains invalid Unicode code points");
   }
   return std::move(maybeUtf8).value();
 }
 
-void ANTLRInputStream::InitializeInstanceFields() { p = 0; }
+void ANTLRInputStream::InitializeInstanceFields() {
+  p = 0;
+}
