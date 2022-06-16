@@ -11,4 +11,4 @@ cmake ..
 # Build
 make -j6
 # Format
-make clangformat
+make format
