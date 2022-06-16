@@ -22,14 +22,17 @@ int32_t concat(int32_t bottom, int32_t top) {
 }
 
 bool startswith(const string &s1, const string &s2) {
-  if (s1.length() < s2.length()) return false;
+  if (s1.length() < s2.length())
+    return false;
   for (size_t i = 0; i < s2.length(); ++i)
-    if (s1[i] != s2[i]) return false;
+    if (s1[i] != s2[i])
+      return false;
   return true;
 }
 
-#define check_int32(x) \
-  if ((x) > 2147483648ll) throw InvalidLiteral("integer literal out of range")
+#define check_int32(x)                                                         \
+  if ((x) > 2147483648ll)                                                      \
+  throw InvalidLiteral("integer literal out of range")
 
 int32_t parse_int32_literal(const string &s) {
   int64_t ret = 0;
@@ -102,13 +105,15 @@ Configuration::Configuration()
 Configuration global_config;
 
 int Configuration::get_int_arg(string key, int default_value) {
-  if (!args.count(key)) return default_value;
+  if (!args.count(key))
+    return default_value;
   return atoi(args.at(key).c_str());
 }
 
 string Configuration::get_arg(string key, string default_value) {
   auto i = args.find(key);
-  if (i == args.end()) return default_value;
+  if (i == args.end())
+    return default_value;
   return i->second;
 }
 
@@ -135,11 +140,16 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
         }
         global_config.args[key] = kv.substr(pos + 1, kv.length() - 1 - pos);
       }
-      if (cur == "--exec") global_config.simulate_exec = true;
-      if (cur == "--debug") global_config.log_level = Configuration::DEBUG;
-      if (cur == "--info") global_config.log_level = Configuration::INFO;
-      if (cur == "--warning") global_config.log_level = Configuration::WARNING;
-      if (cur == "--error") global_config.log_level = Configuration::ERROR;
+      if (cur == "--exec")
+        global_config.simulate_exec = true;
+      if (cur == "--debug")
+        global_config.log_level = Configuration::DEBUG;
+      if (cur == "--info")
+        global_config.log_level = Configuration::INFO;
+      if (cur == "--warning")
+        global_config.log_level = Configuration::WARNING;
+      if (cur == "--error")
+        global_config.log_level = Configuration::ERROR;
       if (cur == "-o") {
         if (i + 1 < argc) {
           if (output.length() == 0)
@@ -155,8 +165,10 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     else
       throw std::invalid_argument("duplicate input file");
   }
-  if (input.length() == 0) throw std::invalid_argument("missing input file");
-  if (output.length() == 0) throw std::invalid_argument("missing output file");
+  if (input.length() == 0)
+    throw std::invalid_argument("missing input file");
+  if (output.length() == 0)
+    throw std::invalid_argument("missing output file");
   global_config.input = input;
   return pair{input, output};
 }

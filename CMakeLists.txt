@@ -17,3 +17,8 @@ add_compile_options(-g -std=c++17 -O2)
 include_directories(src)
 include_directories(third_party/antlr4-runtime)
 add_executable(compiler ${DIR_SRC} ${DIR_LIB_SRC})
+
+
+include(formatting.cmake)
+clang_format(format ${DIR_SRC})
+clang_format_check(format_check ${DIR_SRC})
