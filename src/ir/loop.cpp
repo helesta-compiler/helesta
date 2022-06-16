@@ -161,6 +161,9 @@ std::unordered_map<BB *, double> estimate_BB_prob(NormalFunc *f) {
       f2[w] += p * decay;
       p *= (1 - decay);
       Instr *x = w->back();
+      if (x == nullptr) {
+        return;
+      }
       Case(JumpInstr, y, x) { f2[y->target] += p; }
       else Case(BranchInstr, y, x) {
         double p1 = p * 0.5, p0 = p * 0.5;

@@ -523,6 +523,7 @@ void remove_no_effect(Func *func) {
 void direct_jump(Func *func) {
   vector<size_t> parent;
   size_t n = func->blocks.size();
+  std::cout << "n = " << n << std::endl;
   parent.resize(n);
   map<Block *, size_t> pos;
   for (size_t i = 0; i < n; ++i)
@@ -649,7 +650,8 @@ void optimize_after_reg_alloc(Func *func) {
   remove_unused(func);
   remove_identical_move(func);
   remove_no_effect(func);
-  direct_jump(func);
+  // help: the code below cause panic
+  // direct_jump(func);
   eliminate_branch(func);
 }
 } // namespace ARMv7
