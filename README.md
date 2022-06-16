@@ -12,3 +12,5 @@ cmake ..
 make -j6
 # Format
 make format
+# Format Check
+make format_check

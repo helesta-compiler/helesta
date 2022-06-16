@@ -20,5 +20,5 @@ add_executable(compiler ${DIR_SRC} ${DIR_LIB_SRC})
 
 
 include(formatting.cmake)
-clang_format(format ${DIR_SRC} ${DIR_LIB_SRC})
-clang_format_check(format_check ${DIR_SRC} ${DIR_LIB_SRC})
+clang_format(format ${DIR_SRC})
+clang_format_check(format_check ${DIR_SRC})
