@@ -202,8 +202,9 @@ void Block::push_back(unique_ptr<Inst> inst) {
 }
 
 void Block::push_back(std::list<unique_ptr<Inst>> inst_list) {
-  for (auto &i : inst_list)
+  for (auto &i : inst_list) {
     insts.push_back(std::move(i));
+  }
 }
 
 void Block::insert_before_jump(unique_ptr<Inst> inst) {

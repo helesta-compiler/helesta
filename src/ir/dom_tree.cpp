@@ -24,9 +24,6 @@ DomTree build_dom_tree(NormalFunc *f) {
   f->for_each([&](BB *w) {
     S[w].self = w;
     Instr *x = w->back();
-    if (x == nullptr) {
-      return;
-    }
     Case(JumpInstr, y, x) { addedge(y->target, w); }
     else Case(BranchInstr, y, x) {
       addedge(y->target1, w);

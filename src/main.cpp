@@ -7,6 +7,7 @@
 #include "ast/ast_visitor.hpp"
 #include "common/errors.hpp"
 #include "ir/ir.hpp"
+#include "ir/pass.hpp"
 #include "parser/SysYLexer.h"
 #include "parser/SysYParser.h"
 
@@ -29,6 +30,8 @@ int main(int argc, char **argv) {
   if (!found_main) {
     throw MainFuncNotFound();
   }
+
+  optimize_passes(ir);
 
   ARMv7::Program prog(&ir);
   ARMv7::optimize_before_reg_alloc(&prog);
