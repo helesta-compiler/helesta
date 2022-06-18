@@ -8,6 +8,8 @@ using namespace IR;
 
 DebugStream dbg;
 
+void optimize_passes(CompileUnit &c) { c.for_each(dce_BB); }
+
 void get_defs(std::unordered_map<Reg, RegWriteInstr *> &def, BB *w) {
   w->for_each([&](Instr *x) {
     Case(RegWriteInstr, x0, x) {
