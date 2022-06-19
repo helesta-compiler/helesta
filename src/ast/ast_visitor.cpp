@@ -7,6 +7,7 @@
 #include "ast/symbol_table.hpp"
 #include "common/common.hpp"
 #include "common/errors.hpp"
+#include "ir/ir.hpp"
 
 using std::optional;
 using std::pair;
@@ -169,6 +170,10 @@ std::any ASTVisitor::visitCompUnit(SysYParser::CompUnitContext *ctx) {
   continue_target.clear();
   register_lib_functions();
   visitChildren(ctx);
+  // init_func should return
+  auto r = init_func->new_Reg();
+  init_bb->push(new IR::LoadConst(r, 0));
+  init_bb->push(new IR::ReturnInstr(r, true));
   return found_main;
 }
 
