@@ -1,4 +1,4 @@
-#include "arm/program.hpp"
+#include "program.hpp"
 
 #include <bitset>
 #include <functional>
@@ -11,13 +11,13 @@
 #include <utility>
 #include <vector>
 
-#include "arm/archinfo.hpp"
-#include "arm/backend_passes.hpp"
-#include "arm/coloring_alloc.hpp"
-#include "arm/inst.hpp"
-#include "arm/simple_coloring_alloc.hpp"
-#include "common/common.hpp"
-#include "ir/pass.hpp"
+#include "archinfo.hpp"
+#include "backend_passes.hpp"
+#include "coloring_alloc.hpp"
+#include "inst.hpp"
+#include "simple_coloring_alloc.hpp"
+#include "common.hpp"
+#include "pass.hpp"
 
 using std::deque;
 using std::make_unique;
