@@ -1,8 +1,8 @@
-#include "ir/pass.hpp"
+#include "pass.hpp"
 
 #include <cstdlib>
 
-#include "common/common.hpp"
+#include "common.hpp"
 
 using namespace IR;
 

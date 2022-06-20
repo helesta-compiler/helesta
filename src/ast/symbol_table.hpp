@@ -6,9 +6,9 @@
 #include <variant>
 #include <vector>
 
-#include "common/common.hpp"
-#include "ast/init_value.hpp"
-#include "ir/ir.hpp"
+#include "common.hpp"
+#include "init_value.hpp"
+#include "ir.hpp"
 
 struct Type {
   std::vector<MemSize> array_dims;

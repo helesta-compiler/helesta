@@ -6,10 +6,10 @@
 #include <variant>
 #include <vector>
 
-#include "parser/SysYBaseVisitor.h"
-#include "ast/exp_value.hpp"
-#include "ast/symbol_table.hpp"
-#include "ir/ir.hpp"
+#include "SysYBaseVisitor.h"
+#include "exp_value.hpp"
+#include "symbol_table.hpp"
+#include "ir.hpp"
 
 class ASTVisitor : public SysYBaseVisitor {
   enum ValueMode { normal, compile_time, condition } mode;

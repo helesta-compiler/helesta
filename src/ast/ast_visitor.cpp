@@ -1,13 +1,13 @@
-#include "ast/ast_visitor.hpp"
+#include "ast_visitor.hpp"
 
 #include <variant>
 
-#include "ast/exp_value.hpp"
-#include "ast/init_value.hpp"
-#include "ast/symbol_table.hpp"
-#include "common/common.hpp"
-#include "common/errors.hpp"
-#include "ir/ir.hpp"
+#include "exp_value.hpp"
+#include "init_value.hpp"
+#include "symbol_table.hpp"
+#include "common.hpp"
+#include "errors.hpp"
+#include "ir.hpp"
 
 using std::optional;
 using std::pair;

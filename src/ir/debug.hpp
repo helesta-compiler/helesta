@@ -1,6 +1,6 @@
 #include <fstream>
 
-#include "common/common.hpp"
+#include "common.hpp"
 
 struct SyncDebugStream {
   std::ostream &os;

@@ -1,7 +1,7 @@
-#include "ast/symbol_table.hpp"
+#include "symbol_table.hpp"
 
-#include "common/common.hpp"
-#include "common/errors.hpp"
+#include "common.hpp"
+#include "errors.hpp"
 
 using std::string;
 using std::unique_ptr;

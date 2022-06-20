@@ -1,4 +1,4 @@
-#include "ir/pass.hpp"
+#include "pass.hpp"
 
 void print_cfg(DomTree &S, NormalFunc *f) {
   dbg << "CFG:\n";

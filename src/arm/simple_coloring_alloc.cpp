@@ -1,4 +1,4 @@
-#include "arm/simple_coloring_alloc.hpp"
+#include "simple_coloring_alloc.hpp"
 
 #include <cassert>
 #include <memory>
@@ -7,10 +7,10 @@
 #include <utility>
 #include <vector>
 
-#include "arm/archinfo.hpp"
-#include "arm/inst.hpp"
-#include "arm/program.hpp"
-#include "common/common.hpp"
+#include "archinfo.hpp"
+#include "inst.hpp"
+#include "program.hpp"
+#include "common.hpp"
 
 using std::make_unique;
 using std::set;

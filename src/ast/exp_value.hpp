@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ast/symbol_table.hpp"
-#include "ir/ir.hpp"
+#include "symbol_table.hpp"
+#include "ir.hpp"
 
 // when visiting int expression, return IRValue
 // when visiting bool expression, return CondJumpList

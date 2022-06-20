@@ -1,5 +1,5 @@
-#include "common/common.hpp"
-#include "ir/pass.hpp"
+#include "common.hpp"
+#include "pass.hpp"
 
 void for_each_phi(BB *w, std::function<void(PhiInstr *)> F) {
   w->for_each([&](Instr *i) { Case(PhiInstr, phi, i) F(phi); });

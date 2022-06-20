@@ -2,8 +2,8 @@
 
 #include <cstring>
 
-#include "ir/debug.hpp"
-#include "ir/ir.hpp"
+#include "debug.hpp"
+#include "ir.hpp"
 #define PassIsEnabled(name) if (!global_config.disabled_passes.count(name))
 using namespace IR;
 

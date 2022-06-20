@@ -3,7 +3,7 @@
 #include <functional>
 #include <memory>
 
-#include "arm/program.hpp"
+#include "program.hpp"
 
 namespace ARMv7 {
 

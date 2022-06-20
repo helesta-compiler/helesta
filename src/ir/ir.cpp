@@ -1,4 +1,4 @@
-#include "ir/ir.hpp"
+#include "ir.hpp"
 
 namespace IR {
 
