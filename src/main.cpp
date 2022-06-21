@@ -2,14 +2,14 @@
 #include <fstream>
 #include <string>
 
-#include "arm/backend_passes.hpp"
-#include "arm/program.hpp"
-#include "ast/ast_visitor.hpp"
-#include "common/errors.hpp"
-#include "ir/ir.hpp"
-#include "ir/pass.hpp"
-#include "parser/SysYLexer.h"
-#include "parser/SysYParser.h"
+#include "backend_passes.hpp"
+#include "program.hpp"
+#include "ast_visitor.hpp"
+#include "errors.hpp"
+#include "ir.hpp"
+#include "pass.hpp"
+#include "SysYLexer.h"
+#include "SysYParser.h"
 
 int main(int argc, char **argv) {
 
@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
 
   IR::CompileUnit ir;
   ASTVisitor visitor(ir);
-  auto found_main = std::any_cast<bool>(visitor.visitCompUnit(root));
+  auto found_main = visitor.visitCompUnit(root).as<bool>();
   if (!found_main) {
     throw MainFuncNotFound();
   }
