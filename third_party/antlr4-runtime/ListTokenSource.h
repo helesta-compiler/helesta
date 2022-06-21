@@ -40,7 +40,7 @@ namespace antlr4 {
   private:
     /// This is the backing field for <seealso cref="#getTokenFactory"/> and
     /// <seealso cref="setTokenFactory"/>.
-    TokenFactory<CommonToken> *_factory = CommonTokenFactory::DEFAULT.get();
+    Ref<TokenFactory<CommonToken>> _factory = CommonTokenFactory::DEFAULT;
 
   public:
     /// Constructs a new <seealso cref="ListTokenSource"/> instance from the specified
@@ -79,7 +79,7 @@ namespace antlr4 {
       this->_factory = factory;
     }
 
-    virtual TokenFactory<CommonToken>* getTokenFactory() override;
+    virtual Ref<TokenFactory<CommonToken>> getTokenFactory() override;
 
   private:
     void InitializeInstanceFields();

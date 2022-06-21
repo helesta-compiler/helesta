@@ -7,36 +7,18 @@
 
 #include "RuleContext.h"
 
-// GCC generates a warning when forward-declaring ATN if ATN has already been
-// declared due to the attributes added by ANTLR4CPP_PUBLIC.
-// See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=39159
-// Add constant that can be checked so forward-declarations can be omitted.
-#define ANTLR4CPP_ATN_DECLARED
-
 namespace antlr4 {
 namespace atn {
 
-  class LexerATNSimulator;
-  class ParserATNSimulator;
-
   class ANTLR4CPP_PUBLIC ATN {
   public:
-    static constexpr size_t INVALID_ALT_NUMBER = 0;
+    static const size_t INVALID_ALT_NUMBER = 0;
 
     /// Used for runtime deserialization of ATNs from strings.
     ATN();
-
+    ATN(ATN &&other);
     ATN(ATNType grammarType, size_t maxTokenType);
-
-    ATN(const ATN&) = delete;
-
-    ATN(ATN&&) = delete;
-
-    ~ATN();
-
-    ATN& operator=(const ATN&) = delete;
-
-    ATN& operator=(ATN&&) = delete;
+    virtual ~ATN();
 
     std::vector<ATNState *> states;
 
@@ -68,9 +50,12 @@ namespace atn {
 
     /// For lexer ATNs, this is an array of {@link LexerAction} objects which may
     /// be referenced by action transitions in the ATN.
-    std::vector<Ref<const LexerAction>> lexerActions;
+    std::vector<Ref<LexerAction>> lexerActions;
 
     std::vector<TokensStartState *> modeToStartState;
+
+    ATN& operator = (ATN &other) NOEXCEPT;
+    ATN& operator = (ATN &&other) NOEXCEPT;
 
     /// <summary>
     /// Compute the set of valid tokens that can occur starting in state {@code s}.
@@ -78,24 +63,24 @@ namespace atn {
     ///  the rule surrounding {@code s}. In other words, the set will be
     ///  restricted to tokens reachable staying within {@code s}'s rule.
     /// </summary>
-    misc::IntervalSet nextTokens(ATNState *s, RuleContext *ctx) const;
+    virtual misc::IntervalSet nextTokens(ATNState *s, RuleContext *ctx) const;
 
     /// <summary>
     /// Compute the set of valid tokens that can occur starting in {@code s} and
     /// staying in same rule. <seealso cref="Token#EPSILON"/> is in set if we reach end of
     /// rule.
     /// </summary>
-    misc::IntervalSet const& nextTokens(ATNState *s) const;
+    virtual misc::IntervalSet const& nextTokens(ATNState *s) const;
 
-    void addState(ATNState *state);
+    virtual void addState(ATNState *state);
 
-    void removeState(ATNState *state);
+    virtual void removeState(ATNState *state);
 
-    int defineDecisionState(DecisionState *s);
+    virtual int defineDecisionState(DecisionState *s);
 
-    DecisionState *getDecisionState(size_t decision) const;
+    virtual DecisionState *getDecisionState(size_t decision) const;
 
-    size_t getNumberOfDecisions() const;
+    virtual size_t getNumberOfDecisions() const;
 
     /// <summary>
     /// Computes the set of input symbols which could follow ATN state number
@@ -115,17 +100,12 @@ namespace atn {
     /// specified state in the specified context. </returns>
     /// <exception cref="IllegalArgumentException"> if the ATN does not contain a state with
     /// number {@code stateNumber} </exception>
-    misc::IntervalSet getExpectedTokens(size_t stateNumber, RuleContext *context) const;
+    virtual misc::IntervalSet getExpectedTokens(size_t stateNumber, RuleContext *context) const;
 
     std::string toString() const;
 
   private:
-    friend class LexerATNSimulator;
-    friend class ParserATNSimulator;
-
     mutable std::mutex _mutex;
-    mutable std::shared_mutex _stateMutex;
-    mutable std::shared_mutex _edgeMutex;
   };
 
 } // namespace atn

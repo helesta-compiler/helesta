@@ -6,34 +6,36 @@
 #pragma once
 
 #include <algorithm>
-#include <any>
+#include <assert.h>
 #include <atomic>
-#include <bitset>
-#include <cassert>
-#include <climits>
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-#include <exception>
+#include <codecvt>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <limits>
+#include <limits.h>
+#include <list>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <set>
-#include <shared_mutex>
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <sstream>
 #include <stack>
 #include <string>
-#include <string_view>
 #include <typeinfo>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <mutex>
+#include <exception>
+#include <bitset>
+#include <condition_variable>
+#include <functional>
 
 // Defines for the Guid class and other platform dependent stuff.
 #ifdef _WIN32
@@ -47,10 +49,23 @@
     #endif
   #endif
 
+  #define GUID_WINDOWS
+
   #ifdef _WIN64
     typedef __int64 ssize_t;
   #else
     typedef __int32 ssize_t;
+  #endif
+
+  #if _MSC_VER >= 1900 && _MSC_VER < 2000
+    // VS 2015 has a known bug when using std::codecvt_utf8<char32_t>
+    // so we have to temporarily use __int32 instead.
+    // https://connect.microsoft.com/VisualStudio/feedback/details/1403302/unresolved-external-when-using-codecvt-utf8
+    typedef std::basic_string<__int32> i32string;
+
+    typedef i32string UTF32String;
+  #else
+    typedef std::u32string UTF32String;
   #endif
 
   #ifdef ANTLR4CPP_EXPORTS
@@ -63,13 +78,26 @@
     #endif
   #endif
 
+  #if defined(_MSC_VER) && !defined(__clang__)
+    // clang-cl should escape this to prevent [ignored-attributes].
+    namespace std {
+      class ANTLR4CPP_PUBLIC exception; // Prevents warning C4275 from MSVC.
+    } // namespace std
+  #endif
+
 #elif defined(__APPLE__)
+  typedef std::u32string UTF32String;
+
+  #define GUID_CFUUID
   #if __GNUC__ >= 4
     #define ANTLR4CPP_PUBLIC __attribute__ ((visibility ("default")))
   #else
     #define ANTLR4CPP_PUBLIC
   #endif
 #else
+  typedef std::u32string UTF32String;
+
+  #define GUID_LIBUUID
   #if __GNUC__ >= 6
     #define ANTLR4CPP_PUBLIC __attribute__ ((visibility ("default")))
   #else
@@ -77,16 +105,27 @@
   #endif
 #endif
 
-#ifdef __has_builtin
-#define ANTLR4CPP_HAVE_BUILTIN(x) __has_builtin(x)
-#else
-#define ANTLR4CPP_HAVE_BUILTIN(x) 0
-#endif
-
-#define ANTLR4CPP_INTERNAL_STRINGIFY(x) #x
-#define ANTLR4CPP_STRINGIFY(x) ANTLR4CPP_INTERNAL_STRINGIFY(x)
-
+#include "support/guid.h"
 #include "support/Declarations.h"
+
+#if !defined(HAS_NOEXCEPT)
+  #if defined(__clang__)
+    #if __has_feature(cxx_noexcept)
+      #define HAS_NOEXCEPT
+    #endif
+  #else
+    #if defined(__GXX_EXPERIMENTAL_CXX0X__) && __GNUC__ * 10 + __GNUC_MINOR__ >= 46 || \
+      defined(_MSC_FULL_VER) && _MSC_FULL_VER >= 190023026
+      #define HAS_NOEXCEPT
+    #endif
+  #endif
+
+  #ifdef HAS_NOEXCEPT
+    #define NOEXCEPT noexcept
+  #else
+    #define NOEXCEPT
+  #endif
+#endif
 
 // We have to undefine this symbol as ANTLR will use this name for own members and even
 // generated functions. Because EOF is a global macro we cannot use e.g. a namespace scope to disambiguate.

@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
 
   IR::CompileUnit ir;
   ASTVisitor visitor(ir);
-  auto found_main = std::any_cast<bool>(visitor.visitCompUnit(root));
+  auto found_main = visitor.visitCompUnit(root).as<bool>();
   if (!found_main) {
     throw MainFuncNotFound();
   }
