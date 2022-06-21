@@ -7,7 +7,6 @@
 #include "ast/symbol_table.hpp"
 #include "common/common.hpp"
 #include "common/errors.hpp"
-#include "ir/ir.hpp"
 
 using std::optional;
 using std::pair;
@@ -42,7 +41,7 @@ ASTVisitor::get_array_dims(vector<SysYParser::ConstExpContext *> dims) {
   vector<MemSize> ret;
   ret.reserve(dims.size());
   for (auto i : dims) {
-    auto cur = std::any_cast<CompileTimeValue>(i->accept(this));
+    CompileTimeValue cur = i->accept(this);
     if (cur.value < 0)
       throw NegativeArraySize();
     ret.push_back(static_cast<MemSize>(cur.value));
@@ -50,13 +49,13 @@ ASTVisitor::get_array_dims(vector<SysYParser::ConstExpContext *> dims) {
   return ret;
 }
 
-IRValue ASTVisitor::to_IRValue(std::any value) {
-  if (!value.has_value())
+IRValue ASTVisitor::to_IRValue(antlrcpp::Any value) {
+  if (value.isNull())
     throw VoidFuncReturnValueUsed();
-  if (value.type() == typeid(IRValue))
-    return std::any_cast<IRValue>(value);
-  assert(value.type() == typeid(CondJumpList));
-  auto jump_list = std::any_cast<CondJumpList>(value);
+  if (value.is<IRValue>())
+    return value.as<IRValue>();
+  assert(value.is<CondJumpList>());
+  CondJumpList jump_list = value;
   IR::BB *true_bb = new_BB(), *false_bb = new_BB(), *res_bb = new_BB();
   for (IR::BB **i : jump_list.true_list)
     (*i) = true_bb;
@@ -78,13 +77,13 @@ IRValue ASTVisitor::to_IRValue(std::any value) {
   return ret;
 }
 
-CondJumpList ASTVisitor::to_CondJumpList(std::any value) {
-  if (!value.has_value())
+CondJumpList ASTVisitor::to_CondJumpList(antlrcpp::Any value) {
+  if (value.isNull())
     throw VoidFuncReturnValueUsed();
-  if (value.type() == typeid(CondJumpList))
-    return std::any_cast<CondJumpList>(value);
-  assert(value.type() == typeid(IRValue));
-  auto irv = std::any_cast<IRValue>(value);
+  if (value.is<CondJumpList>())
+    return value.as<CondJumpList>();
+  assert(value.is<IRValue>());
+  IRValue irv = value;
   IR::Reg reg = get_value(irv);
   IR::BranchInstr *inst = new IR::BranchInstr(reg, nullptr, nullptr);
   cur_bb->push(inst);
@@ -144,14 +143,14 @@ VariableTableEntry *ASTVisitor::resolve(const string &name) {
 
 ASTVisitor::ASTVisitor(IR::CompileUnit &_ir) : global_var(nullptr), ir(_ir) {}
 
-std::any ASTVisitor::visitChildren(antlr4::tree::ParseTree *ctx) {
+antlrcpp::Any ASTVisitor::visitChildren(antlr4::tree::ParseTree *ctx) {
   size_t n = ctx->children.size();
   for (size_t i = 0; i < n; ++i)
     ctx->children[i]->accept(this);
   return nullptr;
 }
 
-std::any ASTVisitor::visitCompUnit(SysYParser::CompUnitContext *ctx) {
+antlrcpp::Any ASTVisitor::visitCompUnit(SysYParser::CompUnitContext *ctx) {
   mode = normal;
   init_func = ir.new_NormalFunc(".init");
   init_bb = init_func->new_BB();
@@ -170,22 +169,21 @@ std::any ASTVisitor::visitCompUnit(SysYParser::CompUnitContext *ctx) {
   continue_target.clear();
   register_lib_functions();
   visitChildren(ctx);
-  // init_func should return
   auto r = init_func->new_Reg();
   init_bb->push(new IR::LoadConst(r, 0));
   init_bb->push(new IR::ReturnInstr(r, true));
   return found_main;
 }
 
-std::any ASTVisitor::visitDecl(SysYParser::DeclContext *ctx) {
+antlrcpp::Any ASTVisitor::visitDecl(SysYParser::DeclContext *ctx) {
   return visitChildren(ctx);
 }
 
-std::any ASTVisitor::visitConstDecl(SysYParser::ConstDeclContext *ctx) {
+antlrcpp::Any ASTVisitor::visitConstDecl(SysYParser::ConstDeclContext *ctx) {
   return visitChildren(ctx);
 }
 
-std::any ASTVisitor::visitBType(SysYParser::BTypeContext *ctx) {
+antlrcpp::Any ASTVisitor::visitBType(SysYParser::BTypeContext *ctx) {
   return visitChildren(ctx);
 }
 
@@ -211,9 +209,8 @@ void ASTVisitor::dfs_const_init(SysYParser::ListConstInitValContext *node,
             dynamic_cast<SysYParser::ScalarConstInitValContext *>(child)) {
       if (cnt + 1 > total_size)
         throw InvalidInitList();
-      result.push_back(std::any_cast<CompileTimeValue>(
-                           scalar_child->constExp()->accept(this))
-                           .value);
+      result.push_back(
+          scalar_child->constExp()->accept(this).as<CompileTimeValue>().value);
       ++cnt;
     } else {
       auto list_child =
@@ -240,9 +237,7 @@ ASTVisitor::parse_const_init(SysYParser::ConstInitValContext *root,
     if (shape.size())
       throw InvalidInitList();
     ret.push_back(
-        std::any_cast<CompileTimeValue>(scalar_root->constExp()->accept(this))
-            .value);
-    ;
+        scalar_root->constExp()->accept(this).as<CompileTimeValue>().value);
     return ret;
   }
   auto list_root = dynamic_cast<SysYParser::ListConstInitValContext *>(root);
@@ -251,7 +246,7 @@ ASTVisitor::parse_const_init(SysYParser::ConstInitValContext *root,
   return ret;
 }
 
-std::any ASTVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
+antlrcpp::Any ASTVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
   string name = ctx->Identifier()->getText();
   IR::MemObject *ir_obj;
   Type type;
@@ -299,24 +294,25 @@ std::any ASTVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitScalarConstInitVal(
+antlrcpp::Any ASTVisitor::visitScalarConstInitVal(
     SysYParser::ScalarConstInitValContext *ctx) {
   throw RuntimeError(
       "ASTVisitor::visitScalarConstInitVal should be unreachable");
   return nullptr;
 }
 
-std::any
+antlrcpp::Any
 ASTVisitor::visitListConstInitVal(SysYParser::ListConstInitValContext *ctx) {
   throw RuntimeError("ASTVisitor::visitListConstInitVal should be unreachable");
   return nullptr;
 }
 
-std::any ASTVisitor::visitVarDecl(SysYParser::VarDeclContext *ctx) {
+antlrcpp::Any ASTVisitor::visitVarDecl(SysYParser::VarDeclContext *ctx) {
   return visitChildren(ctx);
 }
 
-std::any ASTVisitor::visitUninitVarDef(SysYParser::UninitVarDefContext *ctx) {
+antlrcpp::Any
+ASTVisitor::visitUninitVarDef(SysYParser::UninitVarDefContext *ctx) {
   Type type;
   type.array_dims = get_array_dims(ctx->constExp());
   string name = ctx->Identifier()->getText();
@@ -440,7 +436,7 @@ void ASTVisitor::gen_var_init_ir(const vector<optional<IR::Reg>> &init,
   }
 }
 
-std::any ASTVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
+antlrcpp::Any ASTVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
   Type type;
   type.array_dims = get_array_dims(ctx->constExp());
   string name = ctx->Identifier()->getText();
@@ -478,23 +474,24 @@ std::any ASTVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitScalarInitVal(SysYParser::ScalarInitValContext *ctx) {
+antlrcpp::Any
+ASTVisitor::visitScalarInitVal(SysYParser::ScalarInitValContext *ctx) {
   throw RuntimeError("ASTVisitor::visitScalarInitVal should be unreachable");
   return nullptr;
 }
 
-std::any ASTVisitor::visitListInitval(SysYParser::ListInitvalContext *ctx) {
+antlrcpp::Any
+ASTVisitor::visitListInitval(SysYParser::ListInitvalContext *ctx) {
   throw RuntimeError("ASTVisitor::visitListInitval should be unreachable");
   return nullptr;
 }
 
-std::any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
+antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   bool return_value_non_void = (ctx->funcType()->getText() == "int");
   string name = ctx->Identifier()->getText();
   vector<pair<string, Type>> params;
   if (ctx->funcFParams())
-    params = std::any_cast<vector<pair<string, Type>>>(
-        ctx->funcFParams()->accept(this));
+    params = ctx->funcFParams()->accept(this).as<vector<pair<string, Type>>>();
   FunctionInterface interface;
   interface.return_value_non_void = return_value_non_void;
   for (auto &i : params)
@@ -570,18 +567,19 @@ std::any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitFuncType(SysYParser::FuncTypeContext *ctx) {
+antlrcpp::Any ASTVisitor::visitFuncType(SysYParser::FuncTypeContext *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitFuncFParams(SysYParser::FuncFParamsContext *ctx) {
+antlrcpp::Any
+ASTVisitor::visitFuncFParams(SysYParser::FuncFParamsContext *ctx) {
   vector<pair<string, Type>> ret;
   for (auto i : ctx->funcFParam())
-    ret.push_back(std::any_cast<pair<string, Type>>(i->accept(this)));
+    ret.push_back(i->accept(this));
   return ret;
 }
 
-std::any ASTVisitor::visitFuncFParam(SysYParser::FuncFParamContext *ctx) {
+antlrcpp::Any ASTVisitor::visitFuncFParam(SysYParser::FuncFParamContext *ctx) {
   Type type;
   if (ctx->getText().find("[") != string::npos)
     type.omit_first_dim = true;
@@ -589,18 +587,18 @@ std::any ASTVisitor::visitFuncFParam(SysYParser::FuncFParamContext *ctx) {
   return pair<string, Type>{ctx->Identifier()->getText(), type};
 }
 
-std::any ASTVisitor::visitBlock(SysYParser::BlockContext *ctx) {
+antlrcpp::Any ASTVisitor::visitBlock(SysYParser::BlockContext *ctx) {
   return visitChildren(ctx);
 }
 
-std::any ASTVisitor::visitBlockItem(SysYParser::BlockItemContext *ctx) {
+antlrcpp::Any ASTVisitor::visitBlockItem(SysYParser::BlockItemContext *ctx) {
   return visitChildren(ctx);
 }
 
-std::any ASTVisitor::visitAssignment(SysYParser::AssignmentContext *ctx) {
+antlrcpp::Any ASTVisitor::visitAssignment(SysYParser::AssignmentContext *ctx) {
   assert(mode == normal);
-  IRValue lhs = std::any_cast<IRValue>(ctx->lVal()->accept(this)),
-          rhs = std::any_cast<IRValue>(to_IRValue(ctx->exp()->accept(this)));
+  IRValue lhs = ctx->lVal()->accept(this),
+          rhs = to_IRValue(ctx->exp()->accept(this));
   if (!lhs.assignable())
     throw AssignmentTypeError("left hand side '" + ctx->lVal()->getText() +
                               "' is not assignable");
@@ -612,11 +610,11 @@ std::any ASTVisitor::visitAssignment(SysYParser::AssignmentContext *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitExpStmt(SysYParser::ExpStmtContext *ctx) {
+antlrcpp::Any ASTVisitor::visitExpStmt(SysYParser::ExpStmtContext *ctx) {
   return visitChildren(ctx);
 }
 
-std::any ASTVisitor::visitBlockStmt(SysYParser::BlockStmtContext *ctx) {
+antlrcpp::Any ASTVisitor::visitBlockStmt(SysYParser::BlockStmtContext *ctx) {
   VariableTable *parent = cur_local_table;
   VariableTable *child = new_variable_table(parent);
   cur_local_table = child;
@@ -625,8 +623,8 @@ std::any ASTVisitor::visitBlockStmt(SysYParser::BlockStmtContext *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
-  auto cond = std::any_cast<CondJumpList>(ctx->cond()->accept(this));
+antlrcpp::Any ASTVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
+  CondJumpList cond = ctx->cond()->accept(this);
   VariableTable *parent = cur_local_table;
   VariableTable *child = new_variable_table(parent);
   IR::BB *true_entry = new_BB();
@@ -645,8 +643,8 @@ std::any ASTVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
-  auto cond = std::any_cast<CondJumpList>(ctx->cond()->accept(this));
+antlrcpp::Any ASTVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
+  CondJumpList cond = ctx->cond()->accept(this);
   VariableTable *parent = cur_local_table;
   VariableTable *child_true = new_variable_table(parent),
                 *child_false = new_variable_table(parent);
@@ -672,11 +670,11 @@ std::any ASTVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
+antlrcpp::Any ASTVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   IR::BB *cond_entry = new_BB();
   cur_bb->push(new IR::JumpInstr(cond_entry));
   cur_bb = cond_entry;
-  auto cond = std::any_cast<CondJumpList>(ctx->cond()->accept(this));
+  CondJumpList cond = ctx->cond()->accept(this);
   IR::BB *out = new_BB(), *body_entry = new_BB(), *jump_back = new_BB();
   VariableTable *parent = cur_local_table;
   VariableTable *child = new_variable_table(parent);
@@ -699,7 +697,7 @@ std::any ASTVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitBreakStmt(SysYParser::BreakStmtContext *ctx) {
+antlrcpp::Any ASTVisitor::visitBreakStmt(SysYParser::BreakStmtContext *ctx) {
   if (break_target.size() == 0)
     throw InvalidBreak();
   cur_bb->push(new IR::JumpInstr(*std::prev(break_target.end())));
@@ -707,7 +705,8 @@ std::any ASTVisitor::visitBreakStmt(SysYParser::BreakStmtContext *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *ctx) {
+antlrcpp::Any
+ASTVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *ctx) {
   if (continue_target.size() == 0)
     throw InvalidContinue();
   cur_bb->push(new IR::JumpInstr(*std::prev(continue_target.end())));
@@ -715,7 +714,7 @@ std::any ASTVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
+antlrcpp::Any ASTVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
   assert(mode == normal);
   if (ctx->exp()) {
     if (functions.resolve(cur_func_name)->interface.return_value_non_void) {
@@ -735,18 +734,18 @@ std::any ASTVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitExp(SysYParser::ExpContext *ctx) {
+antlrcpp::Any ASTVisitor::visitExp(SysYParser::ExpContext *ctx) {
   return ctx->addExp()->accept(this);
 }
 
-std::any ASTVisitor::visitCond(SysYParser::CondContext *ctx) {
+antlrcpp::Any ASTVisitor::visitCond(SysYParser::CondContext *ctx) {
   mode = condition;
-  std::any value = ctx->lOrExp()->accept(this);
+  antlrcpp::Any value = ctx->lOrExp()->accept(this);
   mode = normal;
   return to_CondJumpList(value);
 }
 
-std::any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
+antlrcpp::Any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
   VariableTableEntry *entry = resolve(ctx->Identifier()->getText());
   if (!entry)
     throw UnrecognizedVarName(ctx->Identifier()->getText());
@@ -761,7 +760,7 @@ std::any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
     }
     vector<MemSize> index;
     for (auto i : ctx->exp()) {
-      auto cur = std::any_cast<CompileTimeValue>(i->accept(this));
+      CompileTimeValue cur = i->accept(this);
       if (cur.value < 0)
         throw CompileTimeValueEvalFail(
             "negative array index for compile-time constant");
@@ -816,16 +815,19 @@ std::any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
   }
 }
 
-std::any ASTVisitor::visitPrimaryExp1(SysYParser::PrimaryExp1Context *ctx) {
+antlrcpp::Any
+ASTVisitor::visitPrimaryExp1(SysYParser::PrimaryExp1Context *ctx) {
   return ctx->exp()->accept(this);
 }
 
-std::any ASTVisitor::visitPrimaryExp2(SysYParser::PrimaryExp2Context *ctx) {
+antlrcpp::Any
+ASTVisitor::visitPrimaryExp2(SysYParser::PrimaryExp2Context *ctx) {
   return ctx->lVal()->accept(this);
 }
 
-std::any ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
-  auto literal_value = std::any_cast<int32_t>(ctx->number()->accept(this));
+antlrcpp::Any
+ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
+  int32_t literal_value = ctx->number()->accept(this);
   if (mode == compile_time) {
     return CompileTimeValue{literal_value};
   } else {
@@ -838,15 +840,15 @@ std::any ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
   }
 }
 
-std::any ASTVisitor::visitNumber(SysYParser::NumberContext *ctx) {
+antlrcpp::Any ASTVisitor::visitNumber(SysYParser::NumberContext *ctx) {
   return parse_int32_literal(ctx->getText());
 }
 
-std::any ASTVisitor::visitUnary1(SysYParser::Unary1Context *ctx) {
+antlrcpp::Any ASTVisitor::visitUnary1(SysYParser::Unary1Context *ctx) {
   return ctx->primaryExp()->accept(this);
 }
 
-std::any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
+antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
   if (mode == compile_time)
     throw CompileTimeValueEvalFail(
         "function call occurs in compile-time constant expression");
@@ -856,8 +858,9 @@ std::any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
     throw UnrecognizedFuncName(func_name);
   vector<variant<IR::MemObject *, IRValue>> args;
   if (ctx->funcRParams())
-    args = std::any_cast<vector<variant<IR::MemObject *, IRValue>>>(
-        ctx->funcRParams());
+    args = ctx->funcRParams()
+               ->accept(this)
+               .as<vector<variant<IR::MemObject *, IRValue>>>();
   if (args.size() < entry->interface.args_type.size())
     throw InvalidFuncCallArg("wrong number of function arguments");
   if (args.size() > entry->interface.args_type.size() &&
@@ -916,11 +919,11 @@ std::any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
   }
 }
 
-std::any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
+antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
   char op = ctx->unaryOp()->getText()[0];
   assert(op == '+' || op == '-' || op == '!');
   if (mode == compile_time) {
-    auto rhs = std::any_cast<CompileTimeValue>(ctx->unaryExp()->accept(this));
+    CompileTimeValue rhs = ctx->unaryExp()->accept(this);
     switch (op) {
     case '-':
       rhs = -rhs;
@@ -981,23 +984,25 @@ std::any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
   }
 }
 
-std::any ASTVisitor::visitUnaryOp(SysYParser::UnaryOpContext *ctx) {
+antlrcpp::Any ASTVisitor::visitUnaryOp(SysYParser::UnaryOpContext *ctx) {
   return nullptr;
 }
 
-std::any ASTVisitor::visitFuncRParams(SysYParser::FuncRParamsContext *ctx) {
+antlrcpp::Any
+ASTVisitor::visitFuncRParams(SysYParser::FuncRParamsContext *ctx) {
   vector<variant<IR::MemObject *, IRValue>> ret;
   for (auto i : ctx->funcRParam()) {
-    std::any cur = i->accept(this);
-    if (cur.type() == typeid(IRValue))
-      ret.emplace_back(std::any_cast<IRValue>(cur));
+    antlrcpp::Any cur = i->accept(this);
+    if (cur.is<IRValue>())
+      ret.emplace_back(cur.as<IRValue>());
     else
-      ret.emplace_back(std::any_cast<IR::MemObject *>(cur));
+      ret.emplace_back(cur.as<IR::MemObject *>());
   }
   return ret;
 }
 
-std::any ASTVisitor::visitExpAsRParam(SysYParser::ExpAsRParamContext *ctx) {
+antlrcpp::Any
+ASTVisitor::visitExpAsRParam(SysYParser::ExpAsRParamContext *ctx) {
   assert(mode != compile_time);
   ValueMode prev_mode = mode;
   mode = normal;
@@ -1006,7 +1011,7 @@ std::any ASTVisitor::visitExpAsRParam(SysYParser::ExpAsRParamContext *ctx) {
   return ret;
 }
 
-std::any
+antlrcpp::Any
 ASTVisitor::visitStringAsRParam(SysYParser::StringAsRParamContext *ctx) {
   string string_literal = ctx->getText();
   char *buffer = new char[string_literal.length() + 1];
@@ -1020,19 +1025,16 @@ ASTVisitor::visitStringAsRParam(SysYParser::StringAsRParamContext *ctx) {
   return ir_obj;
 }
 
-std::any ASTVisitor::visitMul1(SysYParser::Mul1Context *ctx) {
+antlrcpp::Any ASTVisitor::visitMul1(SysYParser::Mul1Context *ctx) {
   return ctx->unaryExp()->accept(this);
 }
 
-std::any ASTVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
+antlrcpp::Any ASTVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
   char op = ctx->children[1]->getText()[0];
   assert(op == '*' || op == '/' || op == '%');
   if (mode == compile_time) {
-    CompileTimeValue lhs = std::any_cast<CompileTimeValue>(
-                         ctx->mulExp()->accept(this)),
-                     rhs = std::any_cast<CompileTimeValue>(
-                         ctx->unaryExp()->accept(this)),
-                     res;
+    CompileTimeValue lhs = ctx->mulExp()->accept(this),
+                     rhs = ctx->unaryExp()->accept(this), res;
     switch (op) {
     case '*':
       res = lhs * rhs;
@@ -1073,19 +1075,16 @@ std::any ASTVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
   return ret;
 }
 
-std::any ASTVisitor::visitAdd1(SysYParser::Add1Context *ctx) {
+antlrcpp::Any ASTVisitor::visitAdd1(SysYParser::Add1Context *ctx) {
   return ctx->mulExp()->accept(this);
 }
 
-std::any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
+antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
   char op = ctx->children[1]->getText()[0];
   assert(op == '+' || op == '-');
   if (mode == compile_time) {
-    CompileTimeValue lhs = std::any_cast<CompileTimeValue>(
-                         ctx->addExp()->accept(this)),
-                     rhs = std::any_cast<CompileTimeValue>(
-                         ctx->mulExp()->accept(this)),
-                     res;
+    CompileTimeValue lhs = ctx->addExp()->accept(this),
+                     rhs = ctx->mulExp()->accept(this), res;
     switch (op) {
     case '+':
       res = lhs + rhs;
@@ -1119,11 +1118,11 @@ std::any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
   return ret;
 }
 
-std::any ASTVisitor::visitRel1(SysYParser::Rel1Context *ctx) {
+antlrcpp::Any ASTVisitor::visitRel1(SysYParser::Rel1Context *ctx) {
   return ctx->addExp()->accept(this);
 }
 
-std::any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
+antlrcpp::Any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
   string ops = ctx->children[1]->getText();
   assert(ops == "<" || ops == ">" || ops == "<=" || ops == ">=");
   IR::BinaryOp::Type opt;
@@ -1143,11 +1142,8 @@ std::any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
   }
   IR::BinaryOp op{opt};
   if (mode == compile_time) {
-    CompileTimeValue lhs = std::any_cast<CompileTimeValue>(
-                         ctx->relExp()->accept(this)),
-                     rhs = std::any_cast<CompileTimeValue>(
-                         ctx->addExp()->accept(this)),
-                     res;
+    CompileTimeValue lhs = ctx->relExp()->accept(this),
+                     rhs = ctx->addExp()->accept(this), res;
     if (rev)
       std::swap(lhs, rhs);
     if (opt == IR::BinaryOp::LESS)
@@ -1172,11 +1168,11 @@ std::any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
   return ret;
 }
 
-std::any ASTVisitor::visitEq1(SysYParser::Eq1Context *ctx) {
+antlrcpp::Any ASTVisitor::visitEq1(SysYParser::Eq1Context *ctx) {
   return ctx->relExp()->accept(this);
 }
 
-std::any ASTVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
+antlrcpp::Any ASTVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
   string ops = ctx->children[1]->getText();
   assert(ops == "==" || ops == "!=");
   IR::BinaryOp::Type opt;
@@ -1186,11 +1182,8 @@ std::any ASTVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
     opt = IR::BinaryOp::NEQ;
   IR::BinaryOp op{opt};
   if (mode == compile_time) {
-    CompileTimeValue lhs = std::any_cast<CompileTimeValue>(
-                         ctx->eqExp()->accept(this)),
-                     rhs = std::any_cast<CompileTimeValue>(
-                         ctx->relExp()->accept(this)),
-                     res;
+    CompileTimeValue lhs = ctx->eqExp()->accept(this),
+                     rhs = ctx->relExp()->accept(this), res;
     if (opt == IR::BinaryOp::EQ)
       res = (lhs == rhs);
     else
@@ -1211,16 +1204,14 @@ std::any ASTVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
   return ret;
 }
 
-std::any ASTVisitor::visitLAnd1(SysYParser::LAnd1Context *ctx) {
+antlrcpp::Any ASTVisitor::visitLAnd1(SysYParser::LAnd1Context *ctx) {
   return ctx->eqExp()->accept(this);
 }
 
-std::any ASTVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
+antlrcpp::Any ASTVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
   if (mode == compile_time) {
-    CompileTimeValue lhs = std::any_cast<CompileTimeValue>(
-                         ctx->lAndExp()->accept(this)),
-                     rhs = std::any_cast<CompileTimeValue>(
-                         ctx->eqExp()->accept(this));
+    CompileTimeValue lhs = ctx->lAndExp()->accept(this),
+                     rhs = ctx->eqExp()->accept(this);
     return lhs && rhs;
   } else if (mode == normal) {
     IRValue lhs = to_IRValue(ctx->lAndExp()->accept(this));
@@ -1255,16 +1246,14 @@ std::any ASTVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
   }
 }
 
-std::any ASTVisitor::visitLOr1(SysYParser::LOr1Context *ctx) {
+antlrcpp::Any ASTVisitor::visitLOr1(SysYParser::LOr1Context *ctx) {
   return ctx->lAndExp()->accept(this);
 }
 
-std::any ASTVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
+antlrcpp::Any ASTVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
   if (mode == compile_time) {
-    CompileTimeValue lhs = std::any_cast<CompileTimeValue>(
-                         ctx->lOrExp()->accept(this)),
-                     rhs = std::any_cast<CompileTimeValue>(
-                         ctx->lAndExp()->accept(this));
+    CompileTimeValue lhs = ctx->lOrExp()->accept(this),
+                     rhs = ctx->lAndExp()->accept(this);
     return lhs || rhs;
   } else if (mode == normal) {
     IRValue lhs = to_IRValue(ctx->lOrExp()->accept(this));
@@ -1299,10 +1288,10 @@ std::any ASTVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
   }
 }
 
-std::any ASTVisitor::visitConstExp(SysYParser::ConstExpContext *ctx) {
+antlrcpp::Any ASTVisitor::visitConstExp(SysYParser::ConstExpContext *ctx) {
   assert(mode == normal);
   mode = compile_time;
-  auto ret = std::any_cast<CompileTimeValue>(ctx->addExp()->accept(this));
+  CompileTimeValue ret = ctx->addExp()->accept(this);
   mode = normal;
   return ret;
 }

@@ -5,8 +5,6 @@
 
 #pragma once
 
-#include <atomic>
-
 #include "atn/ATNSimulator.h"
 #include "atn/LexerATNConfig.h"
 #include "atn/ATNConfigSet.h"
@@ -17,18 +15,31 @@ namespace atn {
   /// "dup" of ParserInterpreter
   class ANTLR4CPP_PUBLIC LexerATNSimulator : public ATNSimulator {
   protected:
-    struct ANTLR4CPP_PUBLIC SimState final {
-      size_t index = INVALID_INDEX;
-      size_t line = 0;
-      size_t charPos = INVALID_INDEX;
-      dfa::DFAState *dfaState = nullptr;
+    class SimState {
+    public:
+      virtual ~SimState();
 
-      void reset();
+    protected:
+      size_t index;
+      size_t line;
+      size_t charPos;
+      dfa::DFAState *dfaState;
+      virtual void reset();
+      friend class LexerATNSimulator;
+
+    private:
+      void InitializeInstanceFields();
+
+    public:
+      SimState() {
+        InitializeInstanceFields();
+      }
     };
 
+
   public:
-    static constexpr size_t MIN_DFA_EDGE = 0;
-    static constexpr size_t MAX_DFA_EDGE = 127; // forces unicode to stay in ATN
+    static const size_t MIN_DFA_EDGE = 0;
+    static const size_t MAX_DFA_EDGE = 127; // forces unicode to stay in ATN
 
   protected:
     /// <summary>
@@ -71,9 +82,11 @@ namespace atn {
     SimState _prevAccept;
 
   public:
+    static int match_calls;
+
     LexerATNSimulator(const ATN &atn, std::vector<dfa::DFA> &decisionToDFA, PredictionContextCache &sharedContextCache);
     LexerATNSimulator(Lexer *recog, const ATN &atn, std::vector<dfa::DFA> &decisionToDFA, PredictionContextCache &sharedContextCache);
-    virtual ~LexerATNSimulator() = default;
+    virtual ~LexerATNSimulator () {}
 
     virtual void copyState(LexerATNSimulator *simulator);
     virtual size_t match(CharStream *input, size_t mode);
@@ -120,10 +133,10 @@ namespace atn {
     void getReachableConfigSet(CharStream *input, ATNConfigSet *closure_, // closure_ as we have a closure() already
                                ATNConfigSet *reach, size_t t);
 
-    virtual void accept(CharStream *input, const Ref<const LexerActionExecutor> &lexerActionExecutor, size_t startIndex, size_t index,
+    virtual void accept(CharStream *input, const Ref<LexerActionExecutor> &lexerActionExecutor, size_t startIndex, size_t index,
                         size_t line, size_t charPos);
 
-    virtual ATNState *getReachableTarget(const Transition *trans, size_t t);
+    virtual ATNState *getReachableTarget(Transition *trans, size_t t);
 
     virtual std::unique_ptr<ATNConfigSet> computeStartState(CharStream *input, ATNState *p);
 
@@ -140,7 +153,7 @@ namespace atn {
                          bool currentAltReachedAcceptState, bool speculative, bool treatEofAsEpsilon);
 
     // side-effect: can alter configs.hasSemanticContext
-    virtual Ref<LexerATNConfig> getEpsilonTarget(CharStream *input, const Ref<LexerATNConfig> &config, const Transition *t,
+    virtual Ref<LexerATNConfig> getEpsilonTarget(CharStream *input, const Ref<LexerATNConfig> &config, Transition *t,
       ATNConfigSet *configs, bool speculative, bool treatEofAsEpsilon);
 
     /// <summary>
@@ -176,8 +189,6 @@ namespace atn {
     /// traversing the DFA, we will know which rule to accept.
     /// </summary>
     virtual dfa::DFAState *addDFAState(ATNConfigSet *configs);
-
-    virtual dfa::DFAState *addDFAState(ATNConfigSet *configs, bool suppressEdge);
 
   public:
     dfa::DFA& getDFA(size_t mode);
