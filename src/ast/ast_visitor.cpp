@@ -5,8 +5,8 @@
 #include "exp_value.hpp"
 #include "init_value.hpp"
 #include "symbol_table.hpp"
-#include "common/common.hpp"
-#include "common/errors.hpp"
+#include "common.hpp"
+#include "errors.hpp"
 
 using std::optional;
 using std::pair;
