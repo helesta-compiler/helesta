@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-#include "ir/ir.hpp"
+#include "ir.hpp"
 
 struct CompileTimeValue {
   int32_t value;
