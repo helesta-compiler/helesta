@@ -828,7 +828,7 @@ ASTVisitor::visitPrimaryExp2(SysYParser::PrimaryExp2Context *ctx) {
 antlrcpp::Any
 ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
   auto literal_value = ctx->number()->accept(this);
-  if(typeid(literal_value) == typeid(int)){
+  if (typeid(literal_value) == typeid(int)) {
     if (mode == compile_time) {
       return CompileTimeValue{literal_value};
     } else {
@@ -839,17 +839,17 @@ ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
       ret.reg = value;
       return ret;
     }
-  }
-  else {
+  } else {
     throw InvalidLiteral(ctx->number()->getText());
   }
 }
 
 antlrcpp::Any ASTVisitor::visitNumber(SysYParser::NumberContext *ctx) {
-  if(ctx->IntLiteral() != 0) return parse_int32_literal(ctx->getText());
-  else {
+  if (ctx->IntLiteral() != 0) {
+    return parse_int32_literal(ctx->getText());
+  } else {
     return parse_float_literal(ctx->FloatLiteral()->getText());
-    //int32_t(stof(ctx->FloatLiteral()->getText()));
+    // int32_t(stof(ctx->FloatLiteral()->getText()));
   }
 }
 

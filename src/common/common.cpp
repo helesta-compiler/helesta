@@ -70,7 +70,7 @@ int32_t parse_int32_literal(const string &s) {
 }
 
 float parse_float_literal(const string &s) {
-  return stof(s);
+  return stof(s); // parse float literal
 }
 
 static bool legal_char(char ch) {
