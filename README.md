@@ -1,5 +1,7 @@
 # Project Helesta
 
+[![Build](https://github.com/helesta-compiler/helesta/actions/workflows/check.yml/badge.svg)](https://github.com/helesta-compiler/helesta/actions/workflows/check.yml)
+
 ## Quick Start
 
 ```sh
