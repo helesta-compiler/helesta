@@ -44,25 +44,41 @@ GE : '>=';
 
 // float
 FloatLiteral
+    : DecimalFloatConst
+    | HexadecimalFloatConst
+    ;
+
+DecimalFloatConst
     : FractionPart (ExponentPart)?
     | [0-9]+ ExponentPart 
-    | (HexadecimalDigits)? '.' HexadecimalDigits 
-    | HexadecimalDigits '.'
-    ;
-
-HexadecimalDigits
-    : '0x' [0-9a-fA-F]+ 
-    | '0X' [0-9a-fA-F]+
-    ;
-
-ExponentPart
-    : [eE] [+-] [0-9]+
     ;
 
 FractionPart
     : [0-9]* '.' [0-9]+
     | [0-9]+ '.'
     ;
+
+HexadecimalFloatConst
+    : HexadecimalPrefix HexadecimalFractionPart BinaryExponentPart
+    | HexadecimalPrefix [0-9a-fA-F]+ BinaryExponentPart
+    ;
+
+HexadecimalFractionPart
+    : [0-9a-fA-F]* '.' [0-9a-fA-F]+
+    | [0-9a-fA-F]+ '.'
+    ;
+
+HexadecimalPrefix
+    : '0x' | '0X'
+    ;
+
+ExponentPart
+    : [eE] [+-]? [0-9]+
+    ;
+BinaryExponentPart
+    : [pP] [+-]? [0-9]+
+    ;
+
 
 // integer
 IntLiteral

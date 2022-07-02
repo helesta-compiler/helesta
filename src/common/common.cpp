@@ -69,6 +69,10 @@ int32_t parse_int32_literal(const string &s) {
     return INT_MIN;
 }
 
+float parse_float_literal(const string &s) {
+  return stof(s);
+}
+
 static bool legal_char(char ch) {
   return isalpha(ch) || isdigit(ch) || ch == '_';
 }

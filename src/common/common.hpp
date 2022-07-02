@@ -18,6 +18,7 @@ bool startswith(const std::string &s1, const std::string &s2);
 
 // parse [0-9]+ | '0x'[0-9a-fA-F]+ | '0X'[0-9a-fA-F]+
 int32_t parse_int32_literal(const std::string &s);
+float parse_float_literal(const std::string &s);
 
 std::string mangle_global_var_name(const std::string &s);
 
