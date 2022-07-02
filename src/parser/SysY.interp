@@ -89,11 +89,11 @@ LT
 LE
 GT
 GE
-IntLiteral
+FloatLiteral
 HexadecimalDigits
 ExponentPart
 FractionPart
-FloatLiteral
+IntLiteral
 Identifier
 STRING
 WS

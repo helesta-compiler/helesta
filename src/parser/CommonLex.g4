@@ -42,15 +42,14 @@ LE : '<=';
 GT : '>';
 GE : '>=';
 
-
-// integer
-IntLiteral
-    : [0-9]+ 
-    | '0x' [0-9a-fA-F]+ 
-    | '0X' [0-9a-fA-F]+ 
+// float
+FloatLiteral
+    : FractionPart (ExponentPart)?
+    | [0-9]+ ExponentPart 
+    | (HexadecimalDigits)? '.' HexadecimalDigits 
+    | HexadecimalDigits '.'
     ;
 
-// float
 HexadecimalDigits
     : '0x' [0-9a-fA-F]+ 
     | '0X' [0-9a-fA-F]+
@@ -65,11 +64,11 @@ FractionPart
     | [0-9]+ '.'
     ;
 
-FloatLiteral
-    : FractionPart (ExponentPart)?
-    | [0-9]+ ExponentPart 
-    | (HexadecimalDigits)? '.' HexadecimalDigits 
-    | HexadecimalDigits '.'
+// integer
+IntLiteral
+    : [0-9]+ 
+    | '0x' [0-9a-fA-F]+ 
+    | '0X' [0-9a-fA-F]+ 
     ;
 
 //identifier
