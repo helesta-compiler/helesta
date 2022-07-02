@@ -44,7 +44,6 @@ struct CmpInfo {
 };
 
 struct Block {
-  double prob;
   std::string name;
   bool label_used;
   std::list<std::unique_ptr<Inst>> insts;

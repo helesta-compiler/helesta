@@ -13,11 +13,9 @@
 
 #include "arm/archinfo.hpp"
 #include "arm/backend_passes.hpp"
-#include "arm/coloring_alloc.hpp"
 #include "arm/inst.hpp"
 #include "arm/simple_coloring_alloc.hpp"
 #include "common/common.hpp"
-#include "ir/pass.hpp"
 
 using std::deque;
 using std::make_unique;
@@ -30,7 +28,7 @@ using std::vector;
 
 namespace ARMv7 {
 
-Block::Block(string _name) : prob(1), name(_name), label_used(false) {}
+Block::Block(string _name) : name(_name), label_used(false) {}
 
 void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
                       Block *next_block, map<Reg, CmpInfo> &cmp_info) {
@@ -262,12 +260,10 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
   }
   entry = new Block(".entry_" + name);
   blocks.emplace_back(entry);
-  std::unordered_map<IR::BB *, double> bb_prob = estimate_BB_prob(ir_func);
   for (size_t i = 0; i < ir_func->bbs.size(); ++i) {
     IR::BB *cur = ir_func->bbs[i].get();
     string cur_name = ".L" + std::to_string(prog->block_n++);
     unique_ptr<Block> res = make_unique<Block>(cur_name);
-    res->prob = bb_prob[cur];
     info.block_mapping[cur] = res.get();
     info.rev_block_mapping[res.get()] = cur;
     blocks.push_back(std::move(res));
@@ -442,22 +438,12 @@ vector<int> Func::reg_allocate(RegAllocStat *stat) {
   info << "register allocation for function: " << name << '\n';
   info << "reg_n = " << reg_n << '\n';
   stat->spill_cnt = 0;
-  if (reg_n <= 2000) {
-    info << "using ColoringAllocator\n";
-    while (true) {
-      ColoringAllocator allocator(this);
-      vector<int> ret = allocator.run(stat);
-      if (stat->succeed)
-        return ret;
-    }
-  } else {
-    info << "using SimpleColoringAllocator\n";
-    while (true) {
-      SimpleColoringAllocator allocator(this);
-      vector<int> ret = allocator.run(stat);
-      if (stat->succeed)
-        return ret;
-    }
+  info << "using SimpleColoringAllocator\n";
+  while (true) {
+    SimpleColoringAllocator allocator(this);
+    vector<int> ret = allocator.run(stat);
+    if (stat->succeed)
+      return ret;
   }
 }
 
