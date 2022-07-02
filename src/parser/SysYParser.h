@@ -18,9 +18,10 @@ public:
     Semicolon = 21, Question = 22, Colon = 23, Minus = 24, Exclamation = 25, 
     Tilde = 26, Addition = 27, Multiplication = 28, Division = 29, Modulo = 30, 
     LAND = 31, LOR = 32, EQ = 33, NEQ = 34, LT = 35, LE = 36, GT = 37, GE = 38, 
-    IntLiteral = 39, HexadecimalDigits = 40, ExponentPart = 41, FractionPart = 42, 
-    FloatLiteral = 43, Identifier = 44, STRING = 45, WS = 46, LINE_COMMENT = 47, 
-    COMMENT = 48
+    FloatLiteral = 39, DecimalFloatConst = 40, FractionPart = 41, HexadecimalFloatConst = 42, 
+    HexadecimalFractionPart = 43, HexadecimalPrefix = 44, ExponentPart = 45, 
+    BinaryExponentPart = 46, IntLiteral = 47, Identifier = 48, STRING = 49, 
+    WS = 50, LINE_COMMENT = 51, COMMENT = 52
   };
 
   enum {

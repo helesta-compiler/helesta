@@ -827,21 +827,30 @@ ASTVisitor::visitPrimaryExp2(SysYParser::PrimaryExp2Context *ctx) {
 
 antlrcpp::Any
 ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
-  int32_t literal_value = ctx->number()->accept(this);
-  if (mode == compile_time) {
-    return CompileTimeValue{literal_value};
+  auto literal_value = ctx->number()->accept(this);
+  if (typeid(literal_value) == typeid(int)) {
+    if (mode == compile_time) {
+      return CompileTimeValue{literal_value};
+    } else {
+      IR::Reg value = new_reg();
+      cur_bb->push(new IR::LoadConst(value, literal_value));
+      IRValue ret;
+      ret.is_left_value = false;
+      ret.reg = value;
+      return ret;
+    }
   } else {
-    IR::Reg value = new_reg();
-    cur_bb->push(new IR::LoadConst(value, literal_value));
-    IRValue ret;
-    ret.is_left_value = false;
-    ret.reg = value;
-    return ret;
+    throw InvalidLiteral(ctx->number()->getText());
   }
 }
 
 antlrcpp::Any ASTVisitor::visitNumber(SysYParser::NumberContext *ctx) {
-  return parse_int32_literal(ctx->getText());
+  if (ctx->IntLiteral() != 0) {
+    return parse_int32_literal(ctx->getText());
+  } else {
+    return parse_float_literal(ctx->FloatLiteral()->getText());
+    // int32_t(stof(ctx->FloatLiteral()->getText()));
+  }
 }
 
 antlrcpp::Any ASTVisitor::visitUnary1(SysYParser::Unary1Context *ctx) {

@@ -42,22 +42,15 @@ LE : '<=';
 GT : '>';
 GE : '>=';
 
-
-// integer
-IntLiteral
-    : [0-9]+ 
-    | '0x' [0-9a-fA-F]+ 
-    | '0X' [0-9a-fA-F]+ 
-    ;
-
 // float
-HexadecimalDigits
-    : '0x' [0-9a-fA-F]+ 
-    | '0X' [0-9a-fA-F]+
+FloatLiteral
+    : DecimalFloatConst
+    | HexadecimalFloatConst
     ;
 
-ExponentPart
-    : [eE] [+-] [0-9]+
+DecimalFloatConst
+    : FractionPart (ExponentPart)?
+    | [0-9]+ ExponentPart 
     ;
 
 FractionPart
@@ -65,11 +58,33 @@ FractionPart
     | [0-9]+ '.'
     ;
 
-FloatLiteral
-    : FractionPart (ExponentPart)?
-    | [0-9]+ ExponentPart 
-    | (HexadecimalDigits)? '.' HexadecimalDigits 
-    | HexadecimalDigits '.'
+HexadecimalFloatConst
+    : HexadecimalPrefix HexadecimalFractionPart BinaryExponentPart
+    | HexadecimalPrefix [0-9a-fA-F]+ BinaryExponentPart
+    ;
+
+HexadecimalFractionPart
+    : [0-9a-fA-F]* '.' [0-9a-fA-F]+
+    | [0-9a-fA-F]+ '.'
+    ;
+
+HexadecimalPrefix
+    : '0x' | '0X'
+    ;
+
+ExponentPart
+    : [eE] [+-]? [0-9]+
+    ;
+BinaryExponentPart
+    : [pP] [+-]? [0-9]+
+    ;
+
+
+// integer
+IntLiteral
+    : [0-9]+ 
+    | '0x' [0-9a-fA-F]+ 
+    | '0X' [0-9a-fA-F]+ 
     ;
 
 //identifier
