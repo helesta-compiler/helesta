@@ -7,7 +7,6 @@
 #include "ast/ast_visitor.hpp"
 #include "common/errors.hpp"
 #include "ir/ir.hpp"
-#include "ir/pass.hpp"
 #include "parser/SysYLexer.h"
 #include "parser/SysYParser.h"
 
