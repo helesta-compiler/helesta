@@ -22,3 +22,7 @@ make format_check
 ### Parser Generator
 
 Due to the limitation of the contest, this project uses ANTLR4 with version 4.8. Please follow the instructions on the [ANTLR](https://www.antlr.org) website to download and install the antlr toolchain and download the cpp-runtime.
+
+## Submit
+
+This contest uses a wired way to compile codes. Please use `flat_includes.py` to process the source code to submit.
