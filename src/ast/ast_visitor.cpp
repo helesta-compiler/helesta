@@ -828,7 +828,7 @@ ASTVisitor::visitPrimaryExp2(SysYParser::PrimaryExp2Context *ctx) {
 antlrcpp::Any
 ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
   auto literal_value = ctx->number()->accept(this);
-  if (typeid(literal_value) == typeid(int)) {
+  if (literal_value.is<int>()) {
     if (mode == compile_time) {
       return CompileTimeValue{literal_value};
     } else {
