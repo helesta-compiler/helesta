@@ -25,4 +25,4 @@ Due to the limitation of the contest, this project uses ANTLR4 with version 4.8.
 
 ## Submit
 
-This contest uses a wired way to compile codes. Please use `flat_includes.py` to process the source code to submit.
+This contest uses a weird way to compile codes. Please use `flat_includes.py` to process the source code to submit.
