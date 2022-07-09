@@ -7,13 +7,15 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
-template<typename ScalarType>
-GenericType<ScalarType>::GenericType() : is_const(false), omit_first_dim(false) {}
+template <typename ScalarType>
+GenericType<ScalarType>::GenericType()
+    : is_const(false), omit_first_dim(false) {}
 
-template<typename ScalarType>
-bool GenericType<ScalarType>::is_array() const { return array_dims.size() > 0 || omit_first_dim; }
+template <typename ScalarType> bool GenericType<ScalarType>::is_array() const {
+  return array_dims.size() > 0 || omit_first_dim;
+}
 
-template<typename ScalarType>
+template <typename ScalarType>
 GenericType<ScalarType> GenericType<ScalarType>::deref_one_dim() const {
   if (!is_array())
     throw RuntimeError("GenericType::deref_one_dim called on a non-array type");
@@ -26,25 +28,27 @@ GenericType<ScalarType> GenericType<ScalarType>::deref_one_dim() const {
   return ret;
 }
 
-template<typename ScalarType>
+template <typename ScalarType>
 size_t GenericType<ScalarType>::count_array_dims() const {
   return omit_first_dim ? array_dims.size() + 1 : array_dims.size();
 }
 
-template<typename ScalarType>
+template <typename ScalarType>
 MemSize GenericType<ScalarType>::count_elements() const {
   if (omit_first_dim)
-    throw RuntimeError("GenericType::count_elements() called on a not sized type");
+    throw RuntimeError(
+        "GenericType::count_elements() called on a not sized type");
   MemSize ret = 1;
   for (MemSize i : array_dims)
     ret *= i;
   return ret;
 }
 
-template<typename ScalarType>
-MemSize GenericType<ScalarType>::size() const { return INT_SIZE * count_elements(); }
+template <typename ScalarType> MemSize GenericType<ScalarType>::size() const {
+  return INT_SIZE * count_elements();
+}
 
-template<typename ScalarType>
+template <typename ScalarType>
 bool GenericType<ScalarType>::check_assign(const GenericType &rhs) const {
   if (omit_first_dim) {
     if (rhs.omit_first_dim)
@@ -60,7 +64,7 @@ bool GenericType<ScalarType>::check_assign(const GenericType &rhs) const {
   }
 }
 
-template<typename ScalarType>
+template <typename ScalarType>
 bool GenericType<ScalarType>::check_index(const vector<MemSize> &index) {
   if (index.size() != count_array_dims())
     return false;
@@ -76,7 +80,7 @@ bool GenericType<ScalarType>::check_index(const vector<MemSize> &index) {
   return true;
 }
 
-template<typename ScalarType>
+template <typename ScalarType>
 MemSize GenericType<ScalarType>::get_index(const vector<MemSize> &index) {
   MemSize step = 1, ret = 0;
   size_t next = array_dims.size() - 1;
@@ -90,13 +94,13 @@ MemSize GenericType<ScalarType>::get_index(const vector<MemSize> &index) {
   return ret;
 }
 
-
-template<typename ScalarType>
-const GenericType<ScalarType> GenericType<ScalarType>::UnknownLengthArray = []() {
-  GenericType type;
-  type.omit_first_dim = true;
-  return type;
-}();
+template <typename ScalarType>
+const GenericType<ScalarType> GenericType<ScalarType>::UnknownLengthArray =
+    []() {
+      GenericType type;
+      type.omit_first_dim = true;
+      return type;
+    }();
 
 FunctionInterface::FunctionInterface() : variadic(false) {}
 
@@ -135,7 +139,7 @@ VariableTableEntry *VariableTable::recursively_resolve(const string &name) {
   return nullptr;
 }
 
-template<typename ScalarType>
+template <typename ScalarType>
 void VariableTable::register_var(const string &name, IR::MemObject *ir_obj,
                                  const GenericType<ScalarType> &type) {
   VariableTableEntry *entry = new VariableTableEntry(type.scalar_type);

@@ -10,16 +10,15 @@
 #include "common/common.hpp"
 #include "ir/ir.hpp"
 
-template<typename ScalarType>
-struct GenericType {
+template <typename ScalarType> struct GenericType {
   std::vector<MemSize> array_dims;
   bool is_const, omit_first_dim;
 
   GenericType();
 
-  bool is_array() const;      // array_dims not empty || omit_first_dim
-  GenericType deref_one_dim() const; // throw when not array. return the type where
-                              // the first dimension is removed
+  bool is_array() const;             // array_dims not empty || omit_first_dim
+  GenericType deref_one_dim() const; // throw when not array. return the type
+                                     // where the first dimension is removed
   size_t count_array_dims() const;
   MemSize count_elements() const;
   MemSize size() const;
@@ -35,7 +34,9 @@ struct StringType {};
 
 struct FunctionInterface {
   bool return_value_non_void, variadic;
-  std::vector<std::variant<GenericType<int32_t>, GenericType<float>, StringType>> args_type;
+  std::vector<
+      std::variant<GenericType<int32_t>, GenericType<float>, StringType>>
+      args_type;
 
   FunctionInterface();
 };
@@ -53,10 +54,9 @@ struct FunctionTable {
                      const FunctionInterface &interface);
 };
 
-template<typename ScalarType>
-struct VTInfo {
-    GenericType<ScalarType> gType;
-    std::vector<ScalarType> const_init;
+template <typename ScalarType> struct VTInfo {
+  GenericType<ScalarType> gType;
+  std::vector<ScalarType> const_init;
 };
 
 struct VariableTableEntry {
@@ -78,5 +78,6 @@ struct VariableTable {
 
   template <typename ScalarType>
   void register_const(const std::string &name, IR::MemObject *ir_obj,
-                      const GenericType<ScalarType> &type, std::vector<ScalarType> init);
+                      const GenericType<ScalarType> &type,
+                      std::vector<ScalarType> init);
 };
