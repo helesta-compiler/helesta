@@ -62,7 +62,9 @@ void CompileUnit::print(ostream &os) const {
 }
 
 void LoadAddr::print(ostream &os) const { os << d1 << " = " << *offset; }
-void LoadConst::print(ostream &os) const { os << d1 << " = " << value; }
+// void LoadConst::print(ostream &os) const { os << d1 << " = " << value; }
+void LoadIntConst::print(ostream &os) const { os << d1 << " = " << value << " (int)"; }
+void LoadFloatConst::print(ostream &os) const { os << d1 << " = " << value << " (float)"; }
 void LoadArg::print(ostream &os) const { os << d1 << " = arg" << id; }
 void ArrayIndex::print(ostream &os) const {
   os << d1 << " = " << s1 << " + " << s2 << " * " << size << " : " << limit;

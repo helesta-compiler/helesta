@@ -372,8 +372,22 @@ namespace IR {
     struct LoadConst : RegWriteInstr {
         // load value to d1
         // d1 = value
+        // int value;
+        LoadConst(Reg d1) : RegWriteInstr(d1) {}
+        void print(ostream &os) const override;
+    };
+
+    struct LoadIntConst : LoadConst {
+        // load value to d1
+        // d1 = value
         int value;
-        LoadConst(Reg d1, int value) : RegWriteInstr(d1), value(value) {}
+        LoadIntConst(Reg d1, int value) : LoadConst(d1), value(value) {}
+        void print(ostream &os) const override;
+    };
+
+    struct LoadFloatConst : LoadConst {
+        float value;
+        LoadFloatConst(Reg d1, float value) : LoadConst(d1), value(value) {}
         void print(ostream &os) const override;
     };
 
