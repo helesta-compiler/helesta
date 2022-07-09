@@ -60,21 +60,21 @@ struct StackObject {
 
 struct GlobalObject {
   std::string name;
-  int size;    // only available when is_int
-  void *init;  // when !is_int, must not empty
+  int size;   // only available when is_int
+  void *init; // when !is_int, must not empty
   bool is_int, is_const;
 };
 
 struct Shift {
   enum Type {
-    LSL,  // logical shift left
-    LSR,  // logical shift right
-    ASR,  // arithmetic shift right
-    ROR,  // rotate right
+    LSL, // logical shift left
+    LSR, // logical shift right
+    ASR, // arithmetic shift right
+    ROR, // rotate right
   } type;
   int w;
 
-  Shift() : type(LSL), w(0) {}  // default construct to no shifting
+  Shift() : type(LSL), w(0) {} // default construct to no shifting
   Shift(Type _t, int _w) : type(_t), w(_w) {}
 
   static bool legal_width(int w) { return w >= 0 && w < 32; }
@@ -90,14 +90,14 @@ struct Inst {
   virtual std::vector<Reg> def_reg() { return {}; }
   virtual std::vector<Reg> use_reg() { return {}; }
   virtual std::vector<Reg *>
-  regs() = 0;  // only modifiable register. for example, r0 used by return
-               // instruction is not included. pointers returned by Push::regs()
-               // is invalidated when Push::src is modified
+  regs() = 0; // only modifiable register. for example, r0 used by return
+              // instruction is not included. pointers returned by Push::regs()
+              // is invalidated when Push::src is modified
   virtual bool change_cpsr() { return false; }
   virtual bool side_effect() {
     return false;
-  }  // side effect apart from assigning value to def_reg() registers and
-     // change_cpsr
+  } // side effect apart from assigning value to def_reg() registers and
+    // change_cpsr
   virtual void gen_asm(std::ostream &out, AsmContext *ctx) = 0;
   virtual void print(std::ostream &out) { gen_asm(out, nullptr); }
   virtual void maintain_sp(int32_t &sp_offset) {}
@@ -108,30 +108,32 @@ struct Inst {
     return buf.str();
   }
   bool use_cpsr() { return cond != Always; }
-  template <class T>
-  T *as() {
-    return dynamic_cast<T *>(this);
-  }
+  template <class T> T *as() { return dynamic_cast<T *>(this); }
   void update_live(std::set<Reg> &live) {
     for (Reg i : def_reg())
-      if (i.is_pseudo() || allocable(i.id)) live.erase(i);
+      if (i.is_pseudo() || allocable(i.id))
+        live.erase(i);
     for (Reg i : use_reg())
-      if (i.is_pseudo() || allocable(i.id)) live.insert(i);
+      if (i.is_pseudo() || allocable(i.id))
+        live.insert(i);
   }
   bool def(Reg reg) {
     for (Reg r : def_reg())
-      if (r == reg) return true;
+      if (r == reg)
+        return true;
     return false;
   }
   bool use(Reg reg) {
     for (Reg r : use_reg())
-      if (r == reg) return true;
+      if (r == reg)
+        return true;
     return false;
   }
   bool relate(Reg reg) { return def(reg) || use(reg); }
   void replace_reg(Reg before, Reg after) {
     for (Reg *i : regs())
-      if ((*i) == before) (*i) = after;
+      if ((*i) == before)
+        (*i) = after;
   }
 };
 
@@ -155,7 +157,8 @@ struct RegRegInst : Inst {
       : op(_op), dst(_dst), lhs(_lhs), rhs(_rhs) {}
   RegRegInst(Type _op, Reg _dst, Reg _lhs, Reg _rhs, Shift _shift)
       : op(_op), dst(_dst), lhs(_lhs), rhs(_rhs), shift(_shift) {
-    if (shift.w != 0) assert(op == Add || op == Sub || op == RevSub);
+    if (shift.w != 0)
+      assert(op == Add || op == Sub || op == RevSub);
   }
   virtual std::vector<Reg> def_reg() override { return {dst}; }
   virtual std::vector<Reg> use_reg() override {
@@ -169,17 +172,17 @@ struct RegRegInst : Inst {
 
   static Type from_ir_binary_op(IR::BinaryOp::Type op) {
     switch (op) {
-      case IR::BinaryOp::ADD:
-        return Add;
-      case IR::BinaryOp::SUB:
-        return Sub;
-      case IR::BinaryOp::MUL:
-        return Mul;
-      case IR::BinaryOp::DIV:
-        return Div;
-      default:
-        unreachable();
-        return Add;
+    case IR::BinaryOp::ADD:
+      return Add;
+    case IR::BinaryOp::SUB:
+      return Sub;
+    case IR::BinaryOp::MUL:
+      return Mul;
+    case IR::BinaryOp::DIV:
+      return Div;
+    default:
+      unreachable();
+      return Add;
     }
   }
 };
@@ -341,7 +344,7 @@ struct LoadSymbolAddrUpper16 : Inst {
 std::list<std::unique_ptr<Inst>> load_imm(Reg dst, int32_t imm);
 void load_imm_asm(std::ostream &out, Reg dst, int32_t imm, InstCond cond);
 std::list<std::unique_ptr<Inst>> reg_imm_sum(Reg dst, Reg lhs,
-                                             int32_t rhs);  // dst != lhs
+                                             int32_t rhs); // dst != lhs
 std::list<std::unique_ptr<Inst>> load_symbol_addr(Reg dst,
                                                   const std::string &symbol);
 
@@ -472,14 +475,16 @@ struct Push : Inst {
   }
   virtual std::vector<Reg *> regs() override {
     std::vector<Reg *> ret;
-    for (size_t i = 0; i < src.size(); ++i) ret.push_back(&src[i]);
+    for (size_t i = 0; i < src.size(); ++i)
+      ret.push_back(&src[i]);
     return ret;
   }
   virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
   virtual void print(std::ostream &out) override {
     out << "push" << cond << " {";
     for (size_t i = 0; i < src.size(); ++i) {
-      if (i > 0) out << ',';
+      if (i > 0)
+        out << ',';
       out << src[i];
     }
     out << "}\n";
@@ -615,7 +620,8 @@ struct FuncCall : Inst {
   FuncCall(std::string _name, int _arg_cnt) : name(_name), arg_cnt(_arg_cnt) {}
 
   virtual std::vector<Reg> use_reg() override {
-    if (cond != Always) return def_reg();
+    if (cond != Always)
+      return def_reg();
     std::vector<Reg> ret;
     for (int i = 0; i < std::min(arg_cnt, ARGUMENT_REGISTER_COUNT); ++i)
       ret.emplace_back(ARGUMENT_REGISTERS[i]);
@@ -624,7 +630,8 @@ struct FuncCall : Inst {
   virtual std::vector<Reg> def_reg() override {
     std::vector<Reg> ret;
     for (int i = 0; i < RegCount; ++i)
-      if (REGISTER_USAGE[i] == caller_save) ret.emplace_back(i);
+      if (REGISTER_USAGE[i] == caller_save)
+        ret.emplace_back(i);
     ret.emplace_back(lr);
     return ret;
   }
@@ -650,4 +657,4 @@ struct Return : Inst {
   virtual void print(std::ostream &out) override { out << "bx lr\n"; }
 };
 
-}  // namespace ARMv7
+} // namespace ARMv7

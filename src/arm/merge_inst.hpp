@@ -14,4 +14,4 @@ void merge_shift_binary_op(Func *func);
 
 void merge_add_ldr_str(Func *func);
 
-}  // namespace ARMv7
+} // namespace ARMv7

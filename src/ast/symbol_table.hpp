@@ -6,34 +6,36 @@
 #include <variant>
 #include <vector>
 
-#include "common/common.hpp"
 #include "ast/init_value.hpp"
+#include "common/common.hpp"
 #include "ir/ir.hpp"
 
-struct Type {
+template<typename ScalarType>
+struct GenericType {
   std::vector<MemSize> array_dims;
   bool is_const, omit_first_dim;
 
-  Type();                      // int
-  bool is_array() const;       // array_dims not empty || omit_first_dim
-  Type deref_one_dim() const;  // throw when not array. return the type where
-                               // the first dimension is removed
+  GenericType();
+
+  bool is_array() const;      // array_dims not empty || omit_first_dim
+  GenericType deref_one_dim() const; // throw when not array. return the type where
+                              // the first dimension is removed
   size_t count_array_dims() const;
   MemSize count_elements() const;
   MemSize size() const;
-  bool check_assign(const Type &rhs) const;  // don't check is_const
+  bool check_assign(const GenericType &rhs) const; // don't check is_const
   bool check_index(const std::vector<MemSize> &index);
-  MemSize get_index(
-      const std::vector<MemSize> &index);  // call when check_index is true
+  MemSize
+  get_index(const std::vector<MemSize> &index); // call when check_index is true
 
-  static const Type UnknownLengthArray;
+  static const GenericType UnknownLengthArray;
 };
 
 struct StringType {};
 
 struct FunctionInterface {
   bool return_value_non_void, variadic;
-  std::vector<std::variant<Type, StringType>> args_type;
+  std::vector<std::variant<GenericType<int32_t>, GenericType<float>, StringType>> args_type;
 
   FunctionInterface();
 };
@@ -51,11 +53,16 @@ struct FunctionTable {
                      const FunctionInterface &interface);
 };
 
+template<typename ScalarType>
+struct VTInfo {
+    GenericType<ScalarType> gType;
+    std::vector<ScalarType> const_init;
+};
+
 struct VariableTableEntry {
   IR::MemObject *ir_obj;
-  Type type;
-  int arg_id;                       // -1 if not array parameter
-  std::vector<int32_t> const_init;  // empty when !type.is_const
+  int arg_id; // -1 if not array parameter
+  std::variant<VTInfo<int32_t>, VTInfo<float>> info;
 };
 
 struct VariableTable {
@@ -65,8 +72,11 @@ struct VariableTable {
   VariableTable(VariableTable *_parent);
   VariableTableEntry *resolve(const std::string &name);
   VariableTableEntry *recursively_resolve(const std::string &name);
+  template <typename ScalarType>
   void register_var(const std::string &name, IR::MemObject *ir_obj,
-                    const Type &type);
+                    const GenericType<ScalarType> &type);
+
+  template <typename ScalarType>
   void register_const(const std::string &name, IR::MemObject *ir_obj,
-                      const Type &type, std::vector<int32_t> init);
+                      const GenericType<ScalarType> &type, std::vector<ScalarType> init);
 };

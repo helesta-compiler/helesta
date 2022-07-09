@@ -33,11 +33,11 @@ constexpr int RegCount = 16;
 enum RegisterUsage { caller_save, callee_save, special };
 
 constexpr RegisterUsage REGISTER_USAGE[RegCount] = {
-    caller_save, caller_save, caller_save, caller_save,               // r0...r3
-    callee_save, callee_save, callee_save, callee_save, callee_save,  // r4...r8
-    callee_save,                                                      // r9
-    callee_save, callee_save,                       // r10, r11
-    caller_save, special,     callee_save, special  // r12...r15
+    caller_save, caller_save, caller_save, caller_save,              // r0...r3
+    callee_save, callee_save, callee_save, callee_save, callee_save, // r4...r8
+    callee_save,                                                     // r9
+    callee_save, callee_save,                                        // r10, r11
+    caller_save, special,     callee_save, special // r12...r15
 };
 
 constexpr bool allocable(int reg_id) {
@@ -48,7 +48,8 @@ constexpr bool allocable(int reg_id) {
 constexpr int ALLOCABLE_REGISTER_COUNT = []() constexpr {
   int cnt = 0;
   for (int i = 0; i < RegCount; ++i)
-    if (allocable(i)) ++cnt;
+    if (allocable(i))
+      ++cnt;
   return cnt;
 }
 ();
@@ -58,7 +59,8 @@ constexpr std::array<int, ALLOCABLE_REGISTER_COUNT> ALLOCABLE_REGISTERS =
   std::array<int, ALLOCABLE_REGISTER_COUNT> ret{};
   int cnt = 0;
   for (int i = 0; i < RegCount; ++i)
-    if (allocable(i)) ret[cnt++] = i;
+    if (allocable(i))
+      ret[cnt++] = i;
   return ret;
 }
 ();
@@ -69,12 +71,14 @@ constexpr int ARGUMENT_REGISTERS[ARGUMENT_REGISTER_COUNT] = {r0, r1, r2, r3};
 
 constexpr bool is_legal_immediate(int32_t value) {
   uint32_t u = static_cast<uint32_t>(value);
-  if (u <= 0xffu) return true;
+  if (u <= 0xffu)
+    return true;
   for (int i = 1; i < 16; ++i) {
     uint32_t cur = (u << (2 * i)) | (u >> (32 - 2 * i));
-    if (cur <= 0xffu) return true;
+    if (cur <= 0xffu)
+      return true;
   }
   return false;
 }
 
-}  // namespace ARMv7
+} // namespace ARMv7

@@ -7,14 +7,17 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
-Type::Type() : is_const(false), omit_first_dim(false) {}
+template<typename ScalarType>
+GenericType<ScalarType>::GenericType() : is_const(false), omit_first_dim(false) {}
 
-bool Type::is_array() const { return array_dims.size() > 0 || omit_first_dim; }
+template<typename ScalarType>
+bool GenericType<ScalarType>::is_array() const { return array_dims.size() > 0 || omit_first_dim; }
 
-Type Type::deref_one_dim() const {
+template<typename ScalarType>
+GenericType<ScalarType> GenericType<ScalarType>::deref_one_dim() const {
   if (!is_array())
-    throw RuntimeError("Type::deref_one_dim called on a non-array type");
-  Type ret = *this;
+    throw RuntimeError("GenericType::deref_one_dim called on a non-array type");
+  GenericType ret = *this;
   if (ret.omit_first_dim) {
     ret.omit_first_dim = false;
   } else {
@@ -23,22 +26,26 @@ Type Type::deref_one_dim() const {
   return ret;
 }
 
-size_t Type::count_array_dims() const {
+template<typename ScalarType>
+size_t GenericType<ScalarType>::count_array_dims() const {
   return omit_first_dim ? array_dims.size() + 1 : array_dims.size();
 }
 
-MemSize Type::count_elements() const {
+template<typename ScalarType>
+MemSize GenericType<ScalarType>::count_elements() const {
   if (omit_first_dim)
-    throw RuntimeError("Type::count_elements() called on a not sized type");
+    throw RuntimeError("GenericType::count_elements() called on a not sized type");
   MemSize ret = 1;
   for (MemSize i : array_dims)
     ret *= i;
   return ret;
 }
 
-MemSize Type::size() const { return INT_SIZE * count_elements(); }
+template<typename ScalarType>
+MemSize GenericType<ScalarType>::size() const { return INT_SIZE * count_elements(); }
 
-bool Type::check_assign(const Type &rhs) const {
+template<typename ScalarType>
+bool GenericType<ScalarType>::check_assign(const GenericType &rhs) const {
   if (omit_first_dim) {
     if (rhs.omit_first_dim)
       return array_dims == rhs.array_dims;
@@ -53,7 +60,8 @@ bool Type::check_assign(const Type &rhs) const {
   }
 }
 
-bool Type::check_index(const vector<MemSize> &index) {
+template<typename ScalarType>
+bool GenericType<ScalarType>::check_index(const vector<MemSize> &index) {
   if (index.size() != count_array_dims())
     return false;
   if (omit_first_dim) {
@@ -68,7 +76,8 @@ bool Type::check_index(const vector<MemSize> &index) {
   return true;
 }
 
-MemSize Type::get_index(const vector<MemSize> &index) {
+template<typename ScalarType>
+MemSize GenericType<ScalarType>::get_index(const vector<MemSize> &index) {
   MemSize step = 1, ret = 0;
   size_t next = array_dims.size() - 1;
   for (size_t i = index.size() - 1; i < index.size(); --i) {
@@ -81,8 +90,10 @@ MemSize Type::get_index(const vector<MemSize> &index) {
   return ret;
 }
 
-const Type Type::UnknownLengthArray = []() {
-  Type type;
+
+template<typename ScalarType>
+const GenericType<ScalarType> GenericType<ScalarType>::UnknownLengthArray = []() {
+  GenericType type;
   type.omit_first_dim = true;
   return type;
 }();
@@ -124,22 +135,28 @@ VariableTableEntry *VariableTable::recursively_resolve(const string &name) {
   return nullptr;
 }
 
+template<typename ScalarType>
 void VariableTable::register_var(const string &name, IR::MemObject *ir_obj,
-                                 const Type &type) {
-  VariableTableEntry *entry = new VariableTableEntry();
+                                 const GenericType<ScalarType> &type) {
+  VariableTableEntry *entry = new VariableTableEntry(type.scalar_type);
   entry->ir_obj = ir_obj;
-  entry->type = type;
   entry->arg_id = -1;
+  VTInfo<ScalarType> info;
+  info.gType = type;
+  entry->info = info;
   mapping[name] = unique_ptr<VariableTableEntry>{entry};
 }
 
+template <typename ScalarType>
 void VariableTable::register_const(const string &name, IR::MemObject *ir_obj,
-                                   const Type &type,
-                                   std::vector<int32_t> init) {
-  VariableTableEntry *entry = new VariableTableEntry();
+                                   const GenericType<ScalarType> &type,
+                                   std::vector<ScalarType> init) {
+  VariableTableEntry *entry = new VariableTableEntry(type.scalar_type);
   entry->ir_obj = ir_obj;
-  entry->type = type;
   entry->arg_id = -1;
-  entry->const_init = std::move(init);
+  VTInfo<ScalarType> info;
+  info.gType = type;
+  info.const_init = std::move(init);
+  entry->info = info;
   mapping[name] = unique_ptr<VariableTableEntry>{entry};
 }

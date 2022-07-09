@@ -28,9 +28,10 @@ void ASTVisitor::register_lib_functions() {
   register_lib_function("getint", true, {});
   register_lib_function("getch", true, {});
   register_lib_function("getarray", true, {Type::UnknownLengthArray});
-  register_lib_function("putint", false, {Type{}});
-  register_lib_function("putch", false, {Type{}});
-  register_lib_function("putarray", false, {Type{}, Type::UnknownLengthArray});
+  register_lib_function("putint", false, {Type(ScalarType::int_t)});
+  register_lib_function("putch", false, {Type(ScalarType::int_t)});
+  register_lib_function("putarray", false,
+                        {Type(ScalarType::int_t), Type::UnknownLengthArray});
   register_lib_function("putf", false, {StringType{}});
   functions.resolve("putf")->interface.variadic = true;
   register_lib_function("starttime", false, {});
@@ -180,6 +181,11 @@ antlrcpp::Any ASTVisitor::visitDecl(SysYParser::DeclContext *ctx) {
 }
 
 antlrcpp::Any ASTVisitor::visitConstDecl(SysYParser::ConstDeclContext *ctx) {
+  if (ctx->bType()->Int()) {
+    constScalarType = ScalarType::int_t;
+  } else {
+    constScalarType = ScalarType::float_t;
+  }
   return visitChildren(ctx);
 }
 
@@ -228,10 +234,11 @@ void ASTVisitor::dfs_const_init(SysYParser::ListConstInitValContext *node,
   }
 }
 
-vector<int32_t>
+template <typename ConstType>
+vector<ConstType>
 ASTVisitor::parse_const_init(SysYParser::ConstInitValContext *root,
                              const vector<MemSize> &shape) {
-  vector<int32_t> ret;
+  vector<ConstType> ret;
   if (auto scalar_root =
           dynamic_cast<SysYParser::ScalarConstInitValContext *>(root)) {
     if (shape.size())
@@ -246,14 +253,16 @@ ASTVisitor::parse_const_init(SysYParser::ConstInitValContext *root,
   return ret;
 }
 
-antlrcpp::Any ASTVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
+template <typename ConstType>
+antlrcpp::Any
+ASTVisitor::visitConstDefInternal(SysYParser::ConstDefContext *ctx) {
   string name = ctx->Identifier()->getText();
   IR::MemObject *ir_obj;
-  Type type;
+  Type type(constScalarType);
   type.is_const = true;
   type.array_dims = get_array_dims(ctx->constExp());
-  vector<int32_t> init_value =
-      parse_const_init(ctx->constInitVal(), type.array_dims);
+  auto init_value =
+      parse_const_init<ConstType>(ctx->constInitVal(), type.array_dims);
   assert(init_value.size() == type.count_elements());
   if (cur_func) {
     if (cur_local_table->resolve(name))
@@ -292,6 +301,14 @@ antlrcpp::Any ASTVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
   for (MemSize i : type.array_dims)
     ir_obj->dims.push_back(static_cast<int>(i));
   return nullptr;
+}
+
+antlrcpp::Any ASTVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
+  if (constScalarType == ScalarType::int_t) {
+    visitConstDefInternal<int32_t>(ctx);
+  } else {
+    visitConstDefInternal<float>(ctx);
+  }
 }
 
 antlrcpp::Any ASTVisitor::visitScalarConstInitVal(
