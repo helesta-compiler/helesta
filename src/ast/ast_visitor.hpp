@@ -35,20 +35,32 @@ class ASTVisitor : public SysYBaseVisitor {
   bool in_init, found_main;
   std::vector<IR::BB *> break_target, continue_target;
 
-  ScalarType constScalarType;
+  enum class ConstLiteralScalarType {
+    None,
+    Int,
+    Float,
+  } constLiteralScalarType;
 
-  void
-  register_lib_function(std::string name, bool return_non_void,
-                        std::vector<std::variant<Type, StringType>> params);
+  void register_lib_function(
+      std::string name, bool return_non_void,
+      std::vector<
+          std::variant<GenericType<int32_t>, GenericType<float>, StringType>>
+          params);
   void register_lib_functions();
+
   std::vector<MemSize>
   get_array_dims(std::vector<SysYParser::ConstExpContext *> dims);
-  IRValue
+
+  template <typename ScalarType>
+  IRValue<ScalarType>
   to_IRValue(antlrcpp::Any value); // check null, IRValue and CondJumpList
+
   CondJumpList
   to_CondJumpList(antlrcpp::Any value); // check null, IRValue and CondJumpList,
                                         // after this call, cur_bb is nullptr
-  IR::Reg get_value(const IRValue &value); // check array
+
+  template <typename ScalarType>
+  IR::Reg get_value(const IRValue<ScalarType> &value); // check array
   IR::Reg new_reg();
   IR::BB *new_BB();
   VariableTable *new_variable_table(VariableTable *parent);
@@ -88,7 +100,7 @@ public:
 
   virtual antlrcpp::Any visitBType(SysYParser::BTypeContext *ctx) override;
 
-  template <typename ConstType>
+  template <typename ScalarType>
   antlrcpp::Any visitConstDefInternal(SysYParser::ConstDefContext *ctx);
 
   virtual antlrcpp::Any

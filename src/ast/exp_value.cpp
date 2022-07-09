@@ -1,5 +1,5 @@
 #include "ast/exp_value.hpp"
 
-bool IRValue::assignable() const {
+template <typename ScalarType> bool IRValue<ScalarType>::assignable() const {
   return is_left_value && (!type.is_const) && (!type.is_array());
 }

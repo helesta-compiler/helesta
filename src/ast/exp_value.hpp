@@ -6,12 +6,12 @@
 // when visiting int expression, return IRValue
 // when visiting bool expression, return CondJumpList
 
-struct IRValue {
-  Type type;
+template <typename ScalarType> struct IRValue {
+  GenericType<ScalarType> type;
   bool is_left_value;
   IR::Reg reg; // if is_left_value, it's the address instead of the value
 
-  IRValue() : type(Type(ScalarType::int_t)) {}
+  IRValue() : type(GenericType<ScalarType>()) {}
 
   bool assignable() const; // left value, not array and not constant
 };

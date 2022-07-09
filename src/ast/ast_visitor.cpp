@@ -16,7 +16,8 @@ using std::vector;
 
 void ASTVisitor::register_lib_function(
     string name, bool return_non_void,
-    vector<variant<Type, StringType>> params) {
+    vector<variant<GenericType<int32_t>, GenericType<float>, StringType>>
+        params) {
   FunctionInterface interface;
   interface.return_value_non_void = return_non_void;
   interface.args_type = params;
@@ -27,11 +28,15 @@ void ASTVisitor::register_lib_function(
 void ASTVisitor::register_lib_functions() {
   register_lib_function("getint", true, {});
   register_lib_function("getch", true, {});
-  register_lib_function("getarray", true, {Type::UnknownLengthArray});
-  register_lib_function("putint", false, {Type(ScalarType::int_t)});
-  register_lib_function("putch", false, {Type(ScalarType::int_t)});
-  register_lib_function("putarray", false,
-                        {Type(ScalarType::int_t), Type::UnknownLengthArray});
+  register_lib_function("getarray", true,
+                        {GenericType<int32_t>::UnknownLengthArray});
+  register_lib_function("getfarray", true,
+                        {GenericType<float>::UnknownLengthArray});
+  register_lib_function("putint", false, {GenericType<int32_t>()});
+  register_lib_function("putch", false, {GenericType<int32_t>()});
+  register_lib_function("putfloat", false, {GenericType<float>()});
+  register_lib_function("putarray", false, {GenericType<int32_t>()});
+  register_lib_function("putfarray", false, {GenericType<float>()});
   register_lib_function("putf", false, {StringType{}});
   functions.resolve("putf")->interface.variadic = true;
   register_lib_function("starttime", false, {});
