@@ -98,13 +98,10 @@ const Type Type::UnknownLengthFloatArray = []() {
 }();
 
 std::ostream &operator<<(std::ostream &os, const Type &type) {
-  ScalarType scalar_type;
-  std::vector<MemSize> array_dims;
-  bool is_const, omit_first_dim;
-  if (is_const)
+  if (type.is_const)
     os << "const ";
-  os << scalar_type;
-  for (auto x : array_dims)
+  os << type.scalar_type;
+  for (auto x : type.array_dims)
     os << "[" << x << "]";
   return os;
 }

@@ -13,6 +13,10 @@ struct IRValue {
 
   bool assignable() const; // left value, not array and not constant
   IRValue(ScalarType scalar_type);
+  friend std::ostream &operator<<(std::ostream &os, const IRValue &x) {
+    os << x.type << ' ' << (x.is_left_value ? "lvalue" : "rvalue") << ' '
+       << x.reg;
+  }
 };
 
 struct CondJumpList {
