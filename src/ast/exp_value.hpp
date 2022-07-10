@@ -9,11 +9,12 @@
 struct IRValue {
   Type type;
   bool is_left_value;
-  IR::Reg reg;  // if is_left_value, it's the address instead of the value
+  IR::Reg reg; // if is_left_value, it's the address instead of the value
 
-  bool assignable() const;  // left value, not array and not constant
+  bool assignable() const; // left value, not array and not constant
+  IRValue(ScalarType scalar_type);
 };
 
 struct CondJumpList {
-  std::vector<IR::BB**> true_list, false_list;
+  std::vector<IR::BB **> true_list, false_list;
 };

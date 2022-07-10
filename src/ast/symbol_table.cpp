@@ -7,7 +7,8 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
-Type::Type() : is_const(false), omit_first_dim(false) {}
+Type::Type(ScalarType scalar_type_)
+    : scalar_type(scalar_type_), is_const(false), omit_first_dim(false) {}
 
 bool Type::is_array() const { return array_dims.size() > 0 || omit_first_dim; }
 
@@ -81,8 +82,14 @@ MemSize Type::get_index(const vector<MemSize> &index) {
   return ret;
 }
 
-const Type Type::UnknownLengthArray = []() {
-  Type type;
+const Type Type::UnknownLengthIntArray = []() {
+  Type type(ScalarType::Int);
+  type.omit_first_dim = true;
+  return type;
+}();
+
+const Type Type::UnknownLengthFloatArray = []() {
+  Type type(ScalarType::Float);
   type.omit_first_dim = true;
   return type;
 }();
@@ -107,6 +114,14 @@ void FunctionTable::register_func(const string &name, IR::Func *ir_func,
 
 VariableTable::VariableTable(VariableTable *_parent) : parent(_parent) {}
 
+VariableTableEntry::VariableTableEntry(ScalarType scalar_type)
+    : type(scalar_type),
+      const_init(scalar_type == ScalarType::Int
+                     ? std::variant<std::vector<int32_t>, std::vector<float>>(
+                           std::vector<int32_t>())
+                     : std::variant<std::vector<int32_t>, std::vector<float>>(
+                           std::vector<float>())) {}
+
 VariableTableEntry *VariableTable::resolve(const string &name) {
   auto it = mapping.find(name);
   if (it != mapping.end())
@@ -126,20 +141,9 @@ VariableTableEntry *VariableTable::recursively_resolve(const string &name) {
 
 void VariableTable::register_var(const string &name, IR::MemObject *ir_obj,
                                  const Type &type) {
-  VariableTableEntry *entry = new VariableTableEntry();
+  VariableTableEntry *entry = new VariableTableEntry(type.scalar_type);
   entry->ir_obj = ir_obj;
   entry->type = type;
   entry->arg_id = -1;
-  mapping[name] = unique_ptr<VariableTableEntry>{entry};
-}
-
-void VariableTable::register_const(const string &name, IR::MemObject *ir_obj,
-                                   const Type &type,
-                                   std::vector<int32_t> init) {
-  VariableTableEntry *entry = new VariableTableEntry();
-  entry->ir_obj = ir_obj;
-  entry->type = type;
-  entry->arg_id = -1;
-  entry->const_init = std::move(init);
   mapping[name] = unique_ptr<VariableTableEntry>{entry};
 }

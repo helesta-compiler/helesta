@@ -12,6 +12,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 #aux_source_directory(. DIR_SRC)
 file(GLOB_RECURSE DIR_SRC "src/*.cpp")
+file(GLOB_RECURSE HDR_SRC "src/*.hpp")
 file(GLOB_RECURSE DIR_LIB_SRC "third_party/*.cpp")
 add_compile_options(-g -std=c++17 -O2)
 include_directories(src)
@@ -20,5 +21,5 @@ add_executable(compiler ${DIR_SRC} ${DIR_LIB_SRC})
 
 
 include(formatting.cmake)
-clang_format(format ${DIR_SRC})
-clang_format_check(format_check ${DIR_SRC})
+clang_format(format ${DIR_SRC} ${HDR_SRC})
+clang_format_check(format_check ${DIR_SRC} ${HDR_SRC})

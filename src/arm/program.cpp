@@ -599,7 +599,7 @@ Program::Program(IR::CompileUnit *ir) : block_n(0) {
     res->name = mangle_global_var_name(cur->name);
     res->size = cur->size;
     res->init = cur->initial_value;
-    res->is_int = cur->is_int;
+    res->scalar_type = cur->scalar_type;
     res->is_const = cur->is_const;
     global_objects.push_back(std::move(res));
   }
@@ -621,7 +621,7 @@ void Program::gen_global_var_asm(ostream &out) {
     out << ".section .data\n";
     for (auto &obj : global_objects)
       if (obj->init) {
-        if (obj->is_int) {
+        if (obj->scalar_type == ScalarType::Int) {
           int32_t *init = reinterpret_cast<int32_t *>(obj->init);
           out << ".align\n";
           out << obj->name << ":\n";
@@ -632,6 +632,9 @@ void Program::gen_global_var_asm(ostream &out) {
             out << init[i];
           }
           out << '\n';
+        } else if (obj->scalar_type == ScalarType::Float) {
+          assert(false);
+          // todo
         } else {
           char *init = reinterpret_cast<char *>(obj->init);
           out << obj->name << ":\n";
@@ -643,7 +646,7 @@ void Program::gen_global_var_asm(ostream &out) {
     out << ".section .bss\n";
     for (auto &obj : global_objects)
       if (!obj->init) {
-        assert(obj->is_int);
+        assert(obj->scalar_type == ScalarType::Int);
         out << ".align\n";
         out << obj->name << ":\n";
         out << "    .space " << obj->size << '\n';
