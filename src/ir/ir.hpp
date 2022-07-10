@@ -334,11 +334,14 @@ struct UnaryOp : Printable {
     LNOT = 0,
     NEG = 1,
     ID = 2,
+    FNEG = 3,
+    F2I = 4,
+    I2F = 5,
   } type;
   int compute(int x);
   UnaryOp(Type x) : type(x) {}
   const char *get_name() const {
-    static const char *names[] = {"!", "-", "+"};
+    static const char *names[] = {"!", "-", "+", "(-F)", "(int)", "(float)"};
     return names[(int)type];
   }
   void print(ostream &os) const override { os << get_name(); }
@@ -354,7 +357,11 @@ struct BinaryOp : Printable {
     LEQ = 5,
     EQ = 6,
     NEQ = 7,
-    MOD = 8
+    MOD = 8,
+    FADD = 9,
+    FSUB = 10,
+    FMUL = 11,
+    FDIV = 12,
   } type;
   BinaryOp(Type x) : type(x) {}
   int compute(int x, int y);
@@ -362,8 +369,9 @@ struct BinaryOp : Printable {
     return type == ADD || type == MUL || type == EQ || type == NEQ;
   }
   const char *get_name() const {
-    static const char *names[] = {"+",  "-",  "*",  "/", "<",
-                                  "<=", "==", "!=", "%"};
+    static const char *names[] = {"+",     "-",     "*",    "/", "<",
+                                  "<=",    "==",    "!=",   "%", "(F+F)",
+                                  "(F-F)", "(F*F)", "(F/F)"};
     return names[(int)type];
   }
   void print(ostream &os) const override { os << get_name(); }
