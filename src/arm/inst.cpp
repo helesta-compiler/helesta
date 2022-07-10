@@ -177,6 +177,9 @@ void RegRegInst::gen_asm(ostream &out, AsmContext *ctx) {
   default:
     unreachable();
   }
+  assert(!dst.is_float);
+  assert(!lhs.is_float);
+  assert(!rhs.is_float);
   out << cond << ' ' << dst << ',' << lhs << ',' << rhs << shift << '\n';
 }
 
@@ -197,6 +200,9 @@ void FRegRegInst::gen_asm(ostream &out, AsmContext *ctx) {
   default:
     unreachable();
   }
+  assert(dst.is_float);
+  assert(lhs.is_float);
+  assert(rhs.is_float);
   out << cond << ' ' << dst << ',' << lhs << ',' << rhs << '\n';
 }
 
@@ -207,6 +213,7 @@ void ML::gen_asm(ostream &out, AsmContext *ctx) {
     out << "mls";
   else
     unreachable();
+  // TODO:check reg type
   out << cond << ' ' << dst << ',' << s1 << ',' << s2 << ',' << s3 << '\n';
 }
 
@@ -224,6 +231,8 @@ void RegImmInst::gen_asm(ostream &out, AsmContext *ctx) {
   default:
     unreachable();
   }
+  assert(!dst.is_float);
+  assert(!lhs.is_float);
   out << cond << ' ' << dst << ',' << lhs << ",#" << rhs << '\n';
 }
 
@@ -244,10 +253,14 @@ void MoveReg::gen_asm(ostream &out, AsmContext *ctx) {
 }
 
 void FNeg::gen_asm(ostream &out, AsmContext *ctx) {
+  assert(dst.is_float);
+  assert(src.is_float);
   out << "vneg.f32" << cond << ' ' << dst << ',' << src << '\n';
 }
 
 void ShiftInst::gen_asm(ostream &out, AsmContext *ctx) {
+  assert(!dst.is_float);
+  assert(!src.is_float);
   out << "mov" << cond << ' ' << dst << ',' << src << shift << '\n';
 }
 
@@ -262,22 +275,27 @@ void MoveImm::gen_asm(ostream &out, AsmContext *ctx) {
   default:
     unreachable();
   }
+  assert(!dst.is_float);
   out << cond << ' ' << dst << ",#" << src << '\n';
 }
 
 void MoveW::gen_asm(ostream &out, AsmContext *ctx) {
+  assert(!dst.is_float);
   out << "movw" << cond << ' ' << dst << ",#" << src << '\n';
 }
 
 void MoveT::gen_asm(ostream &out, AsmContext *ctx) {
+  assert(!dst.is_float);
   out << "movt" << cond << ' ' << dst << ",#" << src << '\n';
 }
 
 void LoadSymbolAddrLower16::gen_asm(ostream &out, AsmContext *ctx) {
+  assert(!dst.is_float);
   out << "movw" << cond << ' ' << dst << ",#:lower16:" << symbol << '\n';
 }
 
 void LoadSymbolAddrUpper16::gen_asm(ostream &out, AsmContext *ctx) {
+  assert(!dst.is_float);
   out << "movt" << cond << ' ' << dst << ",#:upper16:" << symbol << '\n';
 }
 
@@ -474,6 +492,8 @@ void RegRegCmp::gen_asm(ostream &out, AsmContext *ctx) {
 }
 
 void FRegRegCmp::gen_asm(ostream &out, AsmContext *ctx) {
+  assert(lhs.is_float);
+  assert(rhs.is_float);
   out << "vcmp.f32" << cond << ' ' << lhs << ',' << rhs << '\n';
   out << "vmrs APSR_nzcv,fpscr" << '\n';
 }
@@ -489,6 +509,7 @@ void RegImmCmp::gen_asm(ostream &out, AsmContext *ctx) {
   default:
     unreachable();
   }
+  assert(!lhs.is_float);
   out << cond << ' ' << lhs << ",#" << rhs << '\n';
 }
 
