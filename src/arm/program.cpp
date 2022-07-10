@@ -672,8 +672,18 @@ void Program::gen_global_var_asm(ostream &out) {
           }
           out << '\n';
         } else if (obj->scalar_type == ScalarType::Float) {
-          assert(false);
-          // todo
+          auto *init = reinterpret_cast<uint32_t *>(obj->init);
+          out << ".align\n";
+          out << obj->name << ":\n";
+          out << "    .4byte ";
+          char repr[16];
+          for (int i = 0; i < obj->size / 4; ++i) {
+            if (i > 0)
+              out << ',';
+            sprintf(repr, "0x%x", init[i]);
+            out << repr;
+          }
+          out << '\n';
         } else {
           char *init = reinterpret_cast<char *>(obj->init);
           out << obj->name << ":\n";
