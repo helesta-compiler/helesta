@@ -10,6 +10,19 @@
 using std::pair;
 using std::string;
 
+std::ostream &operator<<(std::ostream &os, const ScalarType &rhs) {
+  if (rhs == ScalarType::Void) {
+    os << "void";
+  } else if (rhs == ScalarType::Int) {
+    os << "int";
+  } else if (rhs == ScalarType::Float) {
+    os << "float";
+  } else if (rhs == ScalarType::Char) {
+    os << "char";
+  }
+  return os;
+}
+
 int32_t concat(int32_t bottom, int32_t top) {
   uint32_t s =
       static_cast<uint32_t>(bottom) | (static_cast<uint32_t>(top) << 16);

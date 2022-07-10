@@ -117,7 +117,7 @@ public:
           continue;
         }
         IR::Reg index = new_reg();
-        cur_bb->push(new IR::LoadConst(index, i));
+        cur_bb->push(new IR::LoadConst(index, static_cast<int32_t>(i)));
         IR::Reg cur_addr = new_reg();
         cur_bb->push(
             new IR::ArrayIndex(cur_addr, start_addr, index, INT_SIZE, -1));

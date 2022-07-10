@@ -19,7 +19,7 @@ void Reg::print(ostream &os) const {
 
 void MemObject::print(ostream &os) const {
   os << "&" << name << " (" << (global ? "gp" : "sp") << "+" << offset
-     << "): size " << size;
+     << "): scalar_type " << scalar_type << " size " << size;
   if (arg)
     os << " (arg)";
 }
@@ -62,7 +62,9 @@ void CompileUnit::print(ostream &os) const {
 }
 
 void LoadAddr::print(ostream &os) const { os << d1 << " = " << *offset; }
-void LoadConst::print(ostream &os) const { os << d1 << " = " << value; }
+template <typename Scalar> void LoadConst<Scalar>::print(ostream &os) const {
+  os << d1 << " = " << value;
+}
 void LoadArg::print(ostream &os) const { os << d1 << " = arg" << id; }
 void ArrayIndex::print(ostream &os) const {
   os << d1 << " = " << s1 << " + " << s2 << " * " << size << " : " << limit;
@@ -189,7 +191,14 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
     f3(u->offset);
     return u;
   }
-  Case(LoadConst, w, this) {
+  Case(LoadConst<int32_t>, w, this) {
+    auto u = w;
+    if (copy)
+      u = new LoadConst(*w);
+    f1(u->d1);
+    return u;
+  }
+  Case(LoadConst<float>, w, this) {
     auto u = w;
     if (copy)
       u = new LoadConst(*w);

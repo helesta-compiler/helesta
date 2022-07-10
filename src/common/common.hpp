@@ -19,6 +19,8 @@ enum class ScalarType {
   Char,
 };
 
+std::ostream &operator<<(std::ostream &os, const ScalarType &rhs);
+
 int32_t concat(int32_t bottom, int32_t top);
 
 bool startswith(const std::string &s1, const std::string &s2);

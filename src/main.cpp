@@ -30,6 +30,8 @@ int main(int argc, char **argv) {
     throw MainFuncNotFound();
   }
 
+  std::cout << ir << std::endl;
+
   ARMv7::Program prog(&ir);
   ARMv7::optimize_before_reg_alloc(&prog);
   std::ofstream asm_out{filename.second};

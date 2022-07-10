@@ -386,11 +386,11 @@ struct LoadAddr : RegWriteInstr {
   void print(ostream &os) const override;
 };
 
-struct LoadConst : RegWriteInstr {
+template <typename Scalar> struct LoadConst : RegWriteInstr {
   // load value to d1
   // d1 = value
-  int value;
-  LoadConst(Reg d1, int value) : RegWriteInstr(d1), value(value) {}
+  Scalar value;
+  LoadConst(Reg d1, Scalar value) : RegWriteInstr(d1), value(value) {}
   void print(ostream &os) const override;
 };
 

@@ -46,7 +46,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         func->stack_addr_reg[dst] = std::pair<StackObject *, int32_t>{
             info->obj_mapping[loadaddr->offset], 0};
       }
-    } else if (auto loadconst = dynamic_cast<IR::LoadConst *>(cur)) {
+    } else if (auto loadconst = dynamic_cast<IR::LoadConst<int32_t> *>(cur)) {
       Reg dst = info->from_ir_reg(loadconst->d1);
       func->constant_reg[dst] = loadconst->value;
       push_back(load_imm(dst, loadconst->value));

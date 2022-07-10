@@ -3,21 +3,43 @@
 
 #include "ir/ir.hpp"
 
-struct CompileTimeValue {
-  int32_t value;
+template <typename Scalar> struct CompileTimeValue {
+  Scalar value;
   CompileTimeValue operator-();
   CompileTimeValue operator!();
 };
 
 // operators with range checking
-CompileTimeValue operator+(CompileTimeValue lhs, CompileTimeValue rhs);
-CompileTimeValue operator-(CompileTimeValue lhs, CompileTimeValue rhs);
-CompileTimeValue operator*(CompileTimeValue lhs, CompileTimeValue rhs);
-CompileTimeValue operator/(CompileTimeValue lhs, CompileTimeValue rhs);
-CompileTimeValue operator%(CompileTimeValue lhs, CompileTimeValue rhs);
-CompileTimeValue operator<(CompileTimeValue lhs, CompileTimeValue rhs);
-CompileTimeValue operator<=(CompileTimeValue lhs, CompileTimeValue rhs);
-CompileTimeValue operator==(CompileTimeValue lhs, CompileTimeValue rhs);
-CompileTimeValue operator!=(CompileTimeValue lhs, CompileTimeValue rhs);
-CompileTimeValue operator&&(CompileTimeValue lhs, CompileTimeValue rhs);
-CompileTimeValue operator||(CompileTimeValue lhs, CompileTimeValue rhs);
+template <typename Scalar>
+CompileTimeValue<Scalar> operator+(CompileTimeValue<Scalar> lhs,
+                                   CompileTimeValue<Scalar> rhs);
+template <typename Scalar>
+CompileTimeValue<Scalar> operator-(CompileTimeValue<Scalar> lhs,
+                                   CompileTimeValue<Scalar> rhs);
+template <typename Scalar>
+CompileTimeValue<Scalar> operator*(CompileTimeValue<Scalar> lhs,
+                                   CompileTimeValue<Scalar> rhs);
+template <typename Scalar>
+CompileTimeValue<Scalar> operator/(CompileTimeValue<Scalar> lhs,
+                                   CompileTimeValue<Scalar> rhs);
+template <typename Scalar>
+CompileTimeValue<Scalar> operator%(CompileTimeValue<Scalar> lhs,
+                                   CompileTimeValue<Scalar> rhs);
+template <typename Scalar>
+CompileTimeValue<int32_t> operator<(CompileTimeValue<Scalar> lhs,
+                                    CompileTimeValue<Scalar> rhs);
+template <typename Scalar>
+CompileTimeValue<int32_t> operator<=(CompileTimeValue<Scalar> lhs,
+                                     CompileTimeValue<Scalar> rhs);
+template <typename Scalar>
+CompileTimeValue<int32_t> operator==(CompileTimeValue<Scalar> lhs,
+                                     CompileTimeValue<Scalar> rhs);
+template <typename Scalar>
+CompileTimeValue<int32_t> operator!=(CompileTimeValue<Scalar> lhs,
+                                     CompileTimeValue<Scalar> rhs);
+template <typename Scalar>
+CompileTimeValue<int32_t> operator&&(CompileTimeValue<Scalar> lhs,
+                                     CompileTimeValue<Scalar> rhs);
+template <typename Scalar>
+CompileTimeValue<int32_t> operator||(CompileTimeValue<Scalar> lhs,
+                                     CompileTimeValue<Scalar> rhs);
