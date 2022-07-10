@@ -26,12 +26,19 @@ void ASTVisitor::register_lib_function(
 }
 void ASTVisitor::register_lib_functions() {
   register_lib_function("getint", ScalarType::Int, {});
-  register_lib_function("getch", ScalarType::Char, {});
+  register_lib_function("getch", ScalarType::Int, {});
+  register_lib_function("getfloat", ScalarType::Float, {});
   register_lib_function("getarray", ScalarType::Int,
                         {Type::UnknownLengthIntArray});
+  register_lib_function("getfarray", ScalarType::Int,
+                        {Type::UnknownLengthFloatArray});
   register_lib_function("putint", ScalarType::Void, {Type(ScalarType::Int)});
   register_lib_function("putch", ScalarType::Void, {Type(ScalarType::Int)});
+  register_lib_function("putfloat", ScalarType::Void,
+                        {Type(ScalarType::Float)});
   register_lib_function("putarray", ScalarType::Void,
+                        {Type(ScalarType::Int), Type::UnknownLengthIntArray});
+  register_lib_function("putfarray", ScalarType::Void,
                         {Type(ScalarType::Int), Type::UnknownLengthFloatArray});
   register_lib_function("putf", ScalarType::Void, {StringType{}});
   functions.resolve("putf")->interface.variadic = true;

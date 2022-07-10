@@ -132,21 +132,24 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   f->in = 1;
   f->out = 1;
 
-  f = new_LibFunc("getint", 0);
-  f->in = 1;
-  f = new_LibFunc("getch", 0);
-  f->in = 1;
-  f = new_LibFunc("getarray", 0);
-  f->array_args[0] = 1; // write arg0
-  f->in = 1;
-
-  f = new_LibFunc("putint", 1);
-  f->out = 1;
-  f = new_LibFunc("putch", 1);
-  f->out = 1;
-  f = new_LibFunc("putarray", 1);
-  f->array_args[1] = 0; // read arg1
-  f->out = 1;
+  for (auto name : {"getint", "getch", "getfloat"}) {
+    f = new_LibFunc(name, 0);
+    f->in = 1;
+  }
+  for (auto name : {"getarray", "getfarray"}) {
+    f = new_LibFunc(name, 0);
+    f->array_args[0] = 1; // write arg0
+    f->in = 1;
+  }
+  for (auto name : {"putint", "putch", "putfloat"}) {
+    f = new_LibFunc(name, 1);
+    f->out = 1;
+  }
+  for (auto name : {"putarray", "putfarray"}) {
+    f = new_LibFunc(name, 1);
+    f->array_args[1] = 0; // read arg1
+    f->out = 1;
+  }
 
   f = new_LibFunc("putf", 1);
   f->array_args[0] = 0; // read arg0
