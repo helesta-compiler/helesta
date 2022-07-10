@@ -23,7 +23,7 @@ def process(line):
 def dfs(current_path, output_path):
     for file_or_dir in os.listdir(current_path):
         full_path = os.path.join(current_path, file_or_dir)
-        if os.path.isfile(full_path) and full_path.endswith(('.cpp', '.h')):
+        if os.path.isfile(full_path) and full_path.endswith(('.cpp', '.h', '.hpp')):
             out_path = os.path.join(output_path, file_or_dir)
             content = ""
             with open(full_path, 'r') as f:

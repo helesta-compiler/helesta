@@ -14,4 +14,4 @@ void remove_unreachable(Func *func);
 void eliminate_branch(Func *func);
 void optimize_before_reg_alloc(Program *prog);
 void optimize_after_reg_alloc(Func *func);
-}  // namespace ARMv7
+} // namespace ARMv7

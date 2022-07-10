@@ -4,107 +4,107 @@
 #include <utility>
 
 class SyntaxError : public std::runtime_error {
- public:
+public:
   using std::runtime_error::runtime_error;
 };
 
 class CompileTimeValueEvalFail : public SyntaxError {
- public:
+public:
   using SyntaxError::SyntaxError;
 };
 
 class MainFuncNotFound : public SyntaxError {
- public:
+public:
   MainFuncNotFound() : SyntaxError("main function not found") {}
 };
 
 class NegativeArraySize : public SyntaxError {
- public:
+public:
   NegativeArraySize() : SyntaxError("negative array size") {}
 };
 
 class VoidFuncReturnValueUsed : public SyntaxError {
- public:
+public:
   VoidFuncReturnValueUsed()
       : SyntaxError("use the return value of void function") {}
 };
 
 class ArrayTypedValueUsed : public SyntaxError {
- public:
+public:
   ArrayTypedValueUsed()
       : SyntaxError("use the value of an array-typed expression") {}
 };
 
 class InvalidInitList : public SyntaxError {
- public:
+public:
   InvalidInitList() : SyntaxError("invalid initialization list") {}
 };
 
 class DuplicateLocalName : public SyntaxError {
- public:
+public:
   DuplicateLocalName(std::string name)
       : SyntaxError("duplicate local name: " + std::move(name)) {}
 };
 
 class DuplicateGlobalName : public SyntaxError {
- public:
+public:
   DuplicateGlobalName(std::string name)
       : SyntaxError("duplicate global name: " + std::move(name)) {}
 };
 
 class InvalidMainFuncInterface : public SyntaxError {
- public:
+public:
   InvalidMainFuncInterface(std::string msg) : SyntaxError(std::move(msg)) {}
 };
 
 class AssignmentTypeError : public SyntaxError {
- public:
+public:
   AssignmentTypeError(std::string msg) : SyntaxError(std::move(msg)) {}
 };
 
 class InvalidBreak : public SyntaxError {
- public:
+public:
   InvalidBreak() : SyntaxError("break should be in loop") {}
 };
 
 class InvalidContinue : public SyntaxError {
- public:
+public:
   InvalidContinue() : SyntaxError("continue should be in loop") {}
 };
 
 class InvalidReturn : public SyntaxError {
- public:
+public:
   InvalidReturn(std::string msg) : SyntaxError(std::move(msg)) {}
 };
 
 class UnrecognizedVarName : public SyntaxError {
- public:
+public:
   UnrecognizedVarName(std::string name)
       : SyntaxError("unrecognized variable name: " + std::move(name)) {}
 };
 
 class InvalidIndexOperator : public SyntaxError {
- public:
+public:
   InvalidIndexOperator() : SyntaxError("operator[] on non-array") {}
 };
 
 class UnrecognizedFuncName : public SyntaxError {
- public:
+public:
   UnrecognizedFuncName(std::string name)
       : SyntaxError("unrecognized function name: " + std::move(name)) {}
 };
 
 class InvalidFuncCallArg : public SyntaxError {
- public:
+public:
   InvalidFuncCallArg(std::string msg) : SyntaxError(std::move(msg)) {}
 };
 
 class InvalidLiteral : public SyntaxError {
- public:
+public:
   InvalidLiteral(std::string msg) : SyntaxError(std::move(msg)) {}
 };
 
 class RuntimeError : public std::runtime_error {
- public:
+public:
   using std::runtime_error::runtime_error;
 };

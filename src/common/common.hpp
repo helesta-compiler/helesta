@@ -12,6 +12,15 @@ using MemSize = uint64_t;
 
 constexpr MemSize INT_SIZE = 4;
 
+enum class ScalarType {
+  Void,
+  Int,
+  Float,
+  Char,
+};
+
+std::ostream &operator<<(std::ostream &os, const ScalarType &rhs);
+
 int32_t concat(int32_t bottom, int32_t top);
 
 bool startswith(const std::string &s1, const std::string &s2);
@@ -32,7 +41,7 @@ struct Configuration {
   std::set<std::string> disabled_passes;
   std::map<std::string, std::string> args;
 
-  Configuration();  // for default setting
+  Configuration(); // for default setting
   std::string get_arg(std::string key, std::string default_value);
   int get_int_arg(std::string key, int default_value);
 };
@@ -42,11 +51,10 @@ extern Configuration global_config;
 // set global_config, return <input file, output file>
 std::pair<std::string, std::string> parse_arg(int argc, char *argv[]);
 
-template <int level>
-struct LogStream {
-  template <class T>
-  LogStream &operator<<(const T &msg) {
-    if (global_config.log_level <= level) std::cerr << msg;
+template <int level> struct LogStream {
+  template <class T> LogStream &operator<<(const T &msg) {
+    if (global_config.log_level <= level)
+      std::cerr << msg;
     return *this;
   }
 };
