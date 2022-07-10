@@ -632,6 +632,7 @@ void eliminate_branch(Func *func) {
 }
 
 void optimize_before_reg_alloc(Program *prog) {
+  /*
   for (auto &f : prog->funcs)
     more_constant_info(f.get());
   for (auto &f : prog->funcs)
@@ -643,13 +644,16 @@ void optimize_before_reg_alloc(Program *prog) {
     merge_add_ldr_str(f.get());
   for (auto &f : prog->funcs)
     remove_unused(f.get());
+  */
 }
 
 void optimize_after_reg_alloc(Func *func) {
+  /*
   remove_unused(func);
   remove_identical_move(func);
   remove_no_effect(func);
   direct_jump(func);
   eliminate_branch(func);
+  */
 }
 } // namespace ARMv7
