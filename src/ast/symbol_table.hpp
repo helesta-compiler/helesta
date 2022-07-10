@@ -31,6 +31,7 @@ struct Type {
 
   static const Type UnknownLengthIntArray;
   static const Type UnknownLengthFloatArray;
+  friend std::ostream &operator<<(std::ostream &os, const Type &type);
 };
 
 struct StringType {};

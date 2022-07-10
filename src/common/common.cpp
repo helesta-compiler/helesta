@@ -19,6 +19,8 @@ std::ostream &operator<<(std::ostream &os, const ScalarType &rhs) {
     os << "float";
   } else if (rhs == ScalarType::Char) {
     os << "char";
+  } else {
+    os << "unknown";
   }
   return os;
 }

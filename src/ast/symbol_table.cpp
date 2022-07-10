@@ -8,7 +8,10 @@ using std::unique_ptr;
 using std::vector;
 
 Type::Type(ScalarType scalar_type_)
-    : scalar_type(scalar_type_), is_const(false), omit_first_dim(false) {}
+    : scalar_type(scalar_type_), is_const(false), omit_first_dim(false) {
+  assert(scalar_type == ScalarType::Int || scalar_type == ScalarType::Float ||
+         scalar_type == ScalarType::Char || scalar_type == ScalarType::Void);
+}
 
 bool Type::is_array() const { return array_dims.size() > 0 || omit_first_dim; }
 
@@ -93,6 +96,18 @@ const Type Type::UnknownLengthFloatArray = []() {
   type.omit_first_dim = true;
   return type;
 }();
+
+std::ostream &operator<<(std::ostream &os, const Type &type) {
+  ScalarType scalar_type;
+  std::vector<MemSize> array_dims;
+  bool is_const, omit_first_dim;
+  if (is_const)
+    os << "const ";
+  os << scalar_type;
+  for (auto x : array_dims)
+    os << "[" << x << "]";
+  return os;
+}
 
 FunctionInterface::FunctionInterface() : variadic(false) {}
 
