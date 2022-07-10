@@ -108,6 +108,44 @@ IR::Reg ASTVisitor::get_value(const IRValue &value) {
   return ret;
 }
 
+IR::Reg ASTVisitor::get_value(ScalarType type, const IRValue &value) {
+  IR::Reg ret = get_value(value);
+  switch (value.type.scalar_type) {
+  case ScalarType::Int:
+    switch (type) {
+    case ScalarType::Int:
+      break;
+    case ScalarType::Float: {
+      IR::Reg temp = new_reg();
+      cur_bb->push(
+          new IR::UnaryOpInstr(temp, ret, IR::UnaryOp(IR::UnaryOp::I2F)));
+      ret = temp;
+      break;
+    }
+    default:
+      assert(false);
+    }
+    break;
+  case ScalarType::Float:
+    switch (type) {
+    case ScalarType::Int: {
+      IR::Reg temp = new_reg();
+      cur_bb->push(
+          new IR::UnaryOpInstr(temp, ret, IR::UnaryOp(IR::UnaryOp::F2I)));
+      ret = temp;
+      break;
+    }
+    case ScalarType::Float:
+      break;
+    default:
+      assert(false);
+    }
+  default:
+    assert(false);
+  }
+  return ret;
+}
+
 IR::Reg ASTVisitor::new_reg() {
   if (in_init && cur_func)
     throw RuntimeError("in global init state when visiting a function");
@@ -973,20 +1011,23 @@ antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
     }
   } else if (mode == normal) {
     IRValue rhs = to_IRValue(ctx->unaryExp()->accept(this));
-    IR::Reg rhs_value = get_value(rhs);
+    ScalarType type = rhs.type.scalar_type;
+    if (op == '!')
+      type = ScalarType::Int;
+    IR::Reg rhs_value = get_value(type, rhs);
     IR::Reg res_value = rhs_value;
-    IRValue ret(rhs.type.scalar_type);
+    IRValue ret(type);
     ret.is_left_value = false;
     switch (op) {
     case '-':
       res_value = new_reg();
       cur_bb->push(new IR::UnaryOpInstr(res_value, rhs_value,
-                                        IR::UnaryOp(IR::UnaryOp::NEG)));
+                                        IR::UnaryOp(type, IR::UnaryOp::NEG)));
       break;
     case '!':
       res_value = new_reg();
       cur_bb->push(new IR::UnaryOpInstr(res_value, rhs_value,
-                                        IR::UnaryOp(IR::UnaryOp::LNOT)));
+                                        IR::UnaryOp(type, IR::UnaryOp::LNOT)));
       break;
     default:; //+, do nothing
     }
@@ -1107,20 +1148,24 @@ antlrcpp::Any ASTVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
   mode = normal;
   IRValue lhs = to_IRValue(ctx->mulExp()->accept(this)),
           rhs = to_IRValue(ctx->unaryExp()->accept(this));
-  IR::Reg lhs_reg = get_value(lhs), rhs_reg = get_value(rhs),
+  ScalarType type = (lhs.type.scalar_type == ScalarType::Float ||
+                             rhs.type.scalar_type == ScalarType::Float
+                         ? ScalarType::Float
+                         : ScalarType::Int);
+  IR::Reg lhs_reg = get_value(type, lhs), rhs_reg = get_value(type, rhs),
           res_reg = new_reg();
   switch (op) {
   case '*':
     cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
-                                       IR::BinaryOp(IR::BinaryOp::MUL)));
+                                       IR::BinaryOp(type, IR::BinaryOp::MUL)));
     break;
   case '/':
     cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
-                                       IR::BinaryOp(IR::BinaryOp::DIV)));
+                                       IR::BinaryOp(type, IR::BinaryOp::DIV)));
     break;
   case '%':
     cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
-                                       IR::BinaryOp(IR::BinaryOp::MOD)));
+                                       IR::BinaryOp(type, IR::BinaryOp::MOD)));
     break;
   }
   IRValue ret(lhs.type.scalar_type);
@@ -1170,16 +1215,20 @@ antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
   mode = normal;
   IRValue lhs = to_IRValue(ctx->addExp()->accept(this)),
           rhs = to_IRValue(ctx->mulExp()->accept(this));
-  IR::Reg lhs_reg = get_value(lhs), rhs_reg = get_value(rhs),
+  ScalarType type = (lhs.type.scalar_type == ScalarType::Float ||
+                             rhs.type.scalar_type == ScalarType::Float
+                         ? ScalarType::Float
+                         : ScalarType::Int);
+  IR::Reg lhs_reg = get_value(type, lhs), rhs_reg = get_value(type, rhs),
           res_reg = new_reg();
   switch (op) {
   case '+':
     cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
-                                       IR::BinaryOp(IR::BinaryOp::ADD)));
+                                       IR::BinaryOp(type, IR::BinaryOp::ADD)));
     break;
   case '-':
     cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
-                                       IR::BinaryOp(IR::BinaryOp::SUB)));
+                                       IR::BinaryOp(type, IR::BinaryOp::SUB)));
     break;
   }
   IRValue ret(lhs.type.scalar_type);
@@ -1211,7 +1260,6 @@ antlrcpp::Any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
     opt = IR::BinaryOp::LEQ;
     rev = true;
   }
-  IR::BinaryOp op{opt};
   if (mode == compile_time) {
     if (currentScalarType == ScalarType::Int) {
       CompileTimeValue<int32_t> lhs = ctx->relExp()->accept(this),
@@ -1242,12 +1290,17 @@ antlrcpp::Any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
   mode = normal;
   IRValue lhs = to_IRValue(ctx->relExp()->accept(this)),
           rhs = to_IRValue(ctx->addExp()->accept(this));
-  IR::Reg lhs_reg = get_value(lhs), rhs_reg = get_value(rhs),
+  ScalarType type = (lhs.type.scalar_type == ScalarType::Float ||
+                             rhs.type.scalar_type == ScalarType::Float
+                         ? ScalarType::Float
+                         : ScalarType::Int);
+  IR::Reg lhs_reg = get_value(type, lhs), rhs_reg = get_value(type, rhs),
           res_reg = new_reg();
   if (rev)
     std::swap(lhs_reg, rhs_reg);
-  cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg, op));
-  IRValue ret(lhs.type.scalar_type);
+  cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
+                                     IR::BinaryOp(type, opt)));
+  IRValue ret(ScalarType::Int);
   ret.is_left_value = false;
   ret.reg = res_reg;
   mode = prev_mode;
@@ -1266,7 +1319,6 @@ antlrcpp::Any ASTVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
     opt = IR::BinaryOp::EQ;
   else
     opt = IR::BinaryOp::NEQ;
-  IR::BinaryOp op{opt};
   if (mode == compile_time) {
     if (currentScalarType == ScalarType::Int) {
       CompileTimeValue<int32_t> lhs = ctx->eqExp()->accept(this),
@@ -1293,9 +1345,14 @@ antlrcpp::Any ASTVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
   mode = normal;
   IRValue lhs = to_IRValue(ctx->eqExp()->accept(this)),
           rhs = to_IRValue(ctx->relExp()->accept(this));
-  IR::Reg lhs_reg = get_value(lhs), rhs_reg = get_value(rhs),
+  ScalarType type = (lhs.type.scalar_type == ScalarType::Float ||
+                             rhs.type.scalar_type == ScalarType::Float
+                         ? ScalarType::Float
+                         : ScalarType::Int);
+  IR::Reg lhs_reg = get_value(type, lhs), rhs_reg = get_value(type, rhs),
           res_reg = new_reg();
-  cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg, op));
+  cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
+                                     IR::BinaryOp(type, opt)));
   IRValue ret(ScalarType::Int);
   ret.is_left_value = false;
   ret.reg = res_reg;

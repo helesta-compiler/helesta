@@ -339,7 +339,35 @@ struct UnaryOp : Printable {
     I2F = 5,
   } type;
   int compute(int x);
+  UnaryOp(ScalarType _type, Type x) : type(x) {
+    assert(input_type() == ScalarType::Int);
+    assert(ret_type() == ScalarType::Int);
+    switch (_type) {
+    case ScalarType::Int:
+      break;
+    case ScalarType::Float:
+      switch (type) {
+      case LNOT:
+        assert(0);
+        break;
+      case NEG:
+        type = FNEG;
+        break;
+      default:
+        assert(0);
+      }
+      break;
+    default:
+      assert(0);
+    }
+  }
   UnaryOp(Type x) : type(x) {}
+  ScalarType input_type() {
+    return type == FNEG || type == F2I ? ScalarType::Float : ScalarType::Int;
+  }
+  ScalarType ret_type() {
+    return type == FNEG || type == I2F ? ScalarType::Float : ScalarType::Int;
+  }
   const char *get_name() const {
     static const char *names[] = {"!", "-", "+", "(-F)", "(int)", "(float)"};
     return names[(int)type];
@@ -362,16 +390,70 @@ struct BinaryOp : Printable {
     FSUB = 10,
     FMUL = 11,
     FDIV = 12,
+    FLESS = 13,
+    FLEQ = 14,
+    FEQ = 15,
+    FNEQ = 16,
   } type;
+  BinaryOp(ScalarType _type, Type x) : type(x) {
+    assert(ret_type() == ScalarType::Int);
+    switch (_type) {
+    case ScalarType::Int:
+      break;
+    case ScalarType::Float:
+      switch (type) {
+      case ADD:
+        type = FADD;
+        break;
+      case SUB:
+        type = FSUB;
+        break;
+      case MUL:
+        type = FMUL;
+        break;
+      case DIV:
+        type = FDIV;
+        break;
+      case LESS:
+        type = FLESS;
+        break;
+      case LEQ:
+        type = FLEQ;
+        break;
+      case EQ:
+        type = FEQ;
+        break;
+      case NEQ:
+        type = FNEQ;
+        break;
+      default:
+        assert(0);
+      }
+      break;
+    default:
+      assert(0);
+    }
+  }
   BinaryOp(Type x) : type(x) {}
   int compute(int x, int y);
+  ScalarType input_type() {
+    return type == FLESS || type == FLEQ || type == FEQ || type == FNEQ
+               ? ScalarType::Int
+               : ret_type();
+  }
+  ScalarType ret_type() {
+    return type == FADD || type == FSUB || type == FMUL || type == FDIV
+               ? ScalarType::Float
+               : ScalarType::Int;
+  }
   bool comm() {
     return type == ADD || type == MUL || type == EQ || type == NEQ;
   }
   const char *get_name() const {
-    static const char *names[] = {"+",     "-",     "*",    "/", "<",
-                                  "<=",    "==",    "!=",   "%", "(F+F)",
-                                  "(F-F)", "(F*F)", "(F/F)"};
+    static const char *names[] = {"+",      "-",     "*",     "/",     "<",
+                                  "<=",     "==",    "!=",    "%",     "(F+F)",
+                                  "(F-F)",  "(F*F)", "(F/F)", "(F<F)", "(F<=F)",
+                                  "(F==F)", "(F!=F)"};
     return names[(int)type];
   }
   void print(ostream &os) const override { os << get_name(); }
