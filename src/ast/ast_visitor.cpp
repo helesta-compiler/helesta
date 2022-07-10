@@ -212,6 +212,7 @@ antlrcpp::Any ASTVisitor::visitCompUnit(SysYParser::CompUnitContext *ctx) {
   init_bb = init_func->new_BB();
   init_func->entry = init_bb;
   string_literal_n = 0;
+  float_literal_n = 0;
   cur_func_name = string{};
   cur_func = nullptr;
   cur_bb = nullptr;
@@ -900,7 +901,18 @@ ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
       return CompileTimeValueAny(literal_value.as<float>());
     } else {
       IR::Reg value = new_reg();
-      cur_bb->push(new IR::LoadConst(value, literal_value.as<float>()));
+
+      // cur_bb->push(new IR::LoadConst(value, literal_value.as<float>()));
+
+      float v = literal_value.as<float>();
+      float *data = new float[1];
+      IR::MemObject *ir_obj = ir.scope.new_MemObject(
+          ".float_literal" + std::to_string(float_literal_n++));
+      ir_obj->init(data, 4);
+      IR::Reg start_addr = new_reg();
+      cur_bb->push(new IR::LoadAddr(start_addr, ir_obj));
+      cur_bb->push(new IR::LoadInstr(value, start_addr));
+	  
       IRValue ret(ScalarType::Float);
       ret.is_left_value = false;
       ret.reg = value;

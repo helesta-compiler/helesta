@@ -32,8 +32,9 @@ struct Operand {
 
 struct Reg {
   int id;
+  bool is_float;
 
-  Reg(int _id = -1) : id(_id) {}
+  Reg(int _id = -1, bool is_float = 0) : id(_id) {}
   bool is_machine() const { return id < RegCount; }
   bool is_pseudo() const { return id >= RegCount; }
   bool operator<(const Reg &rhs) const { return id < rhs.id; }
@@ -188,6 +189,38 @@ struct RegRegInst : Inst {
   }
 };
 
+struct FRegRegInst : Inst {
+  enum Type { Add, Sub, Mul, Div } op;
+  Reg dst, lhs, rhs;
+  FRegRegInst(Type _op, Reg _dst, Reg _lhs, Reg _rhs)
+      : op(_op), dst(_dst), lhs(_lhs), rhs(_rhs) {}
+  virtual std::vector<Reg> def_reg() override { return {dst}; }
+  virtual std::vector<Reg> use_reg() override {
+    if (cond != Always)
+      return {dst, lhs, rhs};
+    else
+      return {lhs, rhs};
+  }
+  virtual std::vector<Reg *> regs() override { return {&dst, &lhs, &rhs}; }
+  virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
+
+  static Type from_ir_binary_op(IR::BinaryOp::Type op) {
+    switch (op) {
+    case IR::BinaryOp::FADD:
+      return Add;
+    case IR::BinaryOp::FSUB:
+      return Sub;
+    case IR::BinaryOp::FMUL:
+      return Mul;
+    case IR::BinaryOp::FDIV:
+      return Div;
+    default:
+      unreachable();
+      return Add;
+    }
+  }
+};
+
 // mla dst, s1, s2, s3: dst = s1 * s2 + s3
 // mls dst, s1, s2, s3: dst = s3 - s1 * s2
 struct ML : Inst {
@@ -230,6 +263,22 @@ struct RegImmInst : Inst {
 struct MoveReg : Inst {
   Reg dst, src;
   MoveReg(Reg _dst, Reg _src) : dst(_dst), src(_src) {}
+
+  virtual std::vector<Reg> def_reg() override { return {dst}; }
+  virtual std::vector<Reg> use_reg() override {
+    if (cond != Always)
+      return {dst, src};
+    else
+      return {src};
+  }
+  virtual std::vector<Reg *> regs() override { return {&dst, &src}; }
+  virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
+};
+
+// dst = -src
+struct FNeg : Inst {
+  Reg dst, src;
+  FNeg(Reg _dst, Reg _src) : dst(_dst), src(_src) {}
 
   virtual std::vector<Reg> def_reg() override { return {dst}; }
   virtual std::vector<Reg> use_reg() override {
@@ -584,6 +633,16 @@ struct RegRegCmp : Inst {
   enum Type { Cmp, Cmn } op;
   Reg lhs, rhs;
   RegRegCmp(Type _op, Reg _lhs, Reg _rhs) : op(_op), lhs(_lhs), rhs(_rhs) {}
+
+  virtual std::vector<Reg> use_reg() override { return {lhs, rhs}; }
+  virtual bool change_cpsr() override { return true; }
+  virtual std::vector<Reg *> regs() override { return {&lhs, &rhs}; }
+  virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
+};
+
+struct FRegRegCmp : Inst {
+  Reg lhs, rhs;
+  FRegRegCmp(Reg _lhs, Reg _rhs) : lhs(_lhs), rhs(_rhs) {}
 
   virtual std::vector<Reg> use_reg() override { return {lhs, rhs}; }
   virtual bool change_cpsr() override { return true; }

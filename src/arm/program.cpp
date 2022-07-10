@@ -50,6 +50,8 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Reg dst = info->from_ir_reg(loadconst->d1);
       func->constant_reg[dst] = loadconst->value;
       push_back(load_imm(dst, loadconst->value));
+    } else if (auto loadconst = dynamic_cast<IR::LoadConst<float> *>(cur)) {
+      assert(0); // LoadConst<float> should be translate to load global variable
     } else if (auto loadarg = dynamic_cast<IR::LoadArg *>(cur)) {
       push_back(make_unique<MoveReg>(info->from_ir_reg(loadarg->d1),
                                      func->arg_reg[loadarg->id]));
@@ -67,7 +69,22 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       case IR::UnaryOp::NEG:
         push_back(make_unique<RegImmInst>(RegImmInst::RevSub, dst, src, 0));
         break;
+      case IR::UnaryOp::FNEG:
+        dst.is_float = 1;
+        src.is_float = 1;
+        push_back(make_unique<FNeg>(dst, src));
+        break;
       case IR::UnaryOp::ID:
+        if (dst.is_float || src.is_float)
+          dst.is_float = src.is_float = 1;
+        push_back(make_unique<MoveReg>(dst, src));
+        break;
+      case IR::UnaryOp::I2F:
+        dst.is_float = 1;
+        push_back(make_unique<MoveReg>(dst, src));
+        break;
+      case IR::UnaryOp::F2I:
+        src.is_float = 1;
         push_back(make_unique<MoveReg>(dst, src));
         break;
       default:
@@ -83,12 +100,34 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
           binary->op.type == IR::BinaryOp::DIV) {
         push_back(make_unique<RegRegInst>(
             RegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
+      } else if (binary->op.type == IR::BinaryOp::FADD ||
+                 binary->op.type == IR::BinaryOp::FSUB ||
+                 binary->op.type == IR::BinaryOp::FMUL ||
+                 binary->op.type == IR::BinaryOp::FDIV) {
+        dst.is_float = 1;
+        s1.is_float = 1;
+        s2.is_float = 1;
+        push_back(make_unique<FRegRegInst>(
+            FRegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
       } else if (binary->op.type == IR::BinaryOp::LESS ||
                  binary->op.type == IR::BinaryOp::LEQ ||
                  binary->op.type == IR::BinaryOp::EQ ||
                  binary->op.type == IR::BinaryOp::NEQ) {
         push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
         push_back(make_unique<RegRegCmp>(RegRegCmp::Cmp, s1, s2));
+        push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1),
+                           from_ir_binary_op(binary->op.type)));
+        cmp_info[dst].cond = from_ir_binary_op(binary->op.type);
+        cmp_info[dst].lhs = s1;
+        cmp_info[dst].rhs = s2;
+      } else if (binary->op.type == IR::BinaryOp::FLESS ||
+                 binary->op.type == IR::BinaryOp::FLEQ ||
+                 binary->op.type == IR::BinaryOp::FEQ ||
+                 binary->op.type == IR::BinaryOp::FNEQ) {
+        s1.is_float = 1;
+        s2.is_float = 1;
+        push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
+        push_back(make_unique<FRegRegCmp>(s1, s2));
         push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1),
                            from_ir_binary_op(binary->op.type)));
         cmp_info[dst].cond = from_ir_binary_op(binary->op.type);
@@ -234,7 +273,7 @@ void Block::print(ostream &out) {
 
 MappingInfo::MappingInfo() : reg_n(RegCount) {}
 
-Reg MappingInfo::new_reg() { return Reg{reg_n++}; }
+Reg MappingInfo::new_reg() { return Reg{reg_n++, 0}; }
 
 Reg MappingInfo::from_ir_reg(IR::Reg ir_reg) {
   auto it = reg_mapping.find(ir_reg.id);

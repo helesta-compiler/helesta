@@ -89,12 +89,16 @@ ostream &operator<<(ostream &os, const InstCond &cond) {
 InstCond from_ir_binary_op(IR::BinaryOp::Type op) {
   switch (op) {
   case IR::BinaryOp::LEQ:
+  case IR::BinaryOp::FLEQ:
     return Le;
   case IR::BinaryOp::LESS:
+  case IR::BinaryOp::FLESS:
     return Lt;
   case IR::BinaryOp::EQ:
+  case IR::BinaryOp::FEQ:
     return Eq;
   case IR::BinaryOp::NEQ:
+  case IR::BinaryOp::FNEQ:
     return Ne;
   default:
     unreachable();
@@ -175,6 +179,26 @@ void RegRegInst::gen_asm(ostream &out, AsmContext *ctx) {
   out << cond << ' ' << dst << ',' << lhs << ',' << rhs << shift << '\n';
 }
 
+void FRegRegInst::gen_asm(ostream &out, AsmContext *ctx) {
+  switch (op) {
+  case Add:
+    out << "vadd.f32";
+    break;
+  case Sub:
+    out << "vsub.f32";
+    break;
+  case Mul:
+    out << "vmul.f32";
+    break;
+  case Div:
+    out << "vdiv.f32";
+    break;
+  default:
+    unreachable();
+  }
+  out << cond << ' ' << dst << ',' << lhs << ',' << rhs << '\n';
+}
+
 void ML::gen_asm(ostream &out, AsmContext *ctx) {
   if (op == Mla)
     out << "mla";
@@ -203,7 +227,23 @@ void RegImmInst::gen_asm(ostream &out, AsmContext *ctx) {
 }
 
 void MoveReg::gen_asm(ostream &out, AsmContext *ctx) {
-  out << "mov" << cond << ' ' << dst << ',' << src << '\n';
+  if (dst.is_float) {
+    if (src.is_float) {
+      out << "vmov.f32" << cond << ' ' << dst << ',' << src << '\n';
+    } else {
+      out << "vcvt.f32.s32" << cond << ' ' << dst << ',' << src << '\n';
+    }
+  } else {
+    if (src.is_float) {
+      out << "vcvt.s32.f32" << cond << ' ' << dst << ',' << src << '\n';
+    } else {
+      out << "mov" << cond << ' ' << dst << ',' << src << '\n';
+    }
+  }
+}
+
+void FNeg::gen_asm(ostream &out, AsmContext *ctx) {
+  out << "vneg.f32" << cond << ' ' << dst << ',' << src << '\n';
 }
 
 void ShiftInst::gen_asm(ostream &out, AsmContext *ctx) {
@@ -302,12 +342,18 @@ bool load_store_offset_range(int64_t offset) {
 
 void Load::gen_asm(ostream &out, AsmContext *ctx) {
   assert(load_store_offset_range(offset_imm));
+  if (dst.is_float) {
+    out << "v";
+  }
   out << "ldr" << cond << ' ' << dst << ",[" << base << ",#" << offset_imm
       << "]\n";
 }
 
 void Store::gen_asm(ostream &out, AsmContext *ctx) {
   assert(load_store_offset_range(offset_imm));
+  if (src.is_float) {
+    out << "v";
+  }
   out << "str" << cond << ' ' << src << ",[" << base << ",#" << offset_imm
       << "]\n";
 }
@@ -424,6 +470,11 @@ void RegRegCmp::gen_asm(ostream &out, AsmContext *ctx) {
     unreachable();
   }
   out << cond << ' ' << lhs << ',' << rhs << '\n';
+}
+
+void FRegRegCmp::gen_asm(ostream &out, AsmContext *ctx) {
+  out << "vcmp.f32" << cond << ' ' << lhs << ',' << rhs << '\n';
+  out << "vmrs APSR_nzcv,fpscr" << '\n';
 }
 
 void RegImmCmp::gen_asm(ostream &out, AsmContext *ctx) {

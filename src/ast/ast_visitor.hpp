@@ -21,6 +21,7 @@ class ASTVisitor : public SysYBaseVisitor {
   FunctionTable functions;
   VariableTable global_var;
   int string_literal_n;
+  int float_literal_n;
   IR::CompileUnit &ir;
 
   std::string cur_func_name;
