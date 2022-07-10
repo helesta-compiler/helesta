@@ -912,7 +912,7 @@ ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
       IR::Reg start_addr = new_reg();
       cur_bb->push(new IR::LoadAddr(start_addr, ir_obj));
       cur_bb->push(new IR::LoadInstr(value, start_addr));
-	  
+
       IRValue ret(ScalarType::Float);
       ret.is_left_value = false;
       ret.reg = value;

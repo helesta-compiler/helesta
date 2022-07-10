@@ -13,9 +13,6 @@ namespace ARMv7 {
 
 InstCond logical_not(InstCond c) {
   switch (c) {
-  case Always:
-    unreachable();
-    return Always;
   case Eq:
     return Ne;
   case Ne:
@@ -29,6 +26,8 @@ InstCond logical_not(InstCond c) {
   case Lt:
     return Ge;
   }
+  unreachable();
+  return Always;
 }
 
 InstCond reverse_operand(InstCond c) {
@@ -47,7 +46,9 @@ InstCond reverse_operand(InstCond c) {
 }
 
 ostream &operator<<(ostream &os, const Reg &reg) {
-  if (reg.id == sp)
+  if (reg.is_float)
+    os << 's' << reg.id;
+  else if (reg.id == sp)
     os << "sp";
   else if (reg.id == pc)
     os << "pc";
