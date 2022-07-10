@@ -145,6 +145,7 @@ IR::Reg ASTVisitor::get_value(ScalarType type, const IRValue &value) {
     default:
       assert(false);
     }
+    break;
   default:
     debug << "???\n";
     debug << value.type.scalar_type << '\n';
