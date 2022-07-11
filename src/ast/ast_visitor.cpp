@@ -321,15 +321,15 @@ antlrcpp::Any ASTVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
   }
 }
 
-antlrcpp::Any ASTVisitor::visitScalarConstInitVal(
-    SysYParser::ScalarConstInitValContext*) {
+antlrcpp::Any
+ASTVisitor::visitScalarConstInitVal(SysYParser::ScalarConstInitValContext *) {
   throw RuntimeError(
       "ASTVisitor::visitScalarConstInitVal should be unreachable");
   return nullptr;
 }
 
 antlrcpp::Any
-ASTVisitor::visitListConstInitVal(SysYParser::ListConstInitValContext*) {
+ASTVisitor::visitListConstInitVal(SysYParser::ListConstInitValContext *) {
   throw RuntimeError("ASTVisitor::visitListConstInitVal should be unreachable");
   return nullptr;
 }
@@ -512,8 +512,7 @@ ASTVisitor::visitScalarInitVal(SysYParser::ScalarInitValContext *) {
   return nullptr;
 }
 
-antlrcpp::Any
-ASTVisitor::visitListInitval(SysYParser::ListInitvalContext *) {
+antlrcpp::Any ASTVisitor::visitListInitval(SysYParser::ListInitvalContext *) {
   throw RuntimeError("ASTVisitor::visitListInitval should be unreachable");
   return nullptr;
 }
@@ -744,8 +743,7 @@ antlrcpp::Any ASTVisitor::visitBreakStmt(SysYParser::BreakStmtContext *) {
   return nullptr;
 }
 
-antlrcpp::Any
-ASTVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *) {
+antlrcpp::Any ASTVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *) {
   if (continue_target.size() == 0)
     throw InvalidContinue();
   cur_bb->push(new IR::JumpInstr(*std::prev(continue_target.end())));
