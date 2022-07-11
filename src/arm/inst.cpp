@@ -29,6 +29,7 @@ InstCond logical_not(InstCond c) {
   case Lt:
     return Ge;
   }
+  assert(false);
 }
 
 InstCond reverse_operand(InstCond c) {

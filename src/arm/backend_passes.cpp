@@ -568,7 +568,7 @@ void remove_unreachable(Func *func) {
           ++it;
           break;
         }
-      } else if (Return *r = (*it)->as<Return>()) {
+      } else if ((*it)->as<Return>()) {
         ++it;
         break;
       }

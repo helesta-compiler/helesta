@@ -1,5 +1,6 @@
 project(helesta CXX)
 cmake_minimum_required(VERSION 3.16)
+set(CMAKE_CXX_COMPILER /opt/homebrew/bin/g++-11)
 
 if(" ${CMAKE_SOURCE_DIR}" STREQUAL " ${CMAKE_BINARY_DIR}")
 	message(FATAL_ERROR "
@@ -15,11 +16,11 @@ file(GLOB_RECURSE DIR_SRC "src/arm/*.cpp" "src/ast/*.cpp" "src/ir/*.cpp" "src/co
 file(GLOB_RECURSE PSR_SRC "src/parser/*.cpp")
 file(GLOB_RECURSE HDR_SRC "src/*.hpp")
 file(GLOB_RECURSE DIR_LIB_SRC "third_party/*.cpp")
-add_compile_options(-g3 -std=c++17 -O0)
+add_compile_options(-g3 -std=c++17 -O0 -Wno-attributes)
 include_directories(src)
 include_directories(third_party/antlr4-runtime)
+set_property(SOURCE ${DIR_SRC} PROPERTY COMPILE_FLAGS "-Wall -Wextra -Werror -Wno-error=attributes")
 add_executable(compiler ${DIR_SRC} ${PSR_SRC} ${DIR_LIB_SRC})
-set_property(SOURCE ${DIR_SRC} PROPERTY COMPILE_FLAGS "-Wall -Wextra -Werror")
 
 include(formatting.cmake)
 clang_format(format ${DIR_SRC} ${HDR_SRC})
