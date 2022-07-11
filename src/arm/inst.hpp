@@ -34,7 +34,7 @@ struct Reg {
   int id;
   bool is_float;
 
-  Reg(int _id = -1, bool is_float = 0) : id(_id) {}
+  Reg(int _id = -1, bool _is_float = 0) : id(_id), is_float(_is_float) {}
   bool is_machine() const { return id < RegCount; }
   bool is_pseudo() const { return id >= RegCount; }
   bool operator<(const Reg &rhs) const { return id < rhs.id; }
