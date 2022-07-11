@@ -26,6 +26,11 @@ struct MappingInfo {
 
   Reg new_reg();
   Reg from_ir_reg(IR::Reg ir_reg);
+
+  std::set<Reg> float_regs;
+  std::map<Reg, std::vector<Reg>> maybe_float_assign;
+  void set_float(Reg reg);
+  void set_maybe_float_assign(Reg &r1, Reg &r2);
 };
 
 struct RegAllocStat {
@@ -88,6 +93,7 @@ struct Func {
   int reg_n;
 
   std::vector<std::set<OccurPoint>> reg_def, reg_use;
+  std::set<Reg> float_regs;
 
   Func(Program *prog, std::string _name, IR::NormalFunc *ir_func);
   void erase_def_use(const OccurPoint &p, Inst *inst);

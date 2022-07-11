@@ -34,6 +34,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
                       Block *next_block, map<Reg, CmpInfo> &cmp_info) {
   for (auto &i : ir_bb->instrs) {
     IR::Instr *cur = i.get();
+    // std::cerr << *cur << std::endl;
     if (auto loadaddr = dynamic_cast<IR::LoadAddr *>(cur)) {
       Reg dst = info->from_ir_reg(loadaddr->d1);
       if (loadaddr->offset->global) {
@@ -70,21 +71,20 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(make_unique<RegImmInst>(RegImmInst::RevSub, dst, src, 0));
         break;
       case IR::UnaryOp::FNEG:
-        dst.is_float = 1;
-        src.is_float = 1;
+        info->set_float(dst);
+        info->set_float(src);
         push_back(make_unique<FNeg>(dst, src));
         break;
       case IR::UnaryOp::ID:
-        if (dst.is_float || src.is_float)
-          dst.is_float = src.is_float = 1;
+        info->set_maybe_float_assign(dst, src);
         push_back(make_unique<MoveReg>(dst, src));
         break;
       case IR::UnaryOp::I2F:
-        dst.is_float = 1;
+        info->set_float(dst);
         push_back(make_unique<MoveReg>(dst, src));
         break;
       case IR::UnaryOp::F2I:
-        src.is_float = 1;
+        info->set_float(src);
         push_back(make_unique<MoveReg>(dst, src));
         break;
       default:
@@ -104,9 +104,9 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
                  binary->op.type == IR::BinaryOp::FSUB ||
                  binary->op.type == IR::BinaryOp::FMUL ||
                  binary->op.type == IR::BinaryOp::FDIV) {
-        dst.is_float = 1;
-        s1.is_float = 1;
-        s2.is_float = 1;
+        info->set_float(dst);
+        info->set_float(s1);
+        info->set_float(s2);
         push_back(make_unique<FRegRegInst>(
             FRegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
       } else if (binary->op.type == IR::BinaryOp::LESS ||
@@ -124,8 +124,8 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
                  binary->op.type == IR::BinaryOp::FLEQ ||
                  binary->op.type == IR::BinaryOp::FEQ ||
                  binary->op.type == IR::BinaryOp::FNEQ) {
-        s1.is_float = 1;
-        s2.is_float = 1;
+        info->set_float(s1);
+        info->set_float(s2);
         push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
         push_back(make_unique<FRegRegCmp>(s1, s2));
         push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1),
@@ -277,11 +277,32 @@ Reg MappingInfo::new_reg() { return Reg{reg_n++, 0}; }
 
 Reg MappingInfo::from_ir_reg(IR::Reg ir_reg) {
   auto it = reg_mapping.find(ir_reg.id);
-  if (it != reg_mapping.end())
-    return it->second;
+  if (it != reg_mapping.end()) {
+    Reg ret = it->second;
+    return ret;
+  }
   Reg ret = new_reg();
   reg_mapping[ir_reg.id] = ret;
   return ret;
+}
+void MappingInfo::set_float(Reg reg) {
+  if (!float_regs.insert(reg).second)
+    return;
+  // std::cerr << reg.id << ": float\n";
+  for (Reg r : maybe_float_assign[reg]) {
+    set_float(r);
+  }
+  maybe_float_assign.erase(reg);
+}
+void MappingInfo::set_maybe_float_assign(Reg &r1, Reg &r2) {
+  // std::cerr << r1.id << ',' << r2.id << ": =\n";
+  if (float_regs.count(r1) || float_regs.count(r2)) {
+    set_float(r1);
+    set_float(r2);
+  } else {
+    maybe_float_assign[r1].push_back(r2);
+    maybe_float_assign[r2].push_back(r1);
+  }
 }
 
 Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
@@ -360,6 +381,14 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
   for (PendingMove &i : pending_moves)
     i.block->insert_before_jump(make_unique<MoveReg>(i.to, i.from));
   reg_n = info.reg_n;
+  float_regs = std::move(info.float_regs);
+  for (auto &block : blocks) {
+    for (auto &inst : block->insts) {
+      for (Reg *r : inst->regs()) {
+        r->is_float = float_regs.count(*r);
+      }
+    }
+  }
 }
 
 void Func::erase_def_use(const OccurPoint &p, Inst *inst) {

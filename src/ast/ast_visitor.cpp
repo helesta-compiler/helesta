@@ -1125,6 +1125,7 @@ antlrcpp::Any ASTVisitor::visitMul1(SysYParser::Mul1Context *ctx) {
 antlrcpp::Any ASTVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
   char op = ctx->children[1]->getText()[0];
   assert(op == '*' || op == '/' || op == '%');
+  debug << __FUNCTION__ << " op: " << op << '\n';
   if (mode == compile_time) {
     CompileTimeValueAny lhs = ctx->mulExp()->accept(this),
                         rhs = ctx->unaryExp()->accept(this), res;
@@ -1165,7 +1166,7 @@ antlrcpp::Any ASTVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
                                        IR::BinaryOp(type, IR::BinaryOp::MOD)));
     break;
   }
-  IRValue ret(lhs.type.scalar_type);
+  IRValue ret(type);
   ret.is_left_value = false;
   ret.reg = res_reg;
   mode = prev_mode;
@@ -1179,6 +1180,7 @@ antlrcpp::Any ASTVisitor::visitAdd1(SysYParser::Add1Context *ctx) {
 antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
   char op = ctx->children[1]->getText()[0];
   assert(op == '+' || op == '-');
+  debug << __FUNCTION__ << " op: " << op << '\n';
   if (mode == compile_time) {
     CompileTimeValueAny lhs = ctx->addExp()->accept(this),
                         rhs = ctx->mulExp()->accept(this), res;
@@ -1212,7 +1214,7 @@ antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
                                        IR::BinaryOp(type, IR::BinaryOp::SUB)));
     break;
   }
-  IRValue ret(lhs.type.scalar_type);
+  IRValue ret(type);
   ret.is_left_value = false;
   ret.reg = res_reg;
   mode = prev_mode;

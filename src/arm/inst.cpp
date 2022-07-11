@@ -8,6 +8,10 @@ using std::make_unique;
 using std::ostream;
 using std::string;
 using std::unique_ptr;
+#undef assert
+#define assert(x)                                                              \
+  if (!(x))                                                                    \
+    fprintf(stderr, "assert failed: %s %d %s\n", __FILE__, (int)__LINE__, #x);
 
 namespace ARMv7 {
 
@@ -179,6 +183,8 @@ void RegRegInst::gen_asm(ostream &out, AsmContext *ctx) {
   }
   assert(!dst.is_float);
   assert(!lhs.is_float);
+  if (lhs.is_float)
+    out << "???\n";
   assert(!rhs.is_float);
   out << cond << ' ' << dst << ',' << lhs << ',' << rhs << shift << '\n';
 }
@@ -390,12 +396,16 @@ void ComplexStore::gen_asm(ostream &out, AsmContext *ctx) {
 void LoadStack::gen_asm(ostream &out, AsmContext *ctx) {
   int32_t total_offset = src->position + offset - ctx->temp_sp_offset;
   assert(load_store_offset_range(total_offset));
+  if (dst.is_float)
+    out << 'v';
   out << "ldr" << cond << ' ' << dst << ",[sp,#" << total_offset << "]\n";
 }
 
 void StoreStack::gen_asm(ostream &out, AsmContext *ctx) {
   int32_t total_offset = target->position + offset - ctx->temp_sp_offset;
   assert(load_store_offset_range(total_offset));
+  if (src.is_float)
+    out << 'v';
   out << "str" << cond << ' ' << src << ",[sp,#" << total_offset << "]\n";
 }
 
