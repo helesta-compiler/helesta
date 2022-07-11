@@ -169,8 +169,8 @@ CompileUnit::CompileUnit() : scope("global", 1) {
 }
 
 void Instr::map_use(function<void(Reg &)> f1) {
-  auto f2 = [](BB *&x) {};
-  auto f3 = [](MemObject *&x) {};
+  auto f2 = [](BB *&) {};
+  auto f3 = [](MemObject *&) {};
   Case(RegWriteInstr, w, this) {
     map(
         [&](Reg &x) {

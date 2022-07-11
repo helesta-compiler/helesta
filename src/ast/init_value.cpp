@@ -46,8 +46,8 @@ CompileTimeValueAny operator/(CompileTimeValue<float> lhs,
 }
 
 template <>
-CompileTimeValueAny operator%(CompileTimeValue<float> lhs,
-                              CompileTimeValue<float> rhs) {
+CompileTimeValueAny operator%(CompileTimeValue<float>,
+                              CompileTimeValue<float>) {
   throw CompileTimeValueEvalFail(
       "float mod in compile-time constant evaluation");
 }

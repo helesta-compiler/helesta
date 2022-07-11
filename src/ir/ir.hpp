@@ -180,7 +180,7 @@ struct Instr : Printable {
   // IR instruction
   void map_use(function<void(Reg &)> f1);
   void map_BB(std::function<void(BB *&)> f) {
-    map([](auto &x) {}, f, [](auto &x) {}, 0);
+    map([](auto &) {}, f, [](auto &) {}, 0);
   }
   Instr *copy() {
     return map([](Reg &) {}, [](BB *&) {}, [](MemObject *&) {}, 1);
