@@ -29,9 +29,10 @@ InstCond logical_not(InstCond c) {
     return Gt;
   case Lt:
     return Ge;
+  default:
+    assert(0);
+    return Lt;
   }
-  unreachable();
-  return Always;
 }
 
 InstCond reverse_operand(InstCond c) {
@@ -161,7 +162,7 @@ void replace(list<unique_ptr<Inst>> &inserted_list,
   }
 }
 
-void RegRegInst::gen_asm(ostream &out, AsmContext *ctx) {
+void RegRegInst::gen_asm(ostream &out, AsmContext *) {
   switch (op) {
   case Add:
     out << "add";
@@ -189,7 +190,7 @@ void RegRegInst::gen_asm(ostream &out, AsmContext *ctx) {
   out << cond << ' ' << dst << ',' << lhs << ',' << rhs << shift << '\n';
 }
 
-void FRegRegInst::gen_asm(ostream &out, AsmContext *ctx) {
+void FRegRegInst::gen_asm(ostream &out, AsmContext *) {
   switch (op) {
   case Add:
     out << "vadd.f32";
@@ -212,7 +213,7 @@ void FRegRegInst::gen_asm(ostream &out, AsmContext *ctx) {
   out << cond << ' ' << dst << ',' << lhs << ',' << rhs << '\n';
 }
 
-void ML::gen_asm(ostream &out, AsmContext *ctx) {
+void ML::gen_asm(ostream &out, AsmContext *) {
   if (op == Mla)
     out << "mla";
   else if (op == Mls)
@@ -223,7 +224,7 @@ void ML::gen_asm(ostream &out, AsmContext *ctx) {
   out << cond << ' ' << dst << ',' << s1 << ',' << s2 << ',' << s3 << '\n';
 }
 
-void RegImmInst::gen_asm(ostream &out, AsmContext *ctx) {
+void RegImmInst::gen_asm(ostream &out, AsmContext *) {
   switch (op) {
   case Add:
     out << "add";
@@ -242,7 +243,7 @@ void RegImmInst::gen_asm(ostream &out, AsmContext *ctx) {
   out << cond << ' ' << dst << ',' << lhs << ",#" << rhs << '\n';
 }
 
-void MoveReg::gen_asm(ostream &out, AsmContext *ctx) {
+void MoveReg::gen_asm(ostream &out, AsmContext *) {
   if (dst.is_float) {
     if (src.is_float) {
       out << "vmov.f32" << cond << ' ' << dst << ',' << src << '\n';
@@ -258,19 +259,19 @@ void MoveReg::gen_asm(ostream &out, AsmContext *ctx) {
   }
 }
 
-void FNeg::gen_asm(ostream &out, AsmContext *ctx) {
+void FNeg::gen_asm(ostream &out, AsmContext *) {
   assert(dst.is_float);
   assert(src.is_float);
   out << "vneg.f32" << cond << ' ' << dst << ',' << src << '\n';
 }
 
-void ShiftInst::gen_asm(ostream &out, AsmContext *ctx) {
+void ShiftInst::gen_asm(ostream &out, AsmContext *) {
   assert(!dst.is_float);
   assert(!src.is_float);
   out << "mov" << cond << ' ' << dst << ',' << src << shift << '\n';
 }
 
-void MoveImm::gen_asm(ostream &out, AsmContext *ctx) {
+void MoveImm::gen_asm(ostream &out, AsmContext *) {
   switch (op) {
   case Mov:
     out << "mov";
@@ -285,22 +286,22 @@ void MoveImm::gen_asm(ostream &out, AsmContext *ctx) {
   out << cond << ' ' << dst << ",#" << src << '\n';
 }
 
-void MoveW::gen_asm(ostream &out, AsmContext *ctx) {
+void MoveW::gen_asm(ostream &out, AsmContext *) {
   assert(!dst.is_float);
   out << "movw" << cond << ' ' << dst << ",#" << src << '\n';
 }
 
-void MoveT::gen_asm(ostream &out, AsmContext *ctx) {
+void MoveT::gen_asm(ostream &out, AsmContext *) {
   assert(!dst.is_float);
   out << "movt" << cond << ' ' << dst << ",#" << src << '\n';
 }
 
-void LoadSymbolAddrLower16::gen_asm(ostream &out, AsmContext *ctx) {
+void LoadSymbolAddrLower16::gen_asm(ostream &out, AsmContext *) {
   assert(!dst.is_float);
   out << "movw" << cond << ' ' << dst << ",#:lower16:" << symbol << '\n';
 }
 
-void LoadSymbolAddrUpper16::gen_asm(ostream &out, AsmContext *ctx) {
+void LoadSymbolAddrUpper16::gen_asm(ostream &out, AsmContext *) {
   assert(!dst.is_float);
   out << "movt" << cond << ' ' << dst << ",#:upper16:" << symbol << '\n';
 }
@@ -365,7 +366,7 @@ bool load_store_offset_range(int64_t offset) {
   return offset >= -4095 && offset <= 4095;
 }
 
-void Load::gen_asm(ostream &out, AsmContext *ctx) {
+void Load::gen_asm(ostream &out, AsmContext *) {
   assert(load_store_offset_range(offset_imm));
   if (dst.is_float) {
     out << "v";
@@ -374,7 +375,7 @@ void Load::gen_asm(ostream &out, AsmContext *ctx) {
       << "]\n";
 }
 
-void Store::gen_asm(ostream &out, AsmContext *ctx) {
+void Store::gen_asm(ostream &out, AsmContext *) {
   assert(load_store_offset_range(offset_imm));
   if (src.is_float) {
     out << "v";
@@ -383,12 +384,12 @@ void Store::gen_asm(ostream &out, AsmContext *ctx) {
       << "]\n";
 }
 
-void ComplexLoad::gen_asm(ostream &out, AsmContext *ctx) {
+void ComplexLoad::gen_asm(ostream &out, AsmContext *) {
   out << "ldr" << cond << ' ' << dst << ",[" << base << ',' << offset << shift
       << "]\n";
 }
 
-void ComplexStore::gen_asm(ostream &out, AsmContext *ctx) {
+void ComplexStore::gen_asm(ostream &out, AsmContext *) {
   out << "str" << cond << ' ' << src << ",[" << base << ',' << offset << shift
       << "]\n";
 }
@@ -477,9 +478,9 @@ void sp_move_asm(int32_t change, ostream &out) {
   }
 }
 
-void LoadStackAddr::gen_asm(ostream &out, AsmContext *ctx) { unreachable(); }
+void LoadStackAddr::gen_asm(ostream &, AsmContext *) { unreachable(); }
 
-void LoadStackOffset::gen_asm(ostream &out, AsmContext *ctx) { unreachable(); }
+void LoadStackOffset::gen_asm(ostream &, AsmContext *) { unreachable(); }
 
 /*
 void LoadGlobalAddr::gen_asm(ostream &out, AsmContext *ctx) {
@@ -487,7 +488,7 @@ void LoadGlobalAddr::gen_asm(ostream &out, AsmContext *ctx) {
 }
 */
 
-void RegRegCmp::gen_asm(ostream &out, AsmContext *ctx) {
+void RegRegCmp::gen_asm(ostream &out, AsmContext *) {
   switch (op) {
   case Cmp:
     out << "cmp";
@@ -501,14 +502,14 @@ void RegRegCmp::gen_asm(ostream &out, AsmContext *ctx) {
   out << cond << ' ' << lhs << ',' << rhs << '\n';
 }
 
-void FRegRegCmp::gen_asm(ostream &out, AsmContext *ctx) {
+void FRegRegCmp::gen_asm(ostream &out, AsmContext *) {
   assert(lhs.is_float);
   assert(rhs.is_float);
   out << "vcmp.f32" << cond << ' ' << lhs << ',' << rhs << '\n';
   out << "vmrs APSR_nzcv,fpscr" << '\n';
 }
 
-void RegImmCmp::gen_asm(ostream &out, AsmContext *ctx) {
+void RegImmCmp::gen_asm(ostream &out, AsmContext *) {
   switch (op) {
   case Cmp:
     out << "cmp";
@@ -523,11 +524,11 @@ void RegImmCmp::gen_asm(ostream &out, AsmContext *ctx) {
   out << cond << ' ' << lhs << ",#" << rhs << '\n';
 }
 
-void Branch::gen_asm(ostream &out, AsmContext *ctx) {
+void Branch::gen_asm(ostream &out, AsmContext *) {
   out << 'b' << cond << ' ' << target->name << '\n';
 }
 
-void FuncCall::gen_asm(ostream &out, AsmContext *ctx) {
+void FuncCall::gen_asm(ostream &out, AsmContext *) {
   out << "bl" << cond << ' ';
   if (name == "putf")
     out << "printf";

@@ -322,15 +322,15 @@ antlrcpp::Any ASTVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
   }
 }
 
-antlrcpp::Any ASTVisitor::visitScalarConstInitVal(
-    SysYParser::ScalarConstInitValContext *ctx) {
+antlrcpp::Any
+ASTVisitor::visitScalarConstInitVal(SysYParser::ScalarConstInitValContext *) {
   throw RuntimeError(
       "ASTVisitor::visitScalarConstInitVal should be unreachable");
   return nullptr;
 }
 
 antlrcpp::Any
-ASTVisitor::visitListConstInitVal(SysYParser::ListConstInitValContext *ctx) {
+ASTVisitor::visitListConstInitVal(SysYParser::ListConstInitValContext *) {
   throw RuntimeError("ASTVisitor::visitListConstInitVal should be unreachable");
   return nullptr;
 }
@@ -508,13 +508,12 @@ antlrcpp::Any ASTVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
 }
 
 antlrcpp::Any
-ASTVisitor::visitScalarInitVal(SysYParser::ScalarInitValContext *ctx) {
+ASTVisitor::visitScalarInitVal(SysYParser::ScalarInitValContext *) {
   throw RuntimeError("ASTVisitor::visitScalarInitVal should be unreachable");
   return nullptr;
 }
 
-antlrcpp::Any
-ASTVisitor::visitListInitval(SysYParser::ListInitvalContext *ctx) {
+antlrcpp::Any ASTVisitor::visitListInitval(SysYParser::ListInitvalContext *) {
   throw RuntimeError("ASTVisitor::visitListInitval should be unreachable");
   return nullptr;
 }
@@ -607,7 +606,7 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   return nullptr;
 }
 
-antlrcpp::Any ASTVisitor::visitFuncType(SysYParser::FuncTypeContext *ctx) {
+antlrcpp::Any ASTVisitor::visitFuncType(SysYParser::FuncTypeContext *) {
   return nullptr;
 }
 
@@ -737,7 +736,7 @@ antlrcpp::Any ASTVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   return nullptr;
 }
 
-antlrcpp::Any ASTVisitor::visitBreakStmt(SysYParser::BreakStmtContext *ctx) {
+antlrcpp::Any ASTVisitor::visitBreakStmt(SysYParser::BreakStmtContext *) {
   if (break_target.size() == 0)
     throw InvalidBreak();
   cur_bb->push(new IR::JumpInstr(*std::prev(break_target.end())));
@@ -745,8 +744,7 @@ antlrcpp::Any ASTVisitor::visitBreakStmt(SysYParser::BreakStmtContext *ctx) {
   return nullptr;
 }
 
-antlrcpp::Any
-ASTVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *ctx) {
+antlrcpp::Any ASTVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *) {
   if (continue_target.size() == 0)
     throw InvalidContinue();
   cur_bb->push(new IR::JumpInstr(*std::prev(continue_target.end())));
@@ -904,8 +902,8 @@ ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
 
       // cur_bb->push(new IR::LoadConst(value, literal_value.as<float>()));
 
-      float v = literal_value.as<float>();
       float *data = new float[1];
+      *data = literal_value.as<float>();
       IR::MemObject *ir_obj = ir.scope.new_MemObject(
           ".float_literal" + std::to_string(float_literal_n++));
       ir_obj->init(data, 4);
@@ -1077,7 +1075,7 @@ antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
   }
 }
 
-antlrcpp::Any ASTVisitor::visitUnaryOp(SysYParser::UnaryOpContext *ctx) {
+antlrcpp::Any ASTVisitor::visitUnaryOp(SysYParser::UnaryOpContext *) {
   return nullptr;
 }
 

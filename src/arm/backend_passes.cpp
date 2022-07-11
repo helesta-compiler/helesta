@@ -568,7 +568,7 @@ void remove_unreachable(Func *func) {
           ++it;
           break;
         }
-      } else if (Return *r = (*it)->as<Return>()) {
+      } else if ((*it)->as<Return>()) {
         ++it;
         break;
       }
@@ -631,7 +631,7 @@ void eliminate_branch(Func *func) {
   }
 }
 
-void optimize_before_reg_alloc(Program *prog) {
+void optimize_before_reg_alloc(Program *) {
   /*
   for (auto &f : prog->funcs)
     more_constant_info(f.get());
@@ -647,7 +647,7 @@ void optimize_before_reg_alloc(Program *prog) {
   */
 }
 
-void optimize_after_reg_alloc(Func *func) {
+void optimize_after_reg_alloc(Func *) {
   /*
   remove_unused(func);
   remove_identical_move(func);

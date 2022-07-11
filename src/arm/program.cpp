@@ -51,7 +51,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Reg dst = info->from_ir_reg(loadconst->d1);
       func->constant_reg[dst] = loadconst->value;
       push_back(load_imm(dst, loadconst->value));
-    } else if (auto loadconst = dynamic_cast<IR::LoadConst<float> *>(cur)) {
+    } else if (dynamic_cast<IR::LoadConst<float> *>(cur)) {
       assert(0); // LoadConst<float> should be translate to load global variable
     } else if (auto loadarg = dynamic_cast<IR::LoadArg *>(cur)) {
       push_back(make_unique<MoveReg>(info->from_ir_reg(loadarg->d1),
@@ -217,7 +217,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         debug << "thread_id: " << call->d1 << " -> "
               << info->from_ir_reg(call->d1) << " is forbidden to be spilled\n";
       }
-    } else if (auto local_var_def = dynamic_cast<IR::LocalVarDef *>(cur)) {
+    } else if (dynamic_cast<IR::LocalVarDef *>(cur)) {
       // do nothing
     } else if (auto array_index = dynamic_cast<IR::ArrayIndex *>(cur)) {
       Reg dst = info->from_ir_reg(array_index->d1),
@@ -227,7 +227,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Reg step = info->new_reg();
       push_back(load_imm(step, array_index->size));
       push_back(make_unique<ML>(ML::Mla, dst, s2, step, s1));
-    } else if (auto phi = dynamic_cast<IR::PhiInstr *>(cur)) {
+    } else if (dynamic_cast<IR::PhiInstr *>(cur)) {
       // do nothing
     } else
       unreachable();
@@ -474,7 +474,7 @@ vector<int> Func::get_in_deg() {
         ++ret[pos[b->target]];
         if (b->cond == InstCond::Always)
           go_next = false;
-      } else if (Return *r = inst->as<Return>()) {
+      } else if (inst->as<Return>()) {
         go_next = false;
       }
     if (go_next) {

@@ -102,7 +102,7 @@ struct Inst {
     // change_cpsr
   virtual void gen_asm(std::ostream &out, AsmContext *ctx) = 0;
   virtual void print(std::ostream &out) { gen_asm(out, nullptr); }
-  virtual void maintain_sp(int32_t &sp_offset) {}
+  virtual void maintain_sp(int32_t &) {}
 
   std::string to_string() {
     std::ostringstream buf;

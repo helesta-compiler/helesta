@@ -73,7 +73,6 @@ void SimpleColoringAllocator::spill(const vector<int> &spill_nodes) {
           }
         } else {
           if (cur_def || cur_use) {
-            InstCond cond = (*i)->cond;
             StackObject *cur_obj = spill_obj[j];
             Reg tmp{func->reg_n++};
             func->spilling_reg.insert(tmp);

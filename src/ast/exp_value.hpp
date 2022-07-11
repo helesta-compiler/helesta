@@ -16,6 +16,7 @@ struct IRValue {
   friend std::ostream &operator<<(std::ostream &os, const IRValue &x) {
     os << x.type << ' ' << (x.is_left_value ? "lvalue" : "rvalue") << ' '
        << x.reg;
+    return os;
   }
 };
 
