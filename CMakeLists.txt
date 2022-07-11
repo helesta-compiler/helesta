@@ -1,6 +1,5 @@
 project(helesta CXX)
 cmake_minimum_required(VERSION 3.16)
-set(CMAKE_CXX_COMPILER /opt/homebrew/bin/g++-11)
 
 if(" ${CMAKE_SOURCE_DIR}" STREQUAL " ${CMAKE_BINARY_DIR}")
 	message(FATAL_ERROR "
