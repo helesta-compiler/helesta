@@ -55,7 +55,7 @@ void SimpleColoringAllocator::spill(const vector<int> &spill_nodes) {
         if (func->constant_reg.find(Reg{id}) != func->constant_reg.end()) {
           assert(!cur_def);
           if (cur_use) {
-            Reg tmp{func->reg_n++};
+            Reg tmp{func->reg_n++, (bool)func->float_regs.count(Reg{id})};
             func->spilling_reg.insert(tmp);
             func->constant_reg[tmp] = func->constant_reg[Reg{id}];
             insert(block->insts, i, load_imm(tmp, func->constant_reg[Reg{id}]));
@@ -64,7 +64,7 @@ void SimpleColoringAllocator::spill(const vector<int> &spill_nodes) {
         } else if (func->symbol_reg.find(Reg{id}) != func->symbol_reg.end()) {
           assert(!cur_def);
           if (cur_use) {
-            Reg tmp{func->reg_n++};
+            Reg tmp{func->reg_n++, (bool)func->float_regs.count(Reg{id})};
             func->spilling_reg.insert(tmp);
             func->symbol_reg[tmp] = func->symbol_reg[Reg{id}];
             insert(block->insts, i,
@@ -74,7 +74,7 @@ void SimpleColoringAllocator::spill(const vector<int> &spill_nodes) {
         } else {
           if (cur_def || cur_use) {
             StackObject *cur_obj = spill_obj[j];
-            Reg tmp{func->reg_n++};
+            Reg tmp{func->reg_n++, (bool)func->float_regs.count(Reg{id})};
             func->spilling_reg.insert(tmp);
             if (cur_use)
               block->insts.insert(i, make_unique<LoadStack>(tmp, 0, cur_obj));
