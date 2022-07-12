@@ -262,7 +262,9 @@ struct RegImmInst : Inst {
 // dst = src
 struct MoveReg : Inst {
   Reg dst, src;
-  MoveReg(Reg _dst, Reg _src) : dst(_dst), src(_src) {}
+  bool typecast;
+  MoveReg(Reg _dst, Reg _src, bool _typecast = 0)
+      : dst(_dst), src(_src), typecast(_typecast) {}
 
   virtual std::vector<Reg> def_reg() override { return {dst}; }
   virtual std::vector<Reg> use_reg() override {
