@@ -55,7 +55,6 @@ HexadecimalFloatConst:
 		[0-9a-fA-F]* '.' [0-9a-fA-F]+
 		| [0-9a-fA-F]+ '.'
 	) [pP] [+-]? [0-9]+
-	//HexadecimalPrefix HexadecimalFractionPart BinaryExponentPart
 	| ('0x' | '0X') [0-9a-fA-F]+ [pP] [+-]? [0-9]+;
 
 // integer
