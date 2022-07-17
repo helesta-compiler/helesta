@@ -248,13 +248,17 @@ void MoveReg::gen_asm(ostream &out, AsmContext *) {
     if (src.is_float) {
       out << "vmov.f32" << cond << ' ' << dst << ',' << src << '\n';
     } else {
-      out << (typecast ? "vcvt.f32.s32" : "vmov") << cond << ' ' << dst << ','
-          << src << '\n';
+      out << "vmov" << cond << ' ' << dst << ',' << src << '\n';
+      if (typecast) {
+        out << "vcvt.f32.s32" << cond << ' ' << dst << ',' << dst << '\n';
+      }
     }
   } else {
     if (src.is_float) {
-      out << (typecast ? "vcvt.s32.f32" : "vmov") << cond << ' ' << dst << ','
-          << src << '\n';
+      if (typecast) {
+        out << "vcvt.s32.f32" << cond << ' ' << src << ',' << src << '\n';
+      }
+      out << "vmov" << cond << ' ' << dst << ',' << src << '\n';
     } else {
       out << "mov" << cond << ' ' << dst << ',' << src << '\n';
     }
