@@ -2,7 +2,6 @@
 #include <fstream>
 #include <string>
 
-#include "arm/backend_passes.hpp"
 #include "arm/program.hpp"
 #include "ast/ast_visitor.hpp"
 #include "common/errors.hpp"
@@ -31,7 +30,6 @@ int main(int argc, char **argv) {
   }
 
   ARMv7::Program prog(&ir);
-  ARMv7::optimize_before_reg_alloc(&prog);
   std::ofstream asm_out{filename.second};
   prog.gen_asm(asm_out);
 
