@@ -592,41 +592,94 @@ void Func::gen_asm(ostream &out) {
     }
     vector<Reg> save_regs;
     bool used[RegCount] = {};
-    for (int i : reg_alloc)
-      if (i >= 0)
+    bool use_int_reg = false;
+    bool use_float_reg = false;
+    for (int i : reg_alloc) {
+      if (i >= 0) {
         used[i] = true;
-    for (int i = 0; i < RegCount; ++i)
-      if (REGISTER_USAGE[i] == callee_save && used[i])
+      }
+    }
+    for (int i = 0; i < RegCount; ++i) {
+      if (REGISTER_USAGE[i] == callee_save && used[i]) {
         save_regs.emplace_back(i);
-    prologue = [save_regs, stack_size](ostream &out) {
-      if (save_regs.size()) {
-        out << "push {";
-        for (size_t i = 0; i < save_regs.size(); ++i) {
-          if (i > 0)
-            out << ',';
-          out << save_regs[i];
+        if(save_regs.back().is_float) {
+          use_float_reg = true;
+        } else {
+          use_int_reg = true;
         }
-        out << "}\n";
+      }
+    }
+    prologue = [save_regs, stack_size, use_int_reg, use_float_reg](ostream &out) {
+      if (save_regs.size()) {
+        bool had_pushed_one = false;
+        if (use_int_reg) {
+          out << "push {";
+          for (size_t i = 0; i < save_regs.size(); ++i) {
+            if (had_pushed_one) {
+              out << ',';
+            }
+            if (!save_regs[i].is_float) {
+              out << save_regs[i];
+              had_pushed_one = true;
+            }
+          }
+          out << "}\n";
+        }
+        had_pushed_one = false;
+        if (use_float_reg) {
+          out << "vpush {";
+          for (size_t i = 0; i < save_regs.size(); ++i) {
+            if (had_pushed_one) {
+              out << ',';
+            }
+            if (save_regs[i].is_float) {
+              out << save_regs[i];
+              had_pushed_one = true;
+            } 
+          }
+          out << "}\n";
+        }
       }
       if (stack_size != 0)
         sp_move_asm(-stack_size, out);
     };
-    ctx.epilogue = [save_regs, stack_size](ostream &out) -> bool {
+    ctx.epilogue = [save_regs, stack_size, use_int_reg, use_float_reg](ostream &out) -> bool {
       if (stack_size != 0)
         sp_move_asm(stack_size, out);
       bool pop_lr = false;
       if (save_regs.size()) {
-        out << "pop {";
-        for (size_t i = 0; i < save_regs.size(); ++i) {
-          if (i > 0)
-            out << ',';
-          if (save_regs[i].id == lr) {
-            pop_lr = true;
-            out << "pc";
-          } else
-            out << save_regs[i];
+        bool had_popped_one = false;
+        if (use_float_reg) {
+          out << "vpop{";
+          for(size_t i = 0; i < save_regs.size(); ++i) {
+            if (had_popped_one) {
+              out << ",";
+            }
+            if (save_regs[i].is_float) {
+              had_popped_one = true;
+              out << save_regs[i];
+            }
+          }
         }
-        out << "}\n";
+        had_popped_one = false;
+        if (use_int_reg) {
+          out << "pop {";
+          for (size_t i = 0; i < save_regs.size(); ++i) {
+            if (had_popped_one) {
+              out << ',';
+            }
+            if (!save_regs[i].is_float) {
+              had_popped_one = true;
+              if (save_regs[i].id == lr) {
+                pop_lr = true;
+                out << "pc";
+              } else {
+                out << save_regs[i];
+              }
+            }
+          }
+          out << "}\n";
+        }
       }
       return pop_lr;
     };
