@@ -616,10 +616,10 @@ void Func::gen_asm(ostream &out) {
         if (use_int_reg) {
           out << "push {";
           for (size_t i = 0; i < save_regs.size(); ++i) {
-            if (had_pushed_one) {
-              out << ',';
-            }
             if (!save_regs[i].is_float) {
+              if (had_pushed_one) {
+                out << ',';
+              }
               out << save_regs[i];
               had_pushed_one = true;
             }
@@ -630,10 +630,10 @@ void Func::gen_asm(ostream &out) {
         if (use_float_reg) {
           out << "vpush {";
           for (size_t i = 0; i < save_regs.size(); ++i) {
-            if (had_pushed_one) {
-              out << ',';
-            }
             if (save_regs[i].is_float) {
+              if (had_pushed_one) {
+                out << ',';
+              }
               out << save_regs[i];
               had_pushed_one = true;
             }
@@ -652,32 +652,33 @@ void Func::gen_asm(ostream &out) {
       if (save_regs.size()) {
         bool had_popped_one = false;
         if (use_float_reg) {
-          out << "vpop{";
+          out << "vpop {";
           for (size_t i = 0; i < save_regs.size(); ++i) {
-            if (had_popped_one) {
-              out << ",";
-            }
             if (save_regs[i].is_float) {
+              if (had_popped_one) {
+                out << ",";
+              }
               had_popped_one = true;
               out << save_regs[i];
             }
           }
+          out << "}\n";
         }
         had_popped_one = false;
         if (use_int_reg) {
           out << "pop {";
           for (size_t i = 0; i < save_regs.size(); ++i) {
-            if (had_popped_one) {
-              out << ',';
-            }
             if (!save_regs[i].is_float) {
-              had_popped_one = true;
+              if (had_popped_one) {
+                out << ',';
+              }
               if (save_regs[i].id == lr) {
                 pop_lr = true;
                 out << "pc";
               } else {
                 out << save_regs[i];
               }
+              had_popped_one = true;
             }
           }
           out << "}\n";
