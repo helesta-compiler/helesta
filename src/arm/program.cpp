@@ -602,14 +602,15 @@ void Func::gen_asm(ostream &out) {
     for (int i = 0; i < RegCount; ++i) {
       if (REGISTER_USAGE[i] == callee_save && used[i]) {
         save_regs.emplace_back(i);
-        if(save_regs.back().is_float) {
+        if (save_regs.back().is_float) {
           use_float_reg = true;
         } else {
           use_int_reg = true;
         }
       }
     }
-    prologue = [save_regs, stack_size, use_int_reg, use_float_reg](ostream &out) {
+    prologue = [save_regs, stack_size, use_int_reg,
+                use_float_reg](ostream &out) {
       if (save_regs.size()) {
         bool had_pushed_one = false;
         if (use_int_reg) {
@@ -635,7 +636,7 @@ void Func::gen_asm(ostream &out) {
             if (save_regs[i].is_float) {
               out << save_regs[i];
               had_pushed_one = true;
-            } 
+            }
           }
           out << "}\n";
         }
@@ -643,7 +644,8 @@ void Func::gen_asm(ostream &out) {
       if (stack_size != 0)
         sp_move_asm(-stack_size, out);
     };
-    ctx.epilogue = [save_regs, stack_size, use_int_reg, use_float_reg](ostream &out) -> bool {
+    ctx.epilogue = [save_regs, stack_size, use_int_reg,
+                    use_float_reg](ostream &out) -> bool {
       if (stack_size != 0)
         sp_move_asm(stack_size, out);
       bool pop_lr = false;
@@ -651,7 +653,7 @@ void Func::gen_asm(ostream &out) {
         bool had_popped_one = false;
         if (use_float_reg) {
           out << "vpop{";
-          for(size_t i = 0; i < save_regs.size(); ++i) {
+          for (size_t i = 0; i < save_regs.size(); ++i) {
             if (had_popped_one) {
               out << ",";
             }
