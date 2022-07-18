@@ -1,105 +1,73 @@
 lexer grammar CommonLex;
 
 // keyword
-Int : 'int';
-Float : 'float';
+Int: 'int';
+Float: 'float';
 Void: 'void';
 Const: 'const';
-Return : 'return';
-If : 'if';
-Else : 'else';
-For : 'for';
-While : 'while';
-Do : 'do';
-Break : 'break';
-Continue : 'continue'; 
+Return: 'return';
+If: 'if';
+Else: 'else';
+For: 'for';
+While: 'while';
+Do: 'do';
+Break: 'break';
+Continue: 'continue';
 
 // operator
-Lparen : '(' ;
-Rparen : ')' ;
-Lbrkt : '[' ;
-Rbrkt : ']' ;
-Lbrace : '{' ;
-Rbrace : '}' ;
-Comma : ',' ;
-Semicolon : ';';
-Question : '?';
-Colon : ':';
+Lparen: '(';
+Rparen: ')';
+Lbrkt: '[';
+Rbrkt: ']';
+Lbrace: '{';
+Rbrace: '}';
+Comma: ',';
+Semicolon: ';';
+Question: '?';
+Colon: ':';
 
-Minus : '-';
-Exclamation : '!';
-Tilde : '~';
-Addition : '+';
-Multiplication : '*';
-Division : '/';
-Modulo : '%';
-LAND : '&&';
-LOR : '||';
-EQ : '==';
-NEQ : '!=';
-LT : '<';
-LE : '<=';
-GT : '>';
-GE : '>=';
+Minus: '-';
+Exclamation: '!';
+Tilde: '~';
+Addition: '+';
+Multiplication: '*';
+Division: '/';
+Modulo: '%';
+LAND: '&&';
+LOR: '||';
+EQ: '==';
+NEQ: '!=';
+LT: '<';
+LE: '<=';
+GT: '>';
+GE: '>=';
 
 // float
-FloatLiteral
-    : DecimalFloatConst
-    | HexadecimalFloatConst
-    ;
+FloatLiteral: DecimalFloatConst | HexadecimalFloatConst;
 
-DecimalFloatConst
-    : FractionPart (ExponentPart)?
-    | [0-9]+ ExponentPart 
-    ;
+DecimalFloatConst:
+	[0-9]* '.' [0-9]+
+	| ([0-9]* '.' [0-9]+ | [0-9]+ '.') ([eE] [+-]? [0-9]+)?
+	| [0-9]+ [eE] [+-]? [0-9]+;
 
-FractionPart
-    : [0-9]* '.' [0-9]+
-    | [0-9]+ '.'
-    ;
-
-HexadecimalFloatConst
-    : HexadecimalPrefix HexadecimalFractionPart BinaryExponentPart
-    | HexadecimalPrefix [0-9a-fA-F]+ BinaryExponentPart
-    ;
-
-HexadecimalFractionPart
-    : [0-9a-fA-F]* '.' [0-9a-fA-F]+
-    | [0-9a-fA-F]+ '.'
-    ;
-
-HexadecimalPrefix
-    : '0x' | '0X'
-    ;
-
-ExponentPart
-    : [eE] [+-]? [0-9]+
-    ;
-BinaryExponentPart
-    : [pP] [+-]? [0-9]+
-    ;
-
+HexadecimalFloatConst:
+	('0x' | '0X') (
+		[0-9a-fA-F]* '.' [0-9a-fA-F]+
+		| [0-9a-fA-F]+ '.'
+	) [pP] [+-]? [0-9]+
+	| ('0x' | '0X') [0-9a-fA-F]+ [pP] [+-]? [0-9]+;
 
 // integer
-IntLiteral
-    : [0-9]+ 
-    | '0x' [0-9a-fA-F]+ 
-    | '0X' [0-9a-fA-F]+ 
-    ;
+IntLiteral: [0-9]+ | '0x' [0-9a-fA-F]+ | '0X' [0-9a-fA-F]+;
 
 //identifier
-Identifier
-    : [a-zA-Z_][a-zA-Z_0-9]*
-    ;
+Identifier: [a-zA-Z_][a-zA-Z_0-9]*;
 
-STRING : '"'(ESC|.)*?'"';
+STRING: '"' (ESC | .)*? '"';
 
-fragment
-ESC : '\\"'|'\\\\';
+fragment ESC: '\\"' | '\\\\';
 
-WS : 
-    [ \t\r\n] -> skip
-    ;
+WS: [ \t\r\n] -> skip;
 
-LINE_COMMENT : '//' .*? '\r'? '\n' -> skip;
-COMMENT      :'/*'.*?'*/'-> skip ;
+LINE_COMMENT: '//' .*? '\r'? '\n' -> skip;
+COMMENT: '/*' .*? '*/' -> skip;

@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "arm/archinfo.hpp"
-#include "arm/backend_passes.hpp"
 #include "arm/inst.hpp"
 #include "arm/simple_coloring_alloc.hpp"
 #include "common/common.hpp"
@@ -645,7 +644,6 @@ void Func::gen_asm(ostream &out) {
        << "callee-save registers used: " << stat.callee_save_used << '\n';
   replace_with_reg_alloc(reg_alloc);
   replace_complex_inst();
-  optimize_after_reg_alloc(this);
   out << '\n' << name << ":\n";
   prologue(out);
   for (auto &block : blocks)
