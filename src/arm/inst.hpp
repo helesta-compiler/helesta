@@ -262,9 +262,7 @@ struct RegImmInst : Inst {
 // dst = src
 struct MoveReg : Inst {
   Reg dst, src;
-  bool typecast;
-  MoveReg(Reg _dst, Reg _src, bool _typecast = 0)
-      : dst(_dst), src(_src), typecast(_typecast) {}
+  MoveReg(Reg _dst, Reg _src) : dst(_dst), src(_src) {}
 
   virtual std::vector<Reg> def_reg() override { return {dst}; }
   virtual std::vector<Reg> use_reg() override {
@@ -277,18 +275,14 @@ struct MoveReg : Inst {
   virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
 };
 
-// dst = -src
-struct FNeg : Inst {
+// dst = op src
+struct FRegInst : Inst {
+  enum Type { Neg, I2F, F2I } op;
   Reg dst, src;
-  FNeg(Reg _dst, Reg _src) : dst(_dst), src(_src) {}
+  FRegInst(Type _op, Reg _dst, Reg _src) : op(_op), dst(_dst), src(_src) {}
 
   virtual std::vector<Reg> def_reg() override { return {dst}; }
-  virtual std::vector<Reg> use_reg() override {
-    if (cond != Always)
-      return {dst, src};
-    else
-      return {src};
-  }
+  virtual std::vector<Reg> use_reg() override { return {src}; }
   virtual std::vector<Reg *> regs() override { return {&dst, &src}; }
   virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
 };

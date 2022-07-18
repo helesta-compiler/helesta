@@ -72,20 +72,28 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       case IR::UnaryOp::FNEG:
         info->set_float(dst);
         info->set_float(src);
-        push_back(make_unique<FNeg>(dst, src));
+        push_back(make_unique<FRegInst>(FRegInst::Neg, dst, src));
         break;
       case IR::UnaryOp::ID:
         info->set_maybe_float_assign(dst, src);
         push_back(make_unique<MoveReg>(dst, src));
         break;
-      case IR::UnaryOp::I2F:
+      case IR::UnaryOp::I2F: {
+        Reg tmp = info->new_reg();
         info->set_float(dst);
-        push_back(make_unique<MoveReg>(dst, src, 1));
+        info->set_float(tmp);
+        push_back(make_unique<MoveReg>(tmp, src));
+        push_back(make_unique<FRegInst>(FRegInst::I2F, dst, tmp));
         break;
-      case IR::UnaryOp::F2I:
+      }
+      case IR::UnaryOp::F2I: {
+        Reg tmp = info->new_reg();
         info->set_float(src);
-        push_back(make_unique<MoveReg>(dst, src, 1));
+        info->set_float(tmp);
+        push_back(make_unique<FRegInst>(FRegInst::F2I, tmp, src));
+        push_back(make_unique<MoveReg>(dst, tmp));
         break;
+      }
       default:
         unreachable();
       }
@@ -119,6 +127,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         cmp_info[dst].cond = from_ir_binary_op(binary->op.type);
         cmp_info[dst].lhs = s1;
         cmp_info[dst].rhs = s2;
+        cmp_info[dst].is_float = 0;
       } else if (binary->op.type == IR::BinaryOp::FLESS ||
                  binary->op.type == IR::BinaryOp::FLEQ ||
                  binary->op.type == IR::BinaryOp::FEQ ||
@@ -132,6 +141,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         cmp_info[dst].cond = from_ir_binary_op(binary->op.type);
         cmp_info[dst].lhs = s1;
         cmp_info[dst].rhs = s2;
+        cmp_info[dst].is_float = 1;
       } else if (binary->op.type == IR::BinaryOp::MOD) {
         Reg k = info->new_reg();
         push_back(make_unique<RegRegInst>(RegRegInst::Div, k, s1, s2));
@@ -157,8 +167,13 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Block *true_target = info->block_mapping[branch->target1],
             *false_target = info->block_mapping[branch->target0];
       if (cmp_info.find(cond) != cmp_info.end()) {
-        push_back(make_unique<RegRegCmp>(RegRegCmp::Cmp, cmp_info[cond].lhs,
-                                         cmp_info[cond].rhs));
+        if (cmp_info[cond].is_float) {
+          push_back(
+              make_unique<FRegRegCmp>(cmp_info[cond].lhs, cmp_info[cond].rhs));
+        } else {
+          push_back(make_unique<RegRegCmp>(RegRegCmp::Cmp, cmp_info[cond].lhs,
+                                           cmp_info[cond].rhs));
+        }
         if (false_target == next_block)
           push_back(
               set_cond(make_unique<Branch>(true_target), cmp_info[cond].cond));

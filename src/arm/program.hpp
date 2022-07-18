@@ -46,6 +46,7 @@ struct AsmContext {
 struct CmpInfo {
   InstCond cond;
   Reg lhs, rhs;
+  bool is_float;
 };
 
 struct Block {
