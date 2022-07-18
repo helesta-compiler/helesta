@@ -1,0 +1,3 @@
+[submodule "testcases"]
+	path = testcases
+	url = https://gitlab.eduxiji.net/nscscc/compiler2022.git
