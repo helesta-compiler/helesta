@@ -8,10 +8,12 @@ using std::make_unique;
 using std::ostream;
 using std::string;
 using std::unique_ptr;
+#if 0
 #undef assert
 #define assert(x)                                                              \
   if (!(x))                                                                    \
     fprintf(stderr, "assert failed: %s %d %s\n", __FILE__, (int)__LINE__, #x);
+#endif
 
 namespace ARMv7 {
 
@@ -248,23 +250,32 @@ void MoveReg::gen_asm(ostream &out, AsmContext *) {
     if (src.is_float) {
       out << "vmov.f32" << cond << ' ' << dst << ',' << src << '\n';
     } else {
-      out << (typecast ? "vcvt.f32.s32" : "vmov") << cond << ' ' << dst << ','
-          << src << '\n';
+      out << "vmov" << cond << ' ' << dst << ',' << src << '\n';
     }
   } else {
     if (src.is_float) {
-      out << (typecast ? "vcvt.s32.f32" : "vmov") << cond << ' ' << dst << ','
-          << src << '\n';
+      out << "vmov" << cond << ' ' << dst << ',' << src << '\n';
     } else {
       out << "mov" << cond << ' ' << dst << ',' << src << '\n';
     }
   }
 }
 
-void FNeg::gen_asm(ostream &out, AsmContext *) {
+void FRegInst::gen_asm(ostream &out, AsmContext *) {
+  switch (op) {
+  case Neg:
+    out << "vneg.f32";
+    break;
+  case F2I:
+    out << "vcvt.s32.f32";
+    break;
+  case I2F:
+    out << "vcvt.f32.s32";
+    break;
+  }
   assert(dst.is_float);
   assert(src.is_float);
-  out << "vneg.f32" << cond << ' ' << dst << ',' << src << '\n';
+  out << ' ' << dst << ',' << src << '\n';
 }
 
 void ShiftInst::gen_asm(ostream &out, AsmContext *) {
@@ -501,6 +512,8 @@ void RegRegCmp::gen_asm(ostream &out, AsmContext *) {
   default:
     unreachable();
   }
+  assert(!lhs.is_float);
+  assert(!rhs.is_float);
   out << cond << ' ' << lhs << ',' << rhs << '\n';
 }
 
