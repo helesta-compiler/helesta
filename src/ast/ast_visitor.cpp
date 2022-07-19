@@ -110,9 +110,9 @@ CondJumpList ASTVisitor::to_CondJumpList(antlrcpp::Any value) {
   return jump_list;
 }
 
-IR::Reg ASTVisitor::get_value(int, const IRValue &value) {
-  // if (value.type.is_array())
-  //  __assert(lineno, 0, "", __FILE__);
+IR::Reg ASTVisitor::get_value(int lineno, const IRValue &value) {
+  if (value.type.is_array())
+    __assert(lineno, 0, "", __FILE__);
   //_throw ArrayTypedValueUsed();
   IR::Reg ret = value.reg;
   if (value.is_left_value) {
@@ -125,8 +125,8 @@ IR::Reg ASTVisitor::get_value(int, const IRValue &value) {
 
 IR::Reg ASTVisitor::get_value(int lineno, ScalarType type,
                               const IRValue &value) {
-  // if (value.type.is_array())
-  //  __assert(lineno, 0, "", __FILE__);
+  if (value.type.is_array())
+    __assert(lineno, 0, "", __FILE__);
   IR::Reg ret = get_value(lineno, value);
   switch (value.type.scalar_type) {
   case ScalarType::Int:
@@ -1228,6 +1228,32 @@ antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
   mode = normal;
   IRValue lhs = to_IRValue(ctx->addExp()->accept(this)),
           rhs = to_IRValue(ctx->mulExp()->accept(this));
+  if (rhs.type.is_array()) {
+    std::swap(lhs, rhs);
+  }
+  if (lhs.type.is_array()) {
+    assert(!rhs.type.is_array());
+    IR::Reg lhs_reg = lhs.reg;
+    IR::Reg rhs_reg = _get_value(ScalarType::Int, rhs);
+    int size = 4;
+    for (auto x : lhs.type.deref_one_dim().array_dims) {
+      size *= x;
+    }
+    IR::Reg size_reg = new_reg();
+    cur_bb->push(new IR::LoadConst<int32_t>(size_reg, size));
+    IR::Reg step_reg = new_reg();
+    cur_bb->push(new IR::BinaryOpInstr(step_reg, rhs_reg, size_reg,
+                                       IR::BinaryOp(IR::BinaryOp::MUL)));
+    IR::Reg res_reg = new_reg();
+    cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, step_reg,
+                                       IR::BinaryOp(IR::BinaryOp::ADD)));
+    IRValue ret(lhs.type.scalar_type);
+    ret.type = lhs.type;
+    ret.is_left_value = false;
+    ret.reg = res_reg;
+    mode = prev_mode;
+    return ret;
+  }
   ScalarType type = (lhs.type.scalar_type == ScalarType::Float ||
                              rhs.type.scalar_type == ScalarType::Float
                          ? ScalarType::Float
