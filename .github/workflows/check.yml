@@ -16,3 +16,11 @@ jobs:
 
     - name: Format Check
       run: cmake --build ${{github.workspace}}/build --target format_check
+      
+    - name: Run Testcases
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        password: ${{ secrets.PASSWORD }}
+        script: whoami
