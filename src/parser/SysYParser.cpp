@@ -6,6 +6,7 @@
 #include "SysYVisitor.h"
 
 #include "SysYParser.h"
+#include "common/common.hpp"
 
 
 using namespace antlrcpp;

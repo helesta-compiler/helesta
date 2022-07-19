@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -63,3 +64,9 @@ extern LogStream<Configuration::DEBUG> debug;
 extern LogStream<Configuration::INFO> info;
 extern LogStream<Configuration::WARNING> warning;
 extern LogStream<Configuration::ERROR> error;
+
+#ifdef assert
+#undef assert
+#endif
+#define assert(x) __assert(__LINE__, x, #x, __FILE__)
+void __assert(int lineno, bool value, const char *expr, const char *file);

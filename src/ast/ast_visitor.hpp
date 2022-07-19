@@ -8,6 +8,7 @@
 
 #include "ast/exp_value.hpp"
 #include "ast/symbol_table.hpp"
+#include "common/common.hpp"
 #include "common/errors.hpp"
 #include "ir/ir.hpp"
 #include "parser/SysYBaseVisitor.h"

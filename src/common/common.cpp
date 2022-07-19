@@ -1,6 +1,5 @@
 #include "common/common.hpp"
 
-#include <cassert>
 #include <cctype>
 #include <climits>
 #include <sstream>
@@ -198,3 +197,11 @@ LogStream<Configuration::DEBUG> debug;
 LogStream<Configuration::INFO> info;
 LogStream<Configuration::WARNING> warning;
 LogStream<Configuration::ERROR> error;
+
+void __assert(int lineno, bool value, const char *expr, const char *file) {
+  if (value)
+    return;
+  fprintf(stderr, "assertion failed!\nfile: %s\nline: %d\nexpression: %s\n",
+          file, lineno, expr);
+  exit((lineno - 1) % 100 + 1);
+}
