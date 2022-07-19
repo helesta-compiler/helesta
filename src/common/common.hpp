@@ -36,7 +36,7 @@ void unreachable();
 struct Configuration {
   static constexpr int DEBUG = 0, INFO = 1, WARNING = 2, ERROR = 3;
   int log_level;
-  bool simulate_exec;
+  bool simulate_exec = 0, output_ir = 0;
   std::string input;
   std::set<std::string> disabled_passes;
   std::map<std::string, std::string> args;
