@@ -17,7 +17,7 @@ bool Type::is_array() const { return array_dims.size() > 0 || omit_first_dim; }
 
 Type Type::deref_one_dim() const {
   if (!is_array())
-    throw RuntimeError("Type::deref_one_dim called on a non-array type");
+    _throw RuntimeError("Type::deref_one_dim called on a non-array type");
   Type ret = *this;
   if (ret.omit_first_dim) {
     ret.omit_first_dim = false;
@@ -33,7 +33,7 @@ size_t Type::count_array_dims() const {
 
 MemSize Type::count_elements() const {
   if (omit_first_dim)
-    throw RuntimeError("Type::count_elements() called on a not sized type");
+    _throw RuntimeError("Type::count_elements() called on a not sized type");
   MemSize ret = 1;
   for (MemSize i : array_dims)
     ret *= i;

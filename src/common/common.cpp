@@ -46,7 +46,7 @@ bool startswith(const string &s1, const string &s2) {
 
 #define check_int32(x)                                                         \
   if ((x) > 2147483648ll)                                                      \
-  throw InvalidLiteral("integer literal out of range")
+  _throw InvalidLiteral("integer literal out of range")
 
 int32_t parse_int32_literal(const string &s) {
   int64_t ret = 0;
@@ -67,7 +67,7 @@ int32_t parse_int32_literal(const string &s) {
       if (s[i] >= '0' && s[i] <= '7') {
         ret = ret * 8 + s[i] - '0';
       } else
-        throw InvalidLiteral("invalid octal interger literal");
+        _throw InvalidLiteral("invalid octal interger literal");
       check_int32(ret);
     }
   } else {
@@ -112,8 +112,6 @@ string mangle_global_var_name(const string &s) {
   return ret.str();
 }
 
-void unreachable() { throw RuntimeError("unreachable() called"); }
-
 Configuration::Configuration()
     : log_level(Configuration::WARNING), simulate_exec(false) {
   disabled_passes.insert("loop-parallel");
@@ -150,11 +148,11 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
         string kv = cur.substr(6, cur.length() - 6);
         int pos = kv.find_first_of("=");
         if (pos == -1) {
-          throw std::invalid_argument("missing parameter value");
+          _throw std::invalid_argument("missing parameter value");
         }
         string key = kv.substr(0, pos);
         if (global_config.args.count(key)) {
-          throw std::invalid_argument("duplicate parameter key");
+          _throw std::invalid_argument("duplicate parameter key");
         }
         global_config.args[key] = kv.substr(pos + 1, kv.length() - 1 - pos);
       }
@@ -175,20 +173,20 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
           if (output.length() == 0)
             output = argv[i + 1];
           else
-            throw std::invalid_argument("duplicate output file");
+            _throw std::invalid_argument("duplicate output file");
           ++i;
         } else
-          throw std::invalid_argument("missing output filename");
+          _throw std::invalid_argument("missing output filename");
       }
     } else if (input.length() == 0)
       input = cur;
     else
-      throw std::invalid_argument("duplicate input file");
+      _throw std::invalid_argument("duplicate input file");
   }
   if (input.length() == 0)
-    throw std::invalid_argument("missing input file");
+    _throw std::invalid_argument("missing input file");
   if (output.length() == 0)
-    throw std::invalid_argument("missing output file");
+    _throw std::invalid_argument("missing output file");
   global_config.input = input;
   return pair{input, output};
 }
@@ -205,3 +203,5 @@ void __assert(int lineno, bool value, const char *expr, const char *file) {
           file, lineno, expr);
   exit((lineno - 1) % 100 + 1);
 }
+
+__or_t __or;

@@ -106,7 +106,7 @@ public:
     assert(init_value.size() == type.count_elements());
     if (cur_func) {
       if (cur_local_table->resolve(name))
-        throw DuplicateLocalName(name);
+        _throw DuplicateLocalName(name);
       ir_obj = cur_func->scope.new_MemObject(name);
       ir_obj->size = type.size();
       ir_obj->scalar_type = ScalarType::Int;
@@ -131,7 +131,7 @@ public:
                                       std::move(init_value));
     } else {
       if (global_var.resolve(name) || functions.resolve(name))
-        throw DuplicateGlobalName(name);
+        _throw DuplicateGlobalName(name);
       ir_obj = ir.scope.new_MemObject(name);
       Scalar *buf = new Scalar[init_value.size()];
       for (size_t i = 0; i < init_value.size(); ++i)

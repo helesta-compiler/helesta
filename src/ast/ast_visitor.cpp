@@ -52,7 +52,7 @@ ASTVisitor::get_array_dims(vector<SysYParser::ConstExpContext *> dims) {
   for (auto i : dims) {
     CompileTimeValue<int32_t> cur = i->accept(this).as<CompileTimeValueAny>();
     if (cur.value < 0)
-      throw NegativeArraySize();
+      _throw NegativeArraySize();
     ret.push_back(static_cast<MemSize>(cur.value));
   }
   return ret;
@@ -60,7 +60,7 @@ ASTVisitor::get_array_dims(vector<SysYParser::ConstExpContext *> dims) {
 
 IRValue ASTVisitor::to_IRValue(antlrcpp::Any value) {
   if (value.isNull())
-    throw VoidFuncReturnValueUsed();
+    _throw VoidFuncReturnValueUsed();
   if (value.is<IRValue>())
     return value.as<IRValue>();
   assert(value.is<CondJumpList>());
@@ -93,7 +93,7 @@ CondJumpList ASTVisitor::to_CondJumpList(antlrcpp::Any value) {
     debug << __FUNCTION__ << " value: " << value.isNull() << '\n';
   }
   if (value.isNull())
-    throw VoidFuncReturnValueUsed();
+    _throw VoidFuncReturnValueUsed();
   if (value.is<CondJumpList>())
     return value.as<CondJumpList>();
   assert(value.is<IRValue>());
@@ -110,7 +110,7 @@ CondJumpList ASTVisitor::to_CondJumpList(antlrcpp::Any value) {
 
 IR::Reg ASTVisitor::get_value(const IRValue &value) {
   if (value.type.is_array())
-    throw ArrayTypedValueUsed();
+    _throw ArrayTypedValueUsed();
   IR::Reg ret = value.reg;
   if (value.is_left_value) {
     IR::Reg temp = new_reg();
@@ -164,23 +164,23 @@ IR::Reg ASTVisitor::get_value(ScalarType type, const IRValue &value) {
 
 IR::Reg ASTVisitor::new_reg() {
   if (in_init && cur_func)
-    throw RuntimeError("in global init state when visiting a function");
+    _throw RuntimeError("in global init state when visiting a function");
   if (in_init)
     return init_func->new_Reg();
   if (cur_func)
     return cur_func->new_Reg();
-  throw RuntimeError("fail to new Reg");
+  _throw RuntimeError("fail to new Reg");
   return IR::Reg{};
 }
 
 IR::BB *ASTVisitor::new_BB() {
   if (in_init && cur_func)
-    throw RuntimeError("in global init state when visiting a function");
+    _throw RuntimeError("in global init state when visiting a function");
   if (in_init)
     return init_func->new_BB();
   if (cur_func)
     return cur_func->new_BB();
-  throw RuntimeError("fail to new BB");
+  _throw RuntimeError("fail to new BB");
   return nullptr;
 }
 
@@ -254,7 +254,7 @@ void ASTVisitor::dfs_const_init(SysYParser::ListConstInitValContext *node,
                                 const vector<MemSize> &shape,
                                 vector<Scalar> &result) {
   if (shape.size() == 0)
-    throw InvalidInitList();
+    _throw InvalidInitList();
   MemSize total_size = 1, child_size = 1;
   for (size_t i = 0; i < shape.size(); ++i) {
     total_size *= shape[i];
@@ -271,7 +271,7 @@ void ASTVisitor::dfs_const_init(SysYParser::ListConstInitValContext *node,
     if (auto scalar_child =
             dynamic_cast<SysYParser::ScalarConstInitValContext *>(child)) {
       if (cnt + 1 > total_size)
-        throw InvalidInitList();
+        _throw InvalidInitList();
       result.push_back(scalar_child->constExp()
                            ->accept(this)
                            .as<CompileTimeValueAny>()
@@ -282,7 +282,7 @@ void ASTVisitor::dfs_const_init(SysYParser::ListConstInitValContext *node,
           dynamic_cast<SysYParser::ListConstInitValContext *>(child);
       assert(list_child);
       if (cnt % child_size != 0 || cnt + child_size > total_size)
-        throw InvalidInitList();
+        _throw InvalidInitList();
       dfs_const_init(list_child, child_shape, result);
       cnt += child_size;
     }
@@ -301,7 +301,7 @@ ASTVisitor::parse_const_init(SysYParser::ConstInitValContext *root,
   if (auto scalar_root =
           dynamic_cast<SysYParser::ScalarConstInitValContext *>(root)) {
     if (shape.size())
-      throw InvalidInitList();
+      _throw InvalidInitList();
     ret.push_back(scalar_root->constExp()
                       ->accept(this)
                       .as<CompileTimeValueAny>()
@@ -324,14 +324,15 @@ antlrcpp::Any ASTVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
 
 antlrcpp::Any
 ASTVisitor::visitScalarConstInitVal(SysYParser::ScalarConstInitValContext *) {
-  throw RuntimeError(
+  _throw RuntimeError(
       "ASTVisitor::visitScalarConstInitVal should be unreachable");
   return nullptr;
 }
 
 antlrcpp::Any
 ASTVisitor::visitListConstInitVal(SysYParser::ListConstInitValContext *) {
-  throw RuntimeError("ASTVisitor::visitListConstInitVal should be unreachable");
+  _throw RuntimeError(
+      "ASTVisitor::visitListConstInitVal should be unreachable");
   return nullptr;
 }
 
@@ -352,13 +353,13 @@ ASTVisitor::visitUninitVarDef(SysYParser::UninitVarDefContext *ctx) {
   IR::MemObject *ir_obj;
   if (cur_func) {
     if (cur_local_table->resolve(name))
-      throw DuplicateLocalName(name);
+      _throw DuplicateLocalName(name);
     ir_obj = cur_func->scope.new_MemObject(name);
     cur_bb->push(new IR::LocalVarDef(ir_obj));
     cur_local_table->register_var(name, ir_obj, type);
   } else {
     if (global_var.resolve(name) || functions.resolve(name))
-      throw DuplicateGlobalName(name);
+      _throw DuplicateGlobalName(name);
     ir_obj = ir.scope.new_MemObject(name);
     ir_obj->initial_value = nullptr;
     global_var.register_var(name, ir_obj, type);
@@ -375,7 +376,7 @@ void ASTVisitor::dfs_var_init(ScalarType type,
                               const vector<MemSize> &shape,
                               vector<optional<IR::Reg>> &result) {
   if (shape.size() == 0)
-    throw InvalidInitList();
+    _throw InvalidInitList();
   MemSize total_size = 1, child_size = 1;
   for (size_t i = 0; i < shape.size(); ++i) {
     total_size *= shape[i];
@@ -392,7 +393,7 @@ void ASTVisitor::dfs_var_init(ScalarType type,
     if (auto scalar_child =
             dynamic_cast<SysYParser::ScalarInitValContext *>(child)) {
       if (cnt + 1 > total_size)
-        throw InvalidInitList();
+        _throw InvalidInitList();
       result.emplace_back(
           get_value(type, to_IRValue(scalar_child->exp()->accept(this))));
       ++cnt;
@@ -400,7 +401,7 @@ void ASTVisitor::dfs_var_init(ScalarType type,
       auto list_child = dynamic_cast<SysYParser::ListInitvalContext *>(child);
       assert(list_child);
       if (cnt % child_size != 0 || cnt + child_size > total_size)
-        throw InvalidInitList();
+        _throw InvalidInitList();
       dfs_var_init(type, list_child, child_shape, result);
       cnt += child_size;
     }
@@ -418,7 +419,7 @@ ASTVisitor::parse_var_init(ScalarType type, SysYParser::InitValContext *root,
   if (auto scalar_root =
           dynamic_cast<SysYParser::ScalarInitValContext *>(root)) {
     if (shape.size())
-      throw InvalidInitList();
+      _throw InvalidInitList();
     result.emplace_back(
         get_value(type, to_IRValue(scalar_root->exp()->accept(this))));
     return result;
@@ -477,7 +478,7 @@ antlrcpp::Any ASTVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
   IR::MemObject *ir_obj;
   if (cur_func) {
     if (cur_local_table->resolve(name))
-      throw DuplicateLocalName(name);
+      _throw DuplicateLocalName(name);
     ir_obj = cur_func->scope.new_MemObject(name);
     cur_bb->push(new IR::LocalVarDef(ir_obj));
     cur_local_table->register_var(name, ir_obj, type);
@@ -487,7 +488,7 @@ antlrcpp::Any ASTVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
     gen_var_init_ir(init, ir_obj, false);
   } else {
     if (global_var.resolve(name) || functions.resolve(name))
-      throw DuplicateGlobalName(name);
+      _throw DuplicateGlobalName(name);
     ir_obj = ir.scope.new_MemObject(name);
     ir_obj->initial_value = nullptr;
     global_var.register_var(name, ir_obj, type);
@@ -510,12 +511,12 @@ antlrcpp::Any ASTVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
 
 antlrcpp::Any
 ASTVisitor::visitScalarInitVal(SysYParser::ScalarInitValContext *) {
-  throw RuntimeError("ASTVisitor::visitScalarInitVal should be unreachable");
+  _throw RuntimeError("ASTVisitor::visitScalarInitVal should be unreachable");
   return nullptr;
 }
 
 antlrcpp::Any ASTVisitor::visitListInitval(SysYParser::ListInitvalContext *) {
-  throw RuntimeError("ASTVisitor::visitListInitval should be unreachable");
+  _throw RuntimeError("ASTVisitor::visitListInitval should be unreachable");
   return nullptr;
 }
 
@@ -547,9 +548,10 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     cur_bb->push(
         new IR::CallInstr(new_reg(), init_func, vector<IR::Reg>{}, true));
     if (!return_value_non_void)
-      throw InvalidMainFuncInterface("main function should return int");
+      _throw InvalidMainFuncInterface("main function should return int");
     if (params.size() > 0)
-      throw InvalidMainFuncInterface("main function should have no parameters");
+      _throw InvalidMainFuncInterface(
+          "main function should have no parameters");
   }
   return_bb = cur_func->new_BB();
   for (int i = 0; i < static_cast<int>(params.size()); ++i) {
@@ -646,11 +648,11 @@ antlrcpp::Any ASTVisitor::visitAssignment(SysYParser::AssignmentContext *ctx) {
   IRValue lhs = ctx->lVal()->accept(this),
           rhs = to_IRValue(ctx->exp()->accept(this));
   if (!lhs.assignable())
-    throw AssignmentTypeError("left hand side '" + ctx->lVal()->getText() +
-                              "' is not assignable");
+    _throw AssignmentTypeError("left hand side '" + ctx->lVal()->getText() +
+                               "' is not assignable");
   if (!lhs.type.check_assign(rhs.type))
-    throw AssignmentTypeError("type error on assignment '" + ctx->getText() +
-                              "'");
+    _throw AssignmentTypeError("type error on assignment '" + ctx->getText() +
+                               "'");
   IR::Reg rhs_value = get_value(lhs.type.scalar_type, rhs);
   cur_bb->push(new IR::StoreInstr(lhs.reg, rhs_value));
   return nullptr;
@@ -745,7 +747,7 @@ antlrcpp::Any ASTVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
 
 antlrcpp::Any ASTVisitor::visitBreakStmt(SysYParser::BreakStmtContext *) {
   if (break_target.size() == 0)
-    throw InvalidBreak();
+    _throw InvalidBreak();
   cur_bb->push(new IR::JumpInstr(*std::prev(break_target.end())));
   cur_bb = new_BB(); // unreachable block
   return nullptr;
@@ -753,7 +755,7 @@ antlrcpp::Any ASTVisitor::visitBreakStmt(SysYParser::BreakStmtContext *) {
 
 antlrcpp::Any ASTVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *) {
   if (continue_target.size() == 0)
-    throw InvalidContinue();
+    _throw InvalidContinue();
   cur_bb->push(new IR::JumpInstr(*std::prev(continue_target.end())));
   cur_bb = new_BB(); // unreachable block
   return nullptr;
@@ -770,10 +772,10 @@ antlrcpp::Any ASTVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
       cur_bb->push(new IR::JumpInstr(return_bb));
       return_value.emplace_back(ret_value, cur_bb);
     } else
-      throw InvalidReturn("return a value in void function");
+      _throw InvalidReturn("return a value in void function");
   } else {
     if (return_type != ScalarType::Void) {
-      throw InvalidReturn("return value not found in a non-void function");
+      _throw InvalidReturn("return value not found in a non-void function");
     } else {
       cur_bb->push(new IR::JumpInstr(return_bb));
     }
@@ -798,14 +800,14 @@ antlrcpp::Any ASTVisitor::visitCond(SysYParser::CondContext *ctx) {
 antlrcpp::Any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
   VariableTableEntry *entry = resolve(ctx->Identifier()->getText());
   if (!entry)
-    throw UnrecognizedVarName(ctx->Identifier()->getText());
+    _throw UnrecognizedVarName(ctx->Identifier()->getText());
   if (mode == compile_time) {
     if (!entry->type.is_const)
-      throw CompileTimeValueEvalFail(
+      _throw CompileTimeValueEvalFail(
           "non-const variable used in compile-time constant expression");
     if (!entry->type.is_array()) {
       if (ctx->exp().size())
-        throw InvalidIndexOperator();
+        _throw InvalidIndexOperator();
       if (entry->type.scalar_type == ScalarType::Int) {
         return CompileTimeValueAny{
             std::get<std::vector<int32_t>>(entry->const_init)[0]};
@@ -818,12 +820,12 @@ antlrcpp::Any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
     for (auto i : ctx->exp()) {
       CompileTimeValue<int32_t> cur = i->accept(this).as<CompileTimeValueAny>();
       if (cur.value < 0)
-        throw CompileTimeValueEvalFail(
+        _throw CompileTimeValueEvalFail(
             "negative array index for compile-time constant");
       index.push_back(static_cast<MemSize>(cur.value));
     }
     if (!entry->type.check_index(index))
-      throw CompileTimeValueEvalFail(
+      _throw CompileTimeValueEvalFail(
           "invalid array index for compile-time constant");
     if (entry->type.scalar_type == ScalarType::Int) {
       return CompileTimeValueAny(std::get<std::vector<int32_t>>(
@@ -841,7 +843,7 @@ antlrcpp::Any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
     }
     if (!entry->type.is_array()) {
       if (ctx->exp().size())
-        throw InvalidIndexOperator();
+        _throw InvalidIndexOperator();
       IRValue ret(entry->type.scalar_type);
       ret.type = entry->type;
       ret.is_left_value = true;
@@ -849,7 +851,7 @@ antlrcpp::Any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
       return ret;
     }
     if (ctx->exp().size() > entry->type.count_array_dims())
-      throw InvalidIndexOperator();
+      _throw InvalidIndexOperator();
     Type new_type = entry->type;
     MemSize step_size = 4;
     size_t cur = ctx->exp().size() - 1;
@@ -925,7 +927,8 @@ ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
       return ret;
     }
   } else {
-    throw InvalidLiteral(ctx->number()->getText());
+    _throw InvalidLiteral(ctx->number()->getText());
+    return nullptr;
   }
 }
 
@@ -944,22 +947,22 @@ antlrcpp::Any ASTVisitor::visitUnary1(SysYParser::Unary1Context *ctx) {
 
 antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
   if (mode == compile_time)
-    throw CompileTimeValueEvalFail(
+    _throw CompileTimeValueEvalFail(
         "function call occurs in compile-time constant expression");
   string func_name = ctx->Identifier()->getText();
   FunctionTableEntry *entry = functions.resolve(func_name);
   if (!entry)
-    throw UnrecognizedFuncName(func_name);
+    _throw UnrecognizedFuncName(func_name);
   vector<variant<IR::MemObject *, IRValue>> args;
   if (ctx->funcRParams())
     args = ctx->funcRParams()
                ->accept(this)
                .as<vector<variant<IR::MemObject *, IRValue>>>();
   if (args.size() < entry->interface.args_type.size())
-    throw InvalidFuncCallArg("wrong number of function arguments");
+    _throw InvalidFuncCallArg("wrong number of function arguments");
   if (args.size() > entry->interface.args_type.size() &&
       !entry->interface.variadic)
-    throw InvalidFuncCallArg("wrong number of function arguments");
+    _throw InvalidFuncCallArg("wrong number of function arguments");
   vector<IR::Reg> arg_regs;
   for (size_t i = 0; i < args.size(); ++i) {
     if (IRValue *cur = std::get_if<IRValue>(&args[i])) {
@@ -967,13 +970,13 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
         if (Type *interface_type =
                 std::get_if<Type>(&entry->interface.args_type[i])) {
           if (!interface_type->check_assign(cur->type))
-            throw InvalidFuncCallArg("type error on function argument");
+            _throw InvalidFuncCallArg("type error on function argument");
           if (interface_type->is_array())
             arg_regs.push_back(cur->reg);
           else
             arg_regs.push_back(get_value(interface_type->scalar_type, *cur));
         } else
-          throw InvalidFuncCallArg("type error on function argument");
+          _throw InvalidFuncCallArg("type error on function argument");
       } else {
         arg_regs.push_back(get_value(*cur));
       }
@@ -985,7 +988,7 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
           cur_bb->push(new IR::LoadAddr(addr, cur_str));
           arg_regs.push_back(addr);
         } else
-          throw InvalidFuncCallArg("type error on function argument");
+          _throw InvalidFuncCallArg("type error on function argument");
       } else {
         IR::Reg addr = new_reg();
         cur_bb->push(new IR::LoadAddr(addr, cur_str));

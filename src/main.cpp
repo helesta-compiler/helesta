@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
   ASTVisitor visitor(ir);
   auto found_main = visitor.visitCompUnit(root).as<bool>();
   if (!found_main) {
-    throw MainFuncNotFound();
+    _throw MainFuncNotFound();
   }
 
   if (global_config.simulate_exec)
