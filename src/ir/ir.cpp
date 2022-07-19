@@ -436,7 +436,18 @@ void map_use(NormalFunc *f, const std::unordered_map<Reg, Reg> &mp_reg) {
   });
 }
 
+void compute_data_offset(CompileUnit &c) {
+  c.for_each([](MemScope &s) {
+    s.size = 0;
+    s.for_each([&](MemObject *x) {
+      x->offset = s.size;
+      s.size += x->size;
+    });
+  });
+}
+
 int exec(CompileUnit &c) {
+  compute_data_offset(c);
   // std::cerr<<">>> exec"<<std::endl;
   // simulate IR execute result
   FILE *ifile = fopen("input.txt", "r");
@@ -604,9 +615,13 @@ int exec(CompileUnit &c) {
               wReg(x->d1, ret);
           }
           else {
+#define FLOAT_FMT "%f"
             if (x->f->name == "getint") {
               assert(args.size() == 0);
               fscanf(ifile, "%d", &ret.int_value());
+            } else if (x->f->name == "getfloat") {
+              assert(args.size() == 0);
+              fscanf(ifile, FLOAT_FMT, &ret.float_value());
             } else if (x->f->name == "getch") {
               assert(args.size() == 0);
               ret = fgetc(ifile);
@@ -617,9 +632,22 @@ int exec(CompileUnit &c) {
                 fscanf(ifile, "%d", &x);
                 wMem(args[0].int_value() + i * 4, x);
               }
+            } else if (x->f->name == "getfarray") {
+              assert(args.size() == 1);
+              fscanf(ifile, "%d", &ret.int_value());
+              for (int i = 0; i < ret.int_value(); ++i) {
+                float x;
+                fscanf(ifile, FLOAT_FMT, &x);
+                wMem(args[0].int_value() + i * 4, x);
+              }
             } else if (x->f->name == "putint") {
               assert(args.size() == 1);
               fprintf(ofile, "%d", args[0].int_value());
+              fflush(ofile);
+              eol = 0;
+            } else if (x->f->name == "putfloat") {
+              assert(args.size() == 1);
+              fprintf(ofile, FLOAT_FMT, args[0].float_value());
               fflush(ofile);
               eol = 0;
             } else if (x->f->name == "putch") {
@@ -633,6 +661,15 @@ int exec(CompileUnit &c) {
               fprintf(ofile, "%d:", n);
               for (int i = 0; i < n; ++i)
                 fprintf(ofile, " %d", rMem(a + i * 4).int_value());
+              fputc(10, ofile);
+              fflush(ofile);
+              eol = 1;
+            } else if (x->f->name == "putfarray") {
+              assert(args.size() == 2);
+              int n = args[0].int_value(), a = args[1].int_value();
+              fprintf(ofile, "%d:", n);
+              for (int i = 0; i < n; ++i)
+                fprintf(ofile, " " FLOAT_FMT, rMem(a + i * 4).float_value());
               fputc(10, ofile);
               fflush(ofile);
               eol = 1;
@@ -681,6 +718,8 @@ int exec(CompileUnit &c) {
                 in_fork = 0;
               }
               // std::cerr<<">>> join"<<std::endl;
+            } else {
+              assert(0);
             }
           }
           if (!x->f->ignore_return_value && !x->ignore_return_value)
