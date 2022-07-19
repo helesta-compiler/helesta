@@ -406,11 +406,13 @@ void ASTVisitor::dfs_var_init(ScalarType type,
     } else {
       auto list_child = dynamic_cast<SysYParser::ListInitvalContext *>(child);
       assert(list_child);
-      while (cnt % child_size && cnt < total_size) {
+      /*while (cnt % child_size && cnt < total_size) {
         result.emplace_back();
         ++cnt;
-      }
-      if (cnt % child_size != 0 || cnt + child_size > total_size)
+      }*/
+      if (cnt % child_size != 0)
+        _throw InvalidInitList();
+      if (cnt + child_size > total_size)
         _throw InvalidInitList();
       dfs_var_init(type, list_child, child_shape, result);
       cnt += child_size;
@@ -871,7 +873,8 @@ antlrcpp::Any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
       step_size *= entry->type.array_dims[i];
     for (size_t i = ctx->exp().size() - 1; i < ctx->exp().size(); --i) {
       new_type = new_type.deref_one_dim();
-      IR::Reg cur_index = _get_value(to_IRValue(ctx->exp()[i]->accept(this)));
+      IR::Reg cur_index =
+          _get_value(ScalarType::Int, to_IRValue(ctx->exp()[i]->accept(this)));
       IR::Reg new_addr = new_reg();
       cur_bb->push(
           new IR::ArrayIndex(new_addr, addr, cur_index, step_size, -1));
@@ -1064,6 +1067,7 @@ antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
                                         IR::UnaryOp(type, IR::UnaryOp::LNOT)));
       break;
     default:; //+, do nothing
+      assert(op == '+');
     }
     ret.reg = res_value;
     return ret;
@@ -1076,16 +1080,19 @@ antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
       ValueMode prev_mode = mode;
       mode = normal;
       IRValue rhs = to_IRValue(ctx->unaryExp()->accept(this));
+      ScalarType type = rhs.type.scalar_type;
+      assert(!rhs.type.is_array());
       if (op == '+') {
-        rhs.reg = _get_value(rhs);
+        rhs.reg = _get_value(type, rhs);
         rhs.is_left_value = false;
         mode = prev_mode;
         return rhs;
       } else {
+        assert(op == '-');
         IR::Reg rhs_value = _get_value(rhs);
         IR::Reg res_value = new_reg();
         cur_bb->push(new IR::UnaryOpInstr(res_value, rhs_value,
-                                          IR::UnaryOp(IR::UnaryOp::NEG)));
+                                          IR::UnaryOp(type, IR::UnaryOp::NEG)));
         IRValue ret(rhs.type.scalar_type);
         ret.is_left_value = false;
         ret.reg = res_value;
@@ -1223,6 +1230,7 @@ antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
                          : ScalarType::Int);
   IR::Reg lhs_reg = _get_value(type, lhs), rhs_reg = _get_value(type, rhs),
           res_reg = new_reg();
+
   switch (op) {
   case '+':
     cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
@@ -1364,12 +1372,12 @@ antlrcpp::Any ASTVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
     return lhs && rhs;
   } else if (mode == normal) {
     IRValue lhs = to_IRValue(ctx->lAndExp()->accept(this));
-    IR::Reg lhs_value = _get_value(lhs);
+    IR::Reg lhs_value = _get_value(ScalarType::Int, lhs);
     IR::BB *lhs_end = cur_bb, *rhs_entry = new_BB(), *res_entry = new_BB();
     lhs_end->push(new IR::BranchInstr(lhs_value, rhs_entry, res_entry));
     cur_bb = rhs_entry;
     IRValue rhs = to_IRValue(ctx->eqExp()->accept(this));
-    IR::Reg rhs_value = _get_value(rhs);
+    IR::Reg rhs_value = _get_value(ScalarType::Int, rhs);
     cur_bb->push(new IR::JumpInstr(res_entry));
     IR::BB *rhs_end = cur_bb;
     cur_bb = res_entry;
@@ -1416,12 +1424,12 @@ antlrcpp::Any ASTVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
     return lhs || rhs;
   } else if (mode == normal) {
     IRValue lhs = to_IRValue(ctx->lOrExp()->accept(this));
-    IR::Reg lhs_value = _get_value(lhs);
+    IR::Reg lhs_value = _get_value(ScalarType::Int, lhs);
     IR::BB *lhs_end = cur_bb, *rhs_entry = new_BB(), *res_entry = new_BB();
     lhs_end->push(new IR::BranchInstr(lhs_value, res_entry, rhs_entry));
     cur_bb = rhs_entry;
     IRValue rhs = to_IRValue(ctx->lAndExp()->accept(this));
-    IR::Reg rhs_value = _get_value(rhs);
+    IR::Reg rhs_value = _get_value(ScalarType::Int, rhs);
     cur_bb->push(new IR::JumpInstr(res_entry));
     IR::BB *rhs_end = cur_bb;
     cur_bb = res_entry;
