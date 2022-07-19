@@ -520,6 +520,7 @@ antlrcpp::Any ASTVisitor::visitListInitval(SysYParser::ListInitvalContext *) {
 
 antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   bool return_value_non_void = (ctx->funcType()->getText() != "void");
+  bool return_value_is_float = (ctx->funcType()->getText() == "float");
   string name = ctx->Identifier()->getText();
   vector<pair<string, Type>> params;
   if (ctx->funcFParams())
@@ -582,6 +583,11 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   if (return_value_non_void) {
     IR::Reg zero = new_reg();
     cur_bb->push(new IR::LoadConst(zero, static_cast<int32_t>(0)));
+    if (return_value_is_float) {
+      IR::Reg tmp = new_reg();
+      cur_bb->push(new IR::UnaryOpInstr(tmp, zero, IR::UnaryOp::I2F));
+      zero = tmp;
+    }
     cur_bb->push(new IR::JumpInstr(return_bb));
     return_value.emplace_back(zero, cur_bb);
     IR::Reg ret_value = cur_func->new_Reg();
@@ -754,17 +760,18 @@ antlrcpp::Any ASTVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *) {
 
 antlrcpp::Any ASTVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
   assert(mode == normal);
+  ScalarType return_type =
+      functions.resolve(cur_func_name)->interface.return_type;
   if (ctx->exp()) {
-    if (functions.resolve(cur_func_name)->interface.return_type !=
-        ScalarType::Void) {
-      IR::Reg ret_value = get_value(to_IRValue(ctx->exp()->accept(this)));
+    if (return_type != ScalarType::Void) {
+      IR::Reg ret_value =
+          get_value(return_type, to_IRValue(ctx->exp()->accept(this)));
       cur_bb->push(new IR::JumpInstr(return_bb));
       return_value.emplace_back(ret_value, cur_bb);
     } else
       throw InvalidReturn("return a value in void function");
   } else {
-    if (functions.resolve(cur_func_name)->interface.return_type !=
-        ScalarType::Void) {
+    if (return_type != ScalarType::Void) {
       throw InvalidReturn("return value not found in a non-void function");
     } else {
       cur_bb->push(new IR::JumpInstr(return_bb));
@@ -963,7 +970,7 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
           if (interface_type->is_array())
             arg_regs.push_back(cur->reg);
           else
-            arg_regs.push_back(get_value(*cur));
+            arg_regs.push_back(get_value(interface_type->scalar_type, *cur));
         } else
           throw InvalidFuncCallArg("type error on function argument");
       } else {
