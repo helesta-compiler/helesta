@@ -400,6 +400,10 @@ void ASTVisitor::dfs_var_init(ScalarType type,
     } else {
       auto list_child = dynamic_cast<SysYParser::ListInitvalContext *>(child);
       assert(list_child);
+      while (cnt % child_size && cnt < total_size) {
+        result.emplace_back();
+        ++cnt;
+      }
       if (cnt % child_size != 0 || cnt + child_size > total_size)
         _throw InvalidInitList();
       dfs_var_init(type, list_child, child_shape, result);
