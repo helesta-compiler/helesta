@@ -110,9 +110,9 @@ CondJumpList ASTVisitor::to_CondJumpList(antlrcpp::Any value) {
   return jump_list;
 }
 
-IR::Reg ASTVisitor::get_value(int lineno, const IRValue &value) {
-  if (value.type.is_array())
-    __assert(lineno, 0, "", __FILE__);
+IR::Reg ASTVisitor::get_value(int, const IRValue &value) {
+  // if (value.type.is_array())
+  //  __assert(lineno, 0, "", __FILE__);
   //_throw ArrayTypedValueUsed();
   IR::Reg ret = value.reg;
   if (value.is_left_value) {
@@ -125,8 +125,8 @@ IR::Reg ASTVisitor::get_value(int lineno, const IRValue &value) {
 
 IR::Reg ASTVisitor::get_value(int lineno, ScalarType type,
                               const IRValue &value) {
-  if (value.type.is_array())
-    __assert(lineno, 0, "", __FILE__);
+  // if (value.type.is_array())
+  //  __assert(lineno, 0, "", __FILE__);
   IR::Reg ret = get_value(lineno, value);
   switch (value.type.scalar_type) {
   case ScalarType::Int:
@@ -410,12 +410,16 @@ void ASTVisitor::dfs_var_init(ScalarType type,
         result.emplace_back();
         ++cnt;
       }*/
-      // if (cnt % child_size != 0)
-      //  _throw InvalidInitList();
+      bool flag = (cnt % child_size != 0);
       if (cnt + child_size > total_size)
         _throw InvalidInitList();
       dfs_var_init(type, list_child, child_shape, result);
-      cnt += child_size;
+      if (flag) {
+        cnt += 1;
+        result.erase(result.end() - child_size + 1, result.end());
+      } else {
+        cnt += child_size;
+      }
     }
   }
   while (cnt < total_size) {
