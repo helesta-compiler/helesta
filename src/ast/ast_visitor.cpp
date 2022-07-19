@@ -410,8 +410,8 @@ void ASTVisitor::dfs_var_init(ScalarType type,
         result.emplace_back();
         ++cnt;
       }*/
-      if (cnt % child_size != 0)
-        _throw InvalidInitList();
+      // if (cnt % child_size != 0)
+      //  _throw InvalidInitList();
       if (cnt + child_size > total_size)
         _throw InvalidInitList();
       dfs_var_init(type, list_child, child_shape, result);
@@ -1228,8 +1228,9 @@ antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
                              rhs.type.scalar_type == ScalarType::Float
                          ? ScalarType::Float
                          : ScalarType::Int);
-  IR::Reg lhs_reg = _get_value(type, lhs), rhs_reg = _get_value(type, rhs),
-          res_reg = new_reg();
+  IR::Reg lhs_reg = _get_value(type, lhs);
+  IR::Reg rhs_reg = _get_value(type, rhs);
+  IR::Reg res_reg = new_reg();
 
   switch (op) {
   case '+':
@@ -1245,6 +1246,7 @@ antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
   ret.is_left_value = false;
   ret.reg = res_reg;
   mode = prev_mode;
+  assert(!ret.type.is_array());
   return ret;
 }
 
