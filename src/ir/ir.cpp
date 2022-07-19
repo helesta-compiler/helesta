@@ -615,7 +615,7 @@ int exec(CompileUnit &c) {
               wReg(x->d1, ret);
           }
           else {
-#define FLOAT_FMT "%f"
+#define FLOAT_FMT "%a"
             if (x->f->name == "getint") {
               assert(args.size() == 0);
               fscanf(ifile, "%d", &ret.int_value());

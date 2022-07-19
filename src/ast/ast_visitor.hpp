@@ -66,9 +66,9 @@ class ASTVisitor : public SysYBaseVisitor {
                       const std::vector<MemSize> &shape,
                       std::vector<Scalar> &result);
   std::vector<std::optional<IR::Reg>>
-  parse_var_init(SysYParser::InitValContext *root,
+  parse_var_init(ScalarType type, SysYParser::InitValContext *root,
                  const std::vector<MemSize> &shape);
-  void dfs_var_init(SysYParser::ListInitvalContext *node,
+  void dfs_var_init(ScalarType type, SysYParser::ListInitvalContext *node,
                     const std::vector<MemSize> &shape,
                     std::vector<std::optional<IR::Reg>> &result);
   void gen_var_init_ir(const std::vector<std::optional<IR::Reg>> &init,
