@@ -745,7 +745,8 @@ void Program::gen_global_var_asm(ostream &out) {
     out << ".section .bss\n";
     for (auto &obj : global_objects)
       if (!obj->init) {
-        assert(obj->scalar_type == ScalarType::Int);
+        assert(obj->scalar_type == ScalarType::Int ||
+               obj->scalar_type == ScalarType::Float);
         out << ".align\n";
         out << obj->name << ":\n";
         out << "    .space " << obj->size << '\n';
