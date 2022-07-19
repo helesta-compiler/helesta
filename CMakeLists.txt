@@ -43,25 +43,29 @@ file(GLOB performance_test "testcases/公开样例与运行时库/performance/*.
 # file(GLOB custom_test_cases "test_sets/*.sy")
 
 # output .s file path
-set(output_file_path "")
-
+set(output_file_path "${CMAKE_BINARY_DIR}/output")
+file(MAKE_DIRECTORY "${output_file_path}")
 
 # test which cases
 set(all_test_cases "")
 if (FUNC_TEST)
-    set(all_test_cases ${all_test_cases} ${functional_test})
+	file(MAKE_DIRECTORY "${output_file_path}/functional")
+	foreach(file ${functional_test})
+		get_filename_component(file_name "${file}" NAME_WE)
+		add_test(NAME ${file_name} COMMAND ./compiler "${file}" -S -o "${output_file_path}/functional/${file_name}.s")
+	endforeach()
 endif()
 if (PERF_TEST)
-    set(all_test_cases ${all_test_cases} ${performance_test})
+	file(MAKE_DIRECTORY "${output_file_path}/performance")
+	foreach(file ${performance_test})
+		get_filename_component(file_name "${file}" NAME_WE)
+		add_test(NAME ${file_name} COMMAND ./compiler "${file}" -S -o "${output_file_path}/performance/${file_name}.s")
+	endforeach()
 endif()
 # if (CUSTOM_TEST)
 #	set(all_test_cases ${all_test_cases} ${custom_test_cases})
 # endif()
 
 # test start, officially
-foreach(file ${all_test_cases})
-    get_filename_component(file_name "${file}" NAME_WE)
-    add_test(NAME ${file_name}
-            COMMAND ./compiler "${file}" -S -o "${output_file_path}/${file_name}.s")
-endforeach()
+
 enable_testing()
