@@ -50,8 +50,8 @@ class ASTVisitor : public SysYBaseVisitor {
   CondJumpList
   to_CondJumpList(antlrcpp::Any value); // check null, IRValue and CondJumpList,
                                         // after this call, cur_bb is nullptr
-  IR::Reg get_value(const IRValue &value); // check array
-  IR::Reg get_value(ScalarType type,
+  IR::Reg get_value(int lineno, const IRValue &value); // check array
+  IR::Reg get_value(int lineno, ScalarType type,
                     const IRValue &value); // implicit type cast
   IR::Reg new_reg();
   IR::BB *new_BB();

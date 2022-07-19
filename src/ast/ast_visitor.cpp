@@ -8,6 +8,8 @@
 #include "common/common.hpp"
 #include "common/errors.hpp"
 
+#define _get_value(...) get_value(__LINE__, __VA_ARGS__)
+
 using std::optional;
 using std::pair;
 using std::string;
@@ -98,7 +100,7 @@ CondJumpList ASTVisitor::to_CondJumpList(antlrcpp::Any value) {
     return value.as<CondJumpList>();
   assert(value.is<IRValue>());
   IRValue irv = value;
-  IR::Reg reg = get_value(irv);
+  IR::Reg reg = _get_value(irv);
   IR::BranchInstr *inst = new IR::BranchInstr(reg, nullptr, nullptr);
   cur_bb->push(inst);
   cur_bb = nullptr;
@@ -108,9 +110,10 @@ CondJumpList ASTVisitor::to_CondJumpList(antlrcpp::Any value) {
   return jump_list;
 }
 
-IR::Reg ASTVisitor::get_value(const IRValue &value) {
+IR::Reg ASTVisitor::get_value(int lineno, const IRValue &value) {
   if (value.type.is_array())
-    _throw ArrayTypedValueUsed();
+    __assert(lineno, 0, "", __FILE__);
+  //_throw ArrayTypedValueUsed();
   IR::Reg ret = value.reg;
   if (value.is_left_value) {
     IR::Reg temp = new_reg();
@@ -120,8 +123,11 @@ IR::Reg ASTVisitor::get_value(const IRValue &value) {
   return ret;
 }
 
-IR::Reg ASTVisitor::get_value(ScalarType type, const IRValue &value) {
-  IR::Reg ret = get_value(value);
+IR::Reg ASTVisitor::get_value(int lineno, ScalarType type,
+                              const IRValue &value) {
+  if (value.type.is_array())
+    __assert(lineno, 0, "", __FILE__);
+  IR::Reg ret = get_value(lineno, value);
   switch (value.type.scalar_type) {
   case ScalarType::Int:
     switch (type) {
@@ -395,7 +401,7 @@ void ASTVisitor::dfs_var_init(ScalarType type,
       if (cnt + 1 > total_size)
         _throw InvalidInitList();
       result.emplace_back(
-          get_value(type, to_IRValue(scalar_child->exp()->accept(this))));
+          _get_value(type, to_IRValue(scalar_child->exp()->accept(this))));
       ++cnt;
     } else {
       auto list_child = dynamic_cast<SysYParser::ListInitvalContext *>(child);
@@ -425,7 +431,7 @@ ASTVisitor::parse_var_init(ScalarType type, SysYParser::InitValContext *root,
     if (shape.size())
       _throw InvalidInitList();
     result.emplace_back(
-        get_value(type, to_IRValue(scalar_root->exp()->accept(this))));
+        _get_value(type, to_IRValue(scalar_root->exp()->accept(this))));
     return result;
   }
   auto list_root = dynamic_cast<SysYParser::ListInitvalContext *>(root);
@@ -657,7 +663,7 @@ antlrcpp::Any ASTVisitor::visitAssignment(SysYParser::AssignmentContext *ctx) {
   if (!lhs.type.check_assign(rhs.type))
     _throw AssignmentTypeError("type error on assignment '" + ctx->getText() +
                                "'");
-  IR::Reg rhs_value = get_value(lhs.type.scalar_type, rhs);
+  IR::Reg rhs_value = _get_value(lhs.type.scalar_type, rhs);
   cur_bb->push(new IR::StoreInstr(lhs.reg, rhs_value));
   return nullptr;
 }
@@ -772,7 +778,7 @@ antlrcpp::Any ASTVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
   if (ctx->exp()) {
     if (return_type != ScalarType::Void) {
       IR::Reg ret_value =
-          get_value(return_type, to_IRValue(ctx->exp()->accept(this)));
+          _get_value(return_type, to_IRValue(ctx->exp()->accept(this)));
       cur_bb->push(new IR::JumpInstr(return_bb));
       return_value.emplace_back(ret_value, cur_bb);
     } else
@@ -865,7 +871,7 @@ antlrcpp::Any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
       step_size *= entry->type.array_dims[i];
     for (size_t i = ctx->exp().size() - 1; i < ctx->exp().size(); --i) {
       new_type = new_type.deref_one_dim();
-      IR::Reg cur_index = get_value(to_IRValue(ctx->exp()[i]->accept(this)));
+      IR::Reg cur_index = _get_value(to_IRValue(ctx->exp()[i]->accept(this)));
       IR::Reg new_addr = new_reg();
       cur_bb->push(
           new IR::ArrayIndex(new_addr, addr, cur_index, step_size, -1));
@@ -978,11 +984,11 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
           if (interface_type->is_array())
             arg_regs.push_back(cur->reg);
           else
-            arg_regs.push_back(get_value(interface_type->scalar_type, *cur));
+            arg_regs.push_back(_get_value(interface_type->scalar_type, *cur));
         } else
           _throw InvalidFuncCallArg("type error on function argument");
       } else {
-        arg_regs.push_back(get_value(*cur));
+        arg_regs.push_back(_get_value(*cur));
       }
     } else {
       IR::MemObject *&cur_str = std::get<IR::MemObject *>(args[i]);
@@ -1042,7 +1048,7 @@ antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
     ScalarType type = rhs.type.scalar_type;
     if (op == '!')
       type = ScalarType::Int;
-    IR::Reg rhs_value = get_value(type, rhs);
+    IR::Reg rhs_value = _get_value(type, rhs);
     IR::Reg res_value = rhs_value;
     IRValue ret(type);
     ret.is_left_value = false;
@@ -1071,12 +1077,12 @@ antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
       mode = normal;
       IRValue rhs = to_IRValue(ctx->unaryExp()->accept(this));
       if (op == '+') {
-        rhs.reg = get_value(rhs);
+        rhs.reg = _get_value(rhs);
         rhs.is_left_value = false;
         mode = prev_mode;
         return rhs;
       } else {
-        IR::Reg rhs_value = get_value(rhs);
+        IR::Reg rhs_value = _get_value(rhs);
         IR::Reg res_value = new_reg();
         cur_bb->push(new IR::UnaryOpInstr(res_value, rhs_value,
                                           IR::UnaryOp(IR::UnaryOp::NEG)));
@@ -1163,7 +1169,7 @@ antlrcpp::Any ASTVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
                              rhs.type.scalar_type == ScalarType::Float
                          ? ScalarType::Float
                          : ScalarType::Int);
-  IR::Reg lhs_reg = get_value(type, lhs), rhs_reg = get_value(type, rhs),
+  IR::Reg lhs_reg = _get_value(type, lhs), rhs_reg = _get_value(type, rhs),
           res_reg = new_reg();
   switch (op) {
   case '*':
@@ -1215,7 +1221,7 @@ antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
                              rhs.type.scalar_type == ScalarType::Float
                          ? ScalarType::Float
                          : ScalarType::Int);
-  IR::Reg lhs_reg = get_value(type, lhs), rhs_reg = get_value(type, rhs),
+  IR::Reg lhs_reg = _get_value(type, lhs), rhs_reg = _get_value(type, rhs),
           res_reg = new_reg();
   switch (op) {
   case '+':
@@ -1277,7 +1283,7 @@ antlrcpp::Any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
                              rhs.type.scalar_type == ScalarType::Float
                          ? ScalarType::Float
                          : ScalarType::Int);
-  IR::Reg lhs_reg = get_value(type, lhs), rhs_reg = get_value(type, rhs),
+  IR::Reg lhs_reg = _get_value(type, lhs), rhs_reg = _get_value(type, rhs),
           res_reg = new_reg();
   if (rev)
     std::swap(lhs_reg, rhs_reg);
@@ -1329,7 +1335,7 @@ antlrcpp::Any ASTVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
                              rhs.type.scalar_type == ScalarType::Float
                          ? ScalarType::Float
                          : ScalarType::Int);
-  IR::Reg lhs_reg = get_value(type, lhs), rhs_reg = get_value(type, rhs),
+  IR::Reg lhs_reg = _get_value(type, lhs), rhs_reg = _get_value(type, rhs),
           res_reg = new_reg();
   cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
                                      IR::BinaryOp(type, opt)));
@@ -1358,12 +1364,12 @@ antlrcpp::Any ASTVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
     return lhs && rhs;
   } else if (mode == normal) {
     IRValue lhs = to_IRValue(ctx->lAndExp()->accept(this));
-    IR::Reg lhs_value = get_value(lhs);
+    IR::Reg lhs_value = _get_value(lhs);
     IR::BB *lhs_end = cur_bb, *rhs_entry = new_BB(), *res_entry = new_BB();
     lhs_end->push(new IR::BranchInstr(lhs_value, rhs_entry, res_entry));
     cur_bb = rhs_entry;
     IRValue rhs = to_IRValue(ctx->eqExp()->accept(this));
-    IR::Reg rhs_value = get_value(rhs);
+    IR::Reg rhs_value = _get_value(rhs);
     cur_bb->push(new IR::JumpInstr(res_entry));
     IR::BB *rhs_end = cur_bb;
     cur_bb = res_entry;
@@ -1410,12 +1416,12 @@ antlrcpp::Any ASTVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
     return lhs || rhs;
   } else if (mode == normal) {
     IRValue lhs = to_IRValue(ctx->lOrExp()->accept(this));
-    IR::Reg lhs_value = get_value(lhs);
+    IR::Reg lhs_value = _get_value(lhs);
     IR::BB *lhs_end = cur_bb, *rhs_entry = new_BB(), *res_entry = new_BB();
     lhs_end->push(new IR::BranchInstr(lhs_value, res_entry, rhs_entry));
     cur_bb = rhs_entry;
     IRValue rhs = to_IRValue(ctx->lAndExp()->accept(this));
-    IR::Reg rhs_value = get_value(rhs);
+    IR::Reg rhs_value = _get_value(rhs);
     cur_bb->push(new IR::JumpInstr(res_entry));
     IR::BB *rhs_end = cur_bb;
     cur_bb = res_entry;
