@@ -16,6 +16,9 @@ jobs:
 
     - name: Format Check
       run: cmake --build ${{github.workspace}}/build --target format_check
+
+    - name: Compile Testcases
+      run: python3 ./scripts/run_all.py
       
     - name: Run Testcases
       uses: fifsky/ssh-action@master
@@ -23,4 +26,4 @@ jobs:
         host: ${{ secrets.HOST }}
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
-        command: www
+        command: whoami
