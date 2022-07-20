@@ -20,11 +20,18 @@ jobs:
     - name: Compile Testcases
       run: python3 ./scripts/run_all.py
 
-    - name: Archive Compile Results
-      uses: actions/upload-artifact@v3
+    - name: Send Results to Raspberry Pi
+      uses: appleboy/scp-action@master
       with:
-        name: compile-results
-        path: testcases
+        host: localhost
+        username: pi
+        password: ${{ secrets.PASSWORD }}
+        port: 2004
+        source: "testcases"
+        target: "github-action"
+        proxy_host: 140.143.248.164
+        proxy_password: ${{ secrets.PASSWORD }}
+        proxy_username: helesta 
       
     - name: Run Testcases
       uses: fifsky/ssh-action@master
