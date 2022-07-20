@@ -424,13 +424,12 @@ void StoreStack::gen_asm(ostream &out, AsmContext *ctx) {
 }
 
 void Push::gen_asm(ostream &out, AsmContext *ctx) {
-  out << "push" << cond << " {";
-  for (size_t i = 0; i < src.size(); ++i) {
-    if (i > 0)
-      out << ',';
-    out << src[i];
+  for (Reg r : src) {
+    if (r.is_float) {
+      out << 'v';
+    }
+    out << "push" << cond << " {" << r << "}\n";
   }
-  out << "}\n";
   ctx->temp_sp_offset -= static_cast<int32_t>(INT_SIZE * src.size());
 }
 

@@ -514,7 +514,10 @@ struct StoreStack : Inst {
 // order in stack is increasing order of register id
 struct Push : Inst {
   std::vector<Reg> src;
-  Push(std::vector<Reg> _src) : src(_src) {}
+  Push(std::vector<Reg> _src) : src(_src) {
+    for (auto x : src)
+      assert(!x.is_float);
+  }
 
   virtual std::vector<Reg> use_reg() override { return src; }
   virtual bool side_effect() override { return true; }
