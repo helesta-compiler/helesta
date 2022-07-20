@@ -618,26 +618,26 @@ int exec(CompileUnit &c) {
 #define FLOAT_FMT "%a"
             if (x->f->name == "getint") {
               assert(args.size() == 0);
-              fscanf(ifile, "%d", &ret.int_value());
+              assert(fscanf(ifile, "%d", &ret.int_value()) == 1);
             } else if (x->f->name == "getfloat") {
               assert(args.size() == 0);
-              fscanf(ifile, FLOAT_FMT, &ret.float_value());
+              assert(fscanf(ifile, FLOAT_FMT, &ret.float_value()) == 1);
             } else if (x->f->name == "getch") {
               assert(args.size() == 0);
               ret = fgetc(ifile);
             } else if (x->f->name == "getarray") {
               assert(args.size() == 1);
-              fscanf(ifile, "%d", &ret.int_value());
+              assert(fscanf(ifile, "%d", &ret.int_value()) == 1);
               for (int i = 0, x; i < ret.int_value(); ++i) {
-                fscanf(ifile, "%d", &x);
+                assert(fscanf(ifile, "%d", &x) == 1);
                 wMem(args[0].int_value() + i * 4, x);
               }
             } else if (x->f->name == "getfarray") {
               assert(args.size() == 1);
-              fscanf(ifile, "%d", &ret.int_value());
+              assert(fscanf(ifile, "%d", &ret.int_value()) == 1);
               for (int i = 0; i < ret.int_value(); ++i) {
                 float x;
-                fscanf(ifile, FLOAT_FMT, &x);
+                assert(fscanf(ifile, FLOAT_FMT, &x) == 1);
                 wMem(args[0].int_value() + i * 4, x);
               }
             } else if (x->f->name == "putint") {

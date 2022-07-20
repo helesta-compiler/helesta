@@ -582,8 +582,10 @@ void Func::replace_complex_inst() {
             load_stk->src->position + load_stk->offset - sp_offset;
         if (!load_store_offset_range(total_offset)) {
           Reg dst = load_stk->dst;
-          insert(block->insts, i, set_cond(load_imm(dst, total_offset), cond));
-          *i = set_cond(make_unique<ComplexLoad>(dst, Reg{sp}, dst), cond);
+          Reg tmp = dst;
+          tmp.is_float = 0;
+          insert(block->insts, i, set_cond(load_imm(tmp, total_offset), cond));
+          *i = set_cond(make_unique<ComplexLoad>(dst, Reg{sp}, tmp), cond);
         }
       } else if (auto load_stk_addr = (*i)->as<LoadStackAddr>()) {
         int32_t total_offset =
