@@ -29,9 +29,14 @@ int main(int argc, char **argv) {
     throw MainFuncNotFound();
   }
 
-  ARMv7::Program prog(&ir);
+  if (global_config.simulate_exec)
+    IR::exec(ir);
   std::ofstream asm_out{filename.second};
-  prog.gen_asm(asm_out);
-
+  if (global_config.output_ir) {
+    asm_out << ir;
+  } else {
+    ARMv7::Program prog(&ir);
+    prog.gen_asm(asm_out);
+  }
   return 0;
 }

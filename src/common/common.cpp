@@ -161,6 +161,8 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       }
       if (cur == "--exec")
         global_config.simulate_exec = true;
+      if (cur == "--ir")
+        global_config.output_ir = true;
       if (cur == "--debug")
         global_config.log_level = Configuration::DEBUG;
       if (cur == "--info")

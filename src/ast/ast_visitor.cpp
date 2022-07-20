@@ -370,7 +370,8 @@ ASTVisitor::visitUninitVarDef(SysYParser::UninitVarDefContext *ctx) {
   return nullptr;
 }
 
-void ASTVisitor::dfs_var_init(SysYParser::ListInitvalContext *node,
+void ASTVisitor::dfs_var_init(ScalarType type,
+                              SysYParser::ListInitvalContext *node,
                               const vector<MemSize> &shape,
                               vector<optional<IR::Reg>> &result) {
   if (shape.size() == 0)
@@ -393,14 +394,14 @@ void ASTVisitor::dfs_var_init(SysYParser::ListInitvalContext *node,
       if (cnt + 1 > total_size)
         throw InvalidInitList();
       result.emplace_back(
-          get_value(to_IRValue(scalar_child->exp()->accept(this))));
+          get_value(type, to_IRValue(scalar_child->exp()->accept(this))));
       ++cnt;
     } else {
       auto list_child = dynamic_cast<SysYParser::ListInitvalContext *>(child);
       assert(list_child);
       if (cnt % child_size != 0 || cnt + child_size > total_size)
         throw InvalidInitList();
-      dfs_var_init(list_child, child_shape, result);
+      dfs_var_init(type, list_child, child_shape, result);
       cnt += child_size;
     }
   }
@@ -411,7 +412,7 @@ void ASTVisitor::dfs_var_init(SysYParser::ListInitvalContext *node,
 }
 
 vector<optional<IR::Reg>>
-ASTVisitor::parse_var_init(SysYParser::InitValContext *root,
+ASTVisitor::parse_var_init(ScalarType type, SysYParser::InitValContext *root,
                            const vector<MemSize> &shape) {
   vector<optional<IR::Reg>> result;
   if (auto scalar_root =
@@ -419,12 +420,12 @@ ASTVisitor::parse_var_init(SysYParser::InitValContext *root,
     if (shape.size())
       throw InvalidInitList();
     result.emplace_back(
-        get_value(to_IRValue(scalar_root->exp()->accept(this))));
+        get_value(type, to_IRValue(scalar_root->exp()->accept(this))));
     return result;
   }
   auto list_root = dynamic_cast<SysYParser::ListInitvalContext *>(root);
   assert(list_root);
-  dfs_var_init(list_root, shape, result);
+  dfs_var_init(type, list_root, shape, result);
   return result;
 }
 
@@ -481,7 +482,7 @@ antlrcpp::Any ASTVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
     cur_bb->push(new IR::LocalVarDef(ir_obj));
     cur_local_table->register_var(name, ir_obj, type);
     vector<optional<IR::Reg>> init =
-        parse_var_init(ctx->initVal(), type.array_dims);
+        parse_var_init(type.scalar_type, ctx->initVal(), type.array_dims);
     assert(init.size() == type.count_elements());
     gen_var_init_ir(init, ir_obj, false);
   } else {
@@ -493,7 +494,7 @@ antlrcpp::Any ASTVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
     cur_bb = init_bb;
     in_init = true;
     vector<optional<IR::Reg>> init =
-        parse_var_init(ctx->initVal(), type.array_dims);
+        parse_var_init(type.scalar_type, ctx->initVal(), type.array_dims);
     assert(init.size() == type.count_elements());
     gen_var_init_ir(init, ir_obj, true);
     init_bb = cur_bb;
@@ -650,7 +651,7 @@ antlrcpp::Any ASTVisitor::visitAssignment(SysYParser::AssignmentContext *ctx) {
   if (!lhs.type.check_assign(rhs.type))
     throw AssignmentTypeError("type error on assignment '" + ctx->getText() +
                               "'");
-  IR::Reg rhs_value = get_value(rhs);
+  IR::Reg rhs_value = get_value(lhs.type.scalar_type, rhs);
   cur_bb->push(new IR::StoreInstr(lhs.reg, rhs_value));
   return nullptr;
 }

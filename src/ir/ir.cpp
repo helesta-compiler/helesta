@@ -1,4 +1,5 @@
 #include "ir/ir.hpp"
+#include <cstring>
 
 namespace IR {
 
@@ -355,42 +356,70 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
   return NULL;
 }
 
-int UnaryOpInstr::compute(int s1) { return op.compute(s1); }
-int UnaryOp::compute(int s1) {
+scalar_t UnaryOpInstr::compute(scalar_t s1) { return op.compute(s1); }
+scalar_t UnaryOp::compute(scalar_t s1) {
+  int32_t i1 = s1.int_value();
+  float f1 = s1.float_value();
   switch (type) {
   case UnaryOp::LNOT:
-    return !s1;
+    return int32_t(!i1);
   case UnaryOp::NEG:
-    return -s1;
+    return -i1;
   case UnaryOp::ID:
-    return s1;
+    return i1;
+  case UnaryOp::FNEG:
+    return -f1;
+  case UnaryOp::F2I:
+    return int32_t(f1);
+  case UnaryOp::I2F:
+    return float(i1);
   default:
     assert(0);
     return 0;
   }
 }
 
-int BinaryOpInstr::compute(int s1, int s2) { return op.compute(s1, s2); }
-int BinaryOp::compute(int s1, int s2) {
+scalar_t BinaryOpInstr::compute(scalar_t s1, scalar_t s2) {
+  return op.compute(s1, s2);
+}
+scalar_t BinaryOp::compute(scalar_t s1, scalar_t s2) {
+  int32_t i1 = s1.int_value(), i2 = s2.int_value();
+  float f1 = s1.float_value(), f2 = s2.float_value();
   switch (type) {
   case BinaryOp::ADD:
-    return s1 + s2;
+    return i1 + i2;
   case BinaryOp::SUB:
-    return s1 - s2;
+    return i1 - i2;
   case BinaryOp::MUL:
-    return s1 * s2;
+    return i1 * i2;
   case BinaryOp::DIV:
-    return (s2 && !(s1 == -2147483648 && s2 == -1) ? s1 / s2 : 0);
+    return (i2 && !(i1 == -2147483648 && i2 == -1) ? i1 / i2 : 0);
   case BinaryOp::LESS:
-    return (s1 < s2);
+    return int32_t(i1 < i2);
   case BinaryOp::LEQ:
-    return (s1 <= s2);
+    return int32_t(i1 <= i2);
   case BinaryOp::EQ:
-    return (s1 == s2);
+    return int32_t(i1 == i2);
   case BinaryOp::NEQ:
-    return (s1 != s2);
+    return int32_t(i1 != i2);
   case BinaryOp::MOD:
-    return (s2 ? s1 % s2 : 0);
+    return (i2 ? i1 % i2 : 0);
+  case BinaryOp::FADD:
+    return f1 + f2;
+  case BinaryOp::FSUB:
+    return f1 - f2;
+  case BinaryOp::FMUL:
+    return f1 * f2;
+  case BinaryOp::FDIV:
+    return f1 / f2;
+  case BinaryOp::FLESS:
+    return int32_t(f1 < f2);
+  case BinaryOp::FLEQ:
+    return int32_t(f1 <= f2);
+  case BinaryOp::FEQ:
+    return int32_t(f1 == f2);
+  case BinaryOp::FNEQ:
+    return int32_t(f1 != f2);
   default:
     assert(0);
     return 0;
@@ -405,6 +434,315 @@ void map_use(NormalFunc *f, const std::unordered_map<Reg, Reg> &mp_reg) {
         r = it->second;
     });
   });
+}
+
+void compute_data_offset(CompileUnit &c) {
+  c.for_each([](MemScope &s) {
+    s.size = 0;
+    s.for_each([&](MemObject *x) {
+      x->offset = s.size;
+      s.size += x->size;
+    });
+  });
+}
+
+int exec(CompileUnit &c) {
+  compute_data_offset(c);
+  // std::cerr<<">>> exec"<<std::endl;
+  // simulate IR execute result
+  FILE *ifile = fopen("input.txt", "r");
+  FILE *ofile = fopen("output.txt", "w");
+  long long instr_cnt = 0, mem_r_cnt = 0, mem_w_cnt = 0, jump_cnt = 0,
+            fork_cnt = 0, par_instr_cnt = 0;
+  int sp = c.scope.size, mem_limit = sp + (8 << 20);
+  char *mem = new char[mem_limit];
+  auto wMem = [&](int addr, scalar_t v) {
+    assert(0 <= addr && addr < mem_limit && !(addr % 4));
+    ((scalar_t *)mem)[addr / 4] = v;
+    ++mem_w_cnt;
+  };
+  auto rMem = [&](int addr) -> scalar_t {
+    assert(0 <= addr && addr < mem_limit && !(addr % 4));
+    ++mem_r_cnt;
+    return ((scalar_t *)mem)[addr / 4];
+  };
+  c.scope.for_each([&](MemObject *x) {
+    assert(x->global);
+    if (x->initial_value) {
+      memcpy(mem + x->offset, x->initial_value, x->size);
+    } else {
+      memset(mem + x->offset, 0, x->size);
+    }
+  });
+  auto dbg_pr = [&] {
+    printf("Instr: %lld\n", instr_cnt);
+    printf("Load:  %lld\n", mem_r_cnt);
+    printf("Store: %lld\n", mem_w_cnt);
+    printf("Jump:  %lld\n", jump_cnt);
+    printf("Fork:  %lld\n", fork_cnt);
+    printf("Parallel:  %g\n", par_instr_cnt * 1. / instr_cnt);
+    /*c.scope.for_each([&](MemObject *x){
+            assert(x->global);
+            printf("%s: ",x->name.data());
+            int *data=(int*)(mem+x->offset),size=x->size;
+            for(int i=0;i<size/4;++i)printf("%d,",data[i]);
+            printf("\n");
+    });*/
+  };
+  bool in_fork = 0;
+  bool eol = 1;
+  NormalFunc *fork_func = NULL;
+  BB *fork_bb = NULL;
+  std::list<std::unique_ptr<Instr>>::iterator fork_instr;
+
+  auto skip_instr = [&](Instr *) {
+    --instr_cnt;
+    if (in_fork)
+      --par_instr_cnt;
+  };
+  std::function<scalar_t(NormalFunc *, std::vector<scalar_t>)> run;
+  run = [&](NormalFunc *func, std::vector<scalar_t> args) -> scalar_t {
+    BB *last_bb = NULL;
+    BB *cur = func->entry;
+    int sz = func->scope.size;
+    std::unordered_map<int, scalar_t> regs;
+    auto wReg = [&](Reg x, scalar_t v) {
+      assert(func->thread_local_regs.count(x) == in_fork);
+      assert(1 <= x.id && x.id <= func->max_reg_id);
+      regs[x.id] = v;
+    };
+    auto rReg = [&](Reg x) -> scalar_t {
+      assert(1 <= x.id && x.id <= func->max_reg_id);
+      return regs[x.id];
+    };
+    for (int i = 0; i < (int)args.size(); ++i) {
+      wReg(i + 1, args[i]);
+    }
+    scalar_t _ret = 0;
+    bool last_in_fork = in_fork;
+    while (cur) {
+      // printf("BB: %s\n",cur->name.data());
+      for (auto it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
+        Instr *x0 = it->get();
+        ++instr_cnt;
+        if (in_fork)
+          ++par_instr_cnt;
+        Case(PhiInstr, x, x0) {
+          for (auto &kv : x->uses)
+            if (last_bb == kv.second)
+              wReg(x->d1, rReg(kv.first));
+        }
+        else Case(LoadAddr, x, x0) {
+          wReg(x->d1, (x->offset->global ? 0 : sp) + x->offset->offset);
+        }
+        else Case(LoadConst<int>, x, x0) {
+          wReg(x->d1, x->value);
+        }
+        else Case(LoadConst<float>, x, x0) {
+          wReg(x->d1, x->value);
+        }
+        else Case(LoadArg, x, x0) {
+          wReg(x->d1, args.at(x->id));
+        }
+        else Case(UnaryOpInstr, x, x0) {
+          scalar_t s1 = rReg(x->s1), d1 = x->compute(s1);
+          wReg(x->d1, d1);
+        }
+        else Case(BinaryOpInstr, x, x0) {
+          scalar_t s1 = rReg(x->s1), s2 = rReg(x->s2), d1 = x->compute(s1, s2);
+          wReg(x->d1, d1);
+        }
+        else Case(ArrayIndex, x, x0) {
+          int32_t s1 = rReg(x->s1).int_value(), s2 = rReg(x->s2).int_value(),
+                  d1 = s1 + s2 * x->size;
+          wReg(x->d1, d1);
+        }
+        else Case(LocalVarDef, x, x0) {
+          skip_instr(x);
+        }
+        else Case(LoadInstr, x, x0) {
+          wReg(x->d1, rMem(rReg(x->addr).int_value()));
+        }
+        else Case(StoreInstr, x, x0) {
+          wMem(rReg(x->addr).int_value(), rReg(x->s1));
+        }
+        else Case(MemDef, x, x0) {
+          skip_instr(x);
+        }
+        else Case(MemUse, x, x0) {
+          skip_instr(x);
+        }
+        else Case(MemEffect, x, x0) {
+          skip_instr(x);
+        }
+        else Case(MemRead, x, x0) {
+          wReg(x->d1, rMem(rReg(x->addr).int_value()));
+        }
+        else Case(MemWrite, x, x0) {
+          wMem(rReg(x->addr).int_value(), rReg(x->s1));
+        }
+        else Case(JumpInstr, x, x0) {
+          last_bb = cur;
+          cur = x->target;
+          if (last_bb->id + 1 != cur->id)
+            ++jump_cnt;
+          break;
+        }
+        else Case(BranchInstr, x, x0) {
+          last_bb = cur;
+          cur = (rReg(x->cond).int_value() ? x->target1 : x->target0);
+          if (last_bb->id + 1 != cur->id)
+            ++jump_cnt;
+          break;
+        }
+        else Case(ReturnInstr, x, x0) {
+          _ret = rReg(x->s1);
+          last_bb = cur;
+          cur = NULL;
+          jump_cnt += 2;
+          break;
+        }
+        else Case(CallInstr, x, x0) {
+          scalar_t ret = 0;
+          std::vector<scalar_t> args;
+          for (Reg p : x->args)
+            args.push_back(rReg(p));
+          Case(NormalFunc, f, x->f) {
+            sp += sz;
+            ret = run(f, args);
+            sp -= sz;
+            if (!f->ignore_return_value)
+              wReg(x->d1, ret);
+          }
+          else {
+#define FLOAT_FMT "%a"
+            if (x->f->name == "getint") {
+              assert(args.size() == 0);
+              fscanf(ifile, "%d", &ret.int_value());
+            } else if (x->f->name == "getfloat") {
+              assert(args.size() == 0);
+              fscanf(ifile, FLOAT_FMT, &ret.float_value());
+            } else if (x->f->name == "getch") {
+              assert(args.size() == 0);
+              ret = fgetc(ifile);
+            } else if (x->f->name == "getarray") {
+              assert(args.size() == 1);
+              fscanf(ifile, "%d", &ret.int_value());
+              for (int i = 0, x; i < ret.int_value(); ++i) {
+                fscanf(ifile, "%d", &x);
+                wMem(args[0].int_value() + i * 4, x);
+              }
+            } else if (x->f->name == "getfarray") {
+              assert(args.size() == 1);
+              fscanf(ifile, "%d", &ret.int_value());
+              for (int i = 0; i < ret.int_value(); ++i) {
+                float x;
+                fscanf(ifile, FLOAT_FMT, &x);
+                wMem(args[0].int_value() + i * 4, x);
+              }
+            } else if (x->f->name == "putint") {
+              assert(args.size() == 1);
+              fprintf(ofile, "%d", args[0].int_value());
+              fflush(ofile);
+              eol = 0;
+            } else if (x->f->name == "putfloat") {
+              assert(args.size() == 1);
+              fprintf(ofile, FLOAT_FMT, args[0].float_value());
+              fflush(ofile);
+              eol = 0;
+            } else if (x->f->name == "putch") {
+              assert(args.size() == 1);
+              fputc(args[0].int_value(), ofile);
+              fflush(ofile);
+              eol = (args[0].int_value() == 10);
+            } else if (x->f->name == "putarray") {
+              assert(args.size() == 2);
+              int n = args[0].int_value(), a = args[1].int_value();
+              fprintf(ofile, "%d:", n);
+              for (int i = 0; i < n; ++i)
+                fprintf(ofile, " %d", rMem(a + i * 4).int_value());
+              fputc(10, ofile);
+              fflush(ofile);
+              eol = 1;
+            } else if (x->f->name == "putfarray") {
+              assert(args.size() == 2);
+              int n = args[0].int_value(), a = args[1].int_value();
+              fprintf(ofile, "%d:", n);
+              for (int i = 0; i < n; ++i)
+                fprintf(ofile, " " FLOAT_FMT, rMem(a + i * 4).float_value());
+              fputc(10, ofile);
+              fflush(ofile);
+              eol = 1;
+            } else if (x->f->name == "putf") {
+              /*char *c=mem+args[0];
+              char buf[1024];
+              if(args.size()==1)sprintf(buf,c);
+              else if(args.size()==2)sprintf(buf,c,args[1]);
+              else if(args.size()==3)sprintf(buf,c,args[1],args[2]);
+              else if(args.size()==4)sprintf(buf,c,args[1],args[2],args[3]);
+              else
+              if(args.size()==5)sprintf(buf,c,args[1],args[2],args[3],args[4]);
+              else assert(0);
+              fflush(ofile);
+              int len=strlen(buf);
+              fputs(buf,ofile);
+              if(len)eol=(buf[len-1]==10);*/
+              assert(0);
+            } else if (x->f->name == "__create_threads") {
+              assert(args.size() == 1);
+              assert(args[0].int_value() >= 1);
+              assert(!in_fork);
+              fork_func = f;
+              fork_bb = cur;
+              fork_instr = it;
+              in_fork = 1;
+              ++fork_cnt;
+              ret = args[0].int_value() - 1;
+              // std::cerr<<">>> fork"<<std::endl;
+            } else if (x->f->name == "__join_threads") {
+              assert(args.size() == 2);
+              assert(args[0].int_value() >= 0);
+              assert(args[0].int_value() < args[1].int_value());
+              assert(in_fork);
+              assert(fork_func == f);
+              if (args[0].int_value()) {
+                ret = args[0].int_value() - 1;
+                cur = fork_bb;
+                it = fork_instr;
+                Case(CallInstr, call, it->get()) { x = call; }
+                else assert(0);
+              } else {
+                fork_func = NULL;
+                fork_bb = NULL;
+                ret = 0;
+                in_fork = 0;
+              }
+              // std::cerr<<">>> join"<<std::endl;
+            } else {
+              assert(0);
+            }
+          }
+          if (!x->f->ignore_return_value && !x->ignore_return_value)
+            wReg(x->d1, ret);
+        }
+        else assert(0);
+      }
+    }
+    assert(last_in_fork == in_fork);
+    return _ret;
+  };
+  int ret = run(c.funcs["main"].get(), {}).int_value();
+  dbg_pr();
+  delete[] mem;
+  if (!eol)
+    fputc(10, ofile);
+  fprintf(ofile, "%u\n", ret & 255);
+  printf("return %d\n", ret);
+  if (ifile)
+    fclose(ifile);
+  if (ofile)
+    fclose(ofile);
+  return ret;
 }
 
 } // namespace IR
