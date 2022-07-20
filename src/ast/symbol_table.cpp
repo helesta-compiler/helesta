@@ -43,6 +43,15 @@ MemSize Type::count_elements() const {
 MemSize Type::size() const { return INT_SIZE * count_elements(); }
 
 bool Type::check_assign(const Type &rhs) const {
+  if (is_array()) {
+    if (!rhs.is_array())
+      return false;
+    if (scalar_type != rhs.scalar_type)
+      return false;
+  } else {
+    if (rhs.is_array())
+      return false;
+  }
   if (omit_first_dim) {
     if (rhs.omit_first_dim)
       return array_dims == rhs.array_dims;
