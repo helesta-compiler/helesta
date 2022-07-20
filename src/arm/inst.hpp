@@ -312,7 +312,9 @@ struct MoveImm : Inst {
   enum Type { Mov, Mvn } op;
   Reg dst;
   int32_t src;
-  MoveImm(Type _op, Reg _dst, int32_t _src) : op(_op), dst(_dst), src(_src) {}
+  MoveImm(Type _op, Reg _dst, int32_t _src) : op(_op), dst(_dst), src(_src) {
+    assert(!dst.is_float);
+  }
 
   virtual std::vector<Reg> def_reg() override { return {dst}; }
   virtual std::vector<Reg> use_reg() override {
