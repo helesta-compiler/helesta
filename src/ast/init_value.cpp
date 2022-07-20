@@ -8,7 +8,7 @@
 
 #define check_and_return(x)                                                    \
   if ((x) < INT32_MIN || (x) > INT32_MAX)                                      \
-    throw CompileTimeValueEvalFail("compile-time value out of bound");         \
+    _throw CompileTimeValueEvalFail("compile-time value out of bound");        \
   return static_cast<int32_t>(x);
 
 // do not check for float by now
@@ -48,8 +48,9 @@ CompileTimeValueAny operator/(CompileTimeValue<float> lhs,
 template <>
 CompileTimeValueAny operator%(CompileTimeValue<float>,
                               CompileTimeValue<float>) {
-  throw CompileTimeValueEvalFail(
+  _throw CompileTimeValueEvalFail(
       "float mod in compile-time constant evaluation");
+  return 0;
 }
 
 template <> CompileTimeValueAny operator-(CompileTimeValue<int32_t> x) {
@@ -91,7 +92,7 @@ template <>
 CompileTimeValueAny operator/(CompileTimeValue<int32_t> lhs,
                               CompileTimeValue<int32_t> rhs) {
   if (rhs.value == 0)
-    throw CompileTimeValueEvalFail(
+    _throw CompileTimeValueEvalFail(
         "division by zero in compile-time constant evaluation");
   int64_t res =
       static_cast<int64_t>(lhs.value) / static_cast<int64_t>(rhs.value);
@@ -102,7 +103,7 @@ template <>
 CompileTimeValueAny operator%(CompileTimeValue<int32_t> lhs,
                               CompileTimeValue<int32_t> rhs) {
   if (rhs.value == 0)
-    throw CompileTimeValueEvalFail(
+    _throw CompileTimeValueEvalFail(
         "division by zero in compile-time constant evaluation");
   int64_t res =
       static_cast<int64_t>(lhs.value) % static_cast<int64_t>(rhs.value);

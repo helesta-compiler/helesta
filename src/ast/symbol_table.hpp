@@ -19,7 +19,7 @@ struct Type {
   Type() = delete;
   Type(ScalarType scalar_type_);
   bool is_array() const;      // array_dims not empty || omit_first_dim
-  Type deref_one_dim() const; // throw when not array. return the type where
+  Type deref_one_dim() const; // _throw when not array. return the type where
                               // the first dimension is removed
   size_t count_array_dims() const;
   MemSize count_elements() const;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -30,8 +31,6 @@ int32_t parse_int32_literal(const std::string &s);
 float parse_float_literal(const std::string &s);
 
 std::string mangle_global_var_name(const std::string &s);
-
-void unreachable();
 
 struct Configuration {
   static constexpr int DEBUG = 0, INFO = 1, WARNING = 2, ERROR = 3;
@@ -63,3 +62,15 @@ extern LogStream<Configuration::DEBUG> debug;
 extern LogStream<Configuration::INFO> info;
 extern LogStream<Configuration::WARNING> warning;
 extern LogStream<Configuration::ERROR> error;
+
+#ifdef assert
+#undef assert
+#endif
+#define assert(x) __assert(__LINE__, x, #x, __FILE__)
+#define _throw __assert(__LINE__, 0, "throw", __FILE__), __or ||
+void __assert(int lineno, bool value, const char *expr, const char *file);
+struct __or_t {
+  template <typename T> void operator||(const T &) {}
+};
+extern __or_t __or;
+#define unreachable() __assert(__LINE__, 0, "unreachable", __FILE__)

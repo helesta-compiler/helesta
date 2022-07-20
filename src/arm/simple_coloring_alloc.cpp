@@ -1,6 +1,5 @@
 #include "arm/simple_coloring_alloc.hpp"
 
-#include <cassert>
 #include <memory>
 #include <queue>
 #include <set>
