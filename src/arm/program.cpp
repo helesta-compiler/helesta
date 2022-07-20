@@ -217,15 +217,22 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
           push_back(make_unique<MoveReg>(Reg{ARGUMENT_REGISTERS[i]},
                                          info->from_ir_reg(call->args[i])));
         }
+      if (call->f->name == "putfloat") {
+        push_back(make_unique<MoveReg>(Reg(0, 1), Reg{ARGUMENT_REGISTERS[0]}));
+      }
       push_back(make_unique<FuncCall>(call->f->name,
                                       static_cast<int>(call->args.size())));
       if (static_cast<int>(call->args.size()) > ARGUMENT_REGISTER_COUNT)
         push_back(sp_move(
             (static_cast<int>(call->args.size()) - ARGUMENT_REGISTER_COUNT) *
             INT_SIZE));
-      if (!call->ignore_return_value)
-        push_back(make_unique<MoveReg>(info->from_ir_reg(call->d1),
-                                       Reg{ARGUMENT_REGISTERS[0]}));
+      if (!call->ignore_return_value) {
+        Reg ret{ARGUMENT_REGISTERS[0]};
+        if (call->f->name == "getfloat") {
+          ret = Reg(0, 1);
+        }
+        push_back(make_unique<MoveReg>(info->from_ir_reg(call->d1), ret));
+      }
       if (call->f->name == "__create_threads") {
         func->spilling_reg.insert(info->from_ir_reg(call->d1));
         debug << "thread_id: " << call->d1 << " -> "
@@ -399,7 +406,8 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
   for (auto &block : blocks) {
     for (auto &inst : block->insts) {
       for (Reg *r : inst->regs()) {
-        r->is_float = float_regs.count(*r);
+        if (r->is_pseudo())
+          r->is_float = float_regs.count(*r);
       }
     }
   }
