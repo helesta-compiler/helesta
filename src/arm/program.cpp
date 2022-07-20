@@ -632,6 +632,7 @@ void Func::gen_asm(ostream &out) {
           out << save_regs[i];
         }
         out << "}\n";
+        out << "vpush {d0,d1,d2,d3,d4,d5,d6,d7}\n";
       }
       if (stack_size != 0)
         sp_move_asm(-stack_size, out);
@@ -641,6 +642,7 @@ void Func::gen_asm(ostream &out) {
         sp_move_asm(stack_size, out);
       bool pop_lr = false;
       if (save_regs.size()) {
+        out << "vpop {d0,d1,d2,d3,d4,d5,d6,d7}\n";
         out << "pop {";
         for (size_t i = 0; i < save_regs.size(); ++i) {
           if (i > 0)
