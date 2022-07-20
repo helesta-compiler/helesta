@@ -196,7 +196,7 @@ LogStream<Configuration::INFO> info;
 LogStream<Configuration::WARNING> warning;
 LogStream<Configuration::ERROR> error;
 
-void __assert(int lineno, bool value, const char *expr, const char *file) {
+void ___assert(int lineno, bool value, const char *expr, const char *file) {
   if (value)
     return;
   fprintf(stderr, "assertion failed!\nfile: %s\nline: %d\nexpression: %s\n",
