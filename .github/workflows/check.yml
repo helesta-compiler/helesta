@@ -19,6 +19,12 @@ jobs:
 
     - name: Compile Testcases
       run: python3 ./scripts/run_all.py
+
+    - name: Archive Compile Results
+      uses: actions/upload-artifact@v3
+      with:
+        name: compile-results
+        path: testcases
       
     - name: Run Testcases
       uses: fifsky/ssh-action@master
