@@ -958,7 +958,11 @@ antlrcpp::Any ASTVisitor::visitNumber(SysYParser::NumberContext *ctx) {
       return static_cast<int>(res);
     }
   } else {
-    return stof(ctx->FloatLiteral()->getText());
+    if (ctx->IntLiteral() != 0) {
+      return static_cast<float>(parse_int32_literal(ctx->getText()));
+    } else {
+      return stof(ctx->FloatLiteral()->getText());
+    }
   }
 }
 
