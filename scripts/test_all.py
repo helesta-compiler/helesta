@@ -23,7 +23,7 @@ if __name__ == '__main__':
             out_file = os.path.join(mod_path, testcase + ".out")
             exe_file = os.path.join(mod_path, testcase)
             link_cmd = "g++ {} {} -o {}".format(asm_file, args.lib_path, exe_file)
-            run_cmd = "./{}".format(exe_file)
+            run_cmd = "{}".format(exe_file)
             print(link_cmd)
             child = subprocess.Popen(link_cmd.split(), stdout=subprocess.PIPE)
             child.communicate()
