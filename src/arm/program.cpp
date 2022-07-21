@@ -623,6 +623,9 @@ void Func::gen_asm(ostream &out) {
     for (int i = 0; i < RegCount; ++i)
       if (REGISTER_USAGE[i] == callee_save && used[i])
         save_regs.emplace_back(i);
+    size_t save_reg_cnt = save_regs.size();
+    if (save_reg_cnt)
+      save_reg_cnt += 16;
     prologue = [save_regs, stack_size](ostream &out) {
       if (save_regs.size()) {
         out << "push {";
@@ -657,7 +660,7 @@ void Func::gen_asm(ostream &out) {
       }
       return pop_lr;
     };
-    int cur_pos = stack_size + save_regs.size() * INT_SIZE;
+    int cur_pos = stack_size + save_reg_cnt * INT_SIZE;
     for (auto &i : caller_stack_object) {
       i->position = cur_pos;
       cur_pos += i->size;
