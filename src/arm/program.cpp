@@ -217,15 +217,22 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
           push_back(make_unique<MoveReg>(Reg{ARGUMENT_REGISTERS[i]},
                                          info->from_ir_reg(call->args[i])));
         }
+      if (call->f->name == "putfloat") {
+        push_back(make_unique<MoveReg>(Reg(0, 1), Reg{ARGUMENT_REGISTERS[0]}));
+      }
       push_back(make_unique<FuncCall>(call->f->name,
                                       static_cast<int>(call->args.size())));
       if (static_cast<int>(call->args.size()) > ARGUMENT_REGISTER_COUNT)
         push_back(sp_move(
             (static_cast<int>(call->args.size()) - ARGUMENT_REGISTER_COUNT) *
             INT_SIZE));
-      if (!call->ignore_return_value)
-        push_back(make_unique<MoveReg>(info->from_ir_reg(call->d1),
-                                       Reg{ARGUMENT_REGISTERS[0]}));
+      if (!call->ignore_return_value) {
+        Reg ret{ARGUMENT_REGISTERS[0]};
+        if (call->f->name == "getfloat") {
+          ret = Reg(0, 1);
+        }
+        push_back(make_unique<MoveReg>(info->from_ir_reg(call->d1), ret));
+      }
       if (call->f->name == "__create_threads") {
         func->spilling_reg.insert(info->from_ir_reg(call->d1));
         debug << "thread_id: " << call->d1 << " -> "
@@ -399,7 +406,8 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
   for (auto &block : blocks) {
     for (auto &inst : block->insts) {
       for (Reg *r : inst->regs()) {
-        r->is_float = float_regs.count(*r);
+        if (r->is_pseudo())
+          r->is_float = float_regs.count(*r);
       }
     }
   }
@@ -574,8 +582,10 @@ void Func::replace_complex_inst() {
             load_stk->src->position + load_stk->offset - sp_offset;
         if (!load_store_offset_range(total_offset)) {
           Reg dst = load_stk->dst;
-          insert(block->insts, i, set_cond(load_imm(dst, total_offset), cond));
-          *i = set_cond(make_unique<ComplexLoad>(dst, Reg{sp}, dst), cond);
+          Reg tmp = dst;
+          tmp.is_float = 0;
+          insert(block->insts, i, set_cond(load_imm(tmp, total_offset), cond));
+          *i = set_cond(make_unique<ComplexLoad>(dst, Reg{sp}, tmp), cond);
         }
       } else if (auto load_stk_addr = (*i)->as<LoadStackAddr>()) {
         int32_t total_offset =
@@ -737,7 +747,8 @@ void Program::gen_global_var_asm(ostream &out) {
     out << ".section .bss\n";
     for (auto &obj : global_objects)
       if (!obj->init) {
-        assert(obj->scalar_type == ScalarType::Int);
+        assert(obj->scalar_type == ScalarType::Int ||
+               obj->scalar_type == ScalarType::Float);
         out << ".align\n";
         out << obj->name << ":\n";
         out << "    .space " << obj->size << '\n';

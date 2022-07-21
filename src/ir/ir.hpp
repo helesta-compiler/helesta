@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <cassert>
 #include <deque>
 #include <functional>
 #include <iostream>
@@ -329,6 +328,20 @@ private:
   }
 };
 
+struct scalar_t {
+  union {
+    int32_t i;
+    float f;
+  } data;
+  scalar_t() {}
+  scalar_t(int32_t i) { data.i = i; }
+  scalar_t(float f) { data.f = f; }
+  int32_t &int_value() { return data.i; }
+  float &float_value() { return data.f; }
+  int32_t int_value() const { return data.i; }
+  float float_value() const { return data.f; }
+};
+
 struct UnaryOp : Printable {
   enum Type {
     LNOT = 0,
@@ -338,7 +351,7 @@ struct UnaryOp : Printable {
     F2I = 4,
     I2F = 5,
   } type;
-  int compute(int x);
+  scalar_t compute(scalar_t x);
   UnaryOp(ScalarType _type, Type x) : type(x) {
     assert(input_type() == ScalarType::Int);
     assert(ret_type() == ScalarType::Int);
@@ -435,7 +448,7 @@ struct BinaryOp : Printable {
     }
   }
   BinaryOp(Type x) : type(x) {}
-  int compute(int x, int y);
+  scalar_t compute(scalar_t x, scalar_t y);
   ScalarType input_type() {
     return type == FLESS || type == FLEQ || type == FEQ || type == FNEQ
                ? ScalarType::Int
@@ -498,7 +511,7 @@ struct UnaryOpInstr : RegWriteInstr {
       : RegWriteInstr(d1), s1(s1), op(op) {}
   Reg s1;
   UnaryOp op;
-  int compute(int x);
+  scalar_t compute(scalar_t x);
   void print(ostream &os) const override;
 };
 
@@ -508,7 +521,7 @@ struct BinaryOpInstr : RegWriteInstr {
       : RegWriteInstr(d1), s1(s1), s2(s2), op(op) {}
   Reg s1, s2;
   BinaryOp op;
-  int compute(int x, int y);
+  scalar_t compute(scalar_t x, scalar_t y);
   void print(ostream &os) const override;
 };
 
@@ -689,6 +702,8 @@ std::function<void(T &)> partial_map(std::unordered_map<T, T> &mp) {
       x = it->second;
   };
 }
+
+int exec(CompileUnit &c);
 
 } // namespace IR
 

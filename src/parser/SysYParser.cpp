@@ -6,6 +6,7 @@
 #include "SysYVisitor.h"
 
 #include "SysYParser.h"
+#include "common/common.hpp"
 
 
 using namespace antlrcpp;
@@ -200,7 +201,7 @@ SysYParser::DeclContext* SysYParser::decl() {
       }
 
     default:
-      throw NoViableAltException(this);
+      _throw NoViableAltException(this);
     }
    
   }
@@ -638,7 +639,7 @@ SysYParser::ConstInitValContext* SysYParser::constInitVal() {
       }
 
     default:
-      throw NoViableAltException(this);
+      _throw NoViableAltException(this);
     }
    
   }
@@ -1084,7 +1085,7 @@ SysYParser::InitValContext* SysYParser::initVal() {
       }
 
     default:
-      throw NoViableAltException(this);
+      _throw NoViableAltException(this);
     }
    
   }
@@ -1642,7 +1643,7 @@ SysYParser::BlockItemContext* SysYParser::blockItem() {
       }
 
     default:
-      throw NoViableAltException(this);
+      _throw NoViableAltException(this);
     }
    
   }
@@ -2496,7 +2497,7 @@ SysYParser::PrimaryExpContext* SysYParser::primaryExp() {
       }
 
     default:
-      throw NoViableAltException(this);
+      _throw NoViableAltException(this);
     }
    
   }
@@ -3013,7 +3014,7 @@ SysYParser::FuncRParamContext* SysYParser::funcRParam() {
       }
 
     default:
-      throw NoViableAltException(this);
+      _throw NoViableAltException(this);
     }
    
   }
@@ -3149,7 +3150,7 @@ SysYParser::MulExpContext* SysYParser::mulExp(int precedence) {
         pushNewRecursionContext(newContext, startState, RuleMulExp);
         setState(310);
 
-        if (!(precpred(_ctx, 1))) throw FailedPredicateException(this, "precpred(_ctx, 1)");
+        if (!(precpred(_ctx, 1))) _throw FailedPredicateException(this, "precpred(_ctx, 1)");
         setState(311);
         _la = _input->LA(1);
         if (!((((_la & ~ 0x3fULL) == 0) &&
@@ -3297,7 +3298,7 @@ SysYParser::AddExpContext* SysYParser::addExp(int precedence) {
         pushNewRecursionContext(newContext, startState, RuleAddExp);
         setState(321);
 
-        if (!(precpred(_ctx, 1))) throw FailedPredicateException(this, "precpred(_ctx, 1)");
+        if (!(precpred(_ctx, 1))) _throw FailedPredicateException(this, "precpred(_ctx, 1)");
         setState(322);
         _la = _input->LA(1);
         if (!(_la == SysYParser::Minus
@@ -3452,7 +3453,7 @@ SysYParser::RelExpContext* SysYParser::relExp(int precedence) {
         pushNewRecursionContext(newContext, startState, RuleRelExp);
         setState(332);
 
-        if (!(precpred(_ctx, 1))) throw FailedPredicateException(this, "precpred(_ctx, 1)");
+        if (!(precpred(_ctx, 1))) _throw FailedPredicateException(this, "precpred(_ctx, 1)");
         setState(333);
         _la = _input->LA(1);
         if (!((((_la & ~ 0x3fULL) == 0) &&
@@ -3601,7 +3602,7 @@ SysYParser::EqExpContext* SysYParser::eqExp(int precedence) {
         pushNewRecursionContext(newContext, startState, RuleEqExp);
         setState(343);
 
-        if (!(precpred(_ctx, 1))) throw FailedPredicateException(this, "precpred(_ctx, 1)");
+        if (!(precpred(_ctx, 1))) _throw FailedPredicateException(this, "precpred(_ctx, 1)");
         setState(344);
         _la = _input->LA(1);
         if (!(_la == SysYParser::EQ
@@ -3744,7 +3745,7 @@ SysYParser::LAndExpContext* SysYParser::lAndExp(int precedence) {
         pushNewRecursionContext(newContext, startState, RuleLAndExp);
         setState(354);
 
-        if (!(precpred(_ctx, 1))) throw FailedPredicateException(this, "precpred(_ctx, 1)");
+        if (!(precpred(_ctx, 1))) _throw FailedPredicateException(this, "precpred(_ctx, 1)");
         setState(355);
         match(SysYParser::LAND);
         setState(356);
@@ -3878,7 +3879,7 @@ SysYParser::LOrExpContext* SysYParser::lOrExp(int precedence) {
         pushNewRecursionContext(newContext, startState, RuleLOrExp);
         setState(365);
 
-        if (!(precpred(_ctx, 1))) throw FailedPredicateException(this, "precpred(_ctx, 1)");
+        if (!(precpred(_ctx, 1))) _throw FailedPredicateException(this, "precpred(_ctx, 1)");
         setState(366);
         match(SysYParser::LOR);
         setState(367);

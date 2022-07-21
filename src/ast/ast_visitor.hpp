@@ -8,6 +8,7 @@
 
 #include "ast/exp_value.hpp"
 #include "ast/symbol_table.hpp"
+#include "common/common.hpp"
 #include "common/errors.hpp"
 #include "ir/ir.hpp"
 #include "parser/SysYBaseVisitor.h"
@@ -49,8 +50,8 @@ class ASTVisitor : public SysYBaseVisitor {
   CondJumpList
   to_CondJumpList(antlrcpp::Any value); // check null, IRValue and CondJumpList,
                                         // after this call, cur_bb is nullptr
-  IR::Reg get_value(const IRValue &value); // check array
-  IR::Reg get_value(ScalarType type,
+  IR::Reg get_value(int lineno, const IRValue &value); // check array
+  IR::Reg get_value(int lineno, ScalarType type,
                     const IRValue &value); // implicit type cast
   IR::Reg new_reg();
   IR::BB *new_BB();
@@ -66,9 +67,9 @@ class ASTVisitor : public SysYBaseVisitor {
                       const std::vector<MemSize> &shape,
                       std::vector<Scalar> &result);
   std::vector<std::optional<IR::Reg>>
-  parse_var_init(SysYParser::InitValContext *root,
+  parse_var_init(ScalarType type, SysYParser::InitValContext *root,
                  const std::vector<MemSize> &shape);
-  void dfs_var_init(SysYParser::ListInitvalContext *node,
+  void dfs_var_init(ScalarType type, SysYParser::ListInitvalContext *node,
                     const std::vector<MemSize> &shape,
                     std::vector<std::optional<IR::Reg>> &result);
   void gen_var_init_ir(const std::vector<std::optional<IR::Reg>> &init,
@@ -105,7 +106,7 @@ public:
     assert(init_value.size() == type.count_elements());
     if (cur_func) {
       if (cur_local_table->resolve(name))
-        throw DuplicateLocalName(name);
+        _throw DuplicateLocalName(name);
       ir_obj = cur_func->scope.new_MemObject(name);
       ir_obj->size = type.size();
       ir_obj->scalar_type = ScalarType::Int;
@@ -130,7 +131,7 @@ public:
                                       std::move(init_value));
     } else {
       if (global_var.resolve(name) || functions.resolve(name))
-        throw DuplicateGlobalName(name);
+        _throw DuplicateGlobalName(name);
       ir_obj = ir.scope.new_MemObject(name);
       Scalar *buf = new Scalar[init_value.size()];
       for (size_t i = 0; i < init_value.size(); ++i)

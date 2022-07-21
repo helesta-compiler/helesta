@@ -372,11 +372,11 @@ std::list<unique_ptr<Inst>> load_symbol_addr(Reg dst, const string &symbol) {
 }
 
 bool load_store_offset_range(int32_t offset) {
-  return offset >= -4095 && offset <= 4095;
+  return offset >= -1023 && offset <= 1023;
 }
 
 bool load_store_offset_range(int64_t offset) {
-  return offset >= -4095 && offset <= 4095;
+  return offset >= -1023 && offset <= 1023;
 }
 
 void Load::gen_asm(ostream &out, AsmContext *) {
@@ -398,13 +398,25 @@ void Store::gen_asm(ostream &out, AsmContext *) {
 }
 
 void ComplexLoad::gen_asm(ostream &out, AsmContext *) {
-  out << "ldr" << cond << ' ' << dst << ",[" << base << ',' << offset << shift
-      << "]\n";
+  if (dst.is_float) {
+    out << "ldr" << cond << ' ' << Reg{dst.id} << ",[" << base << ',' << offset
+        << shift << "]\n";
+    out << "vmov" << cond << ' ' << dst << ',' << Reg{dst.id} << "\n";
+  } else {
+    out << "ldr" << cond << ' ' << dst << ",[" << base << ',' << offset << shift
+        << "]\n";
+  }
 }
 
 void ComplexStore::gen_asm(ostream &out, AsmContext *) {
-  out << "str" << cond << ' ' << src << ",[" << base << ',' << offset << shift
-      << "]\n";
+  if (src.is_float) {
+    out << "vmov" << cond << ' ' << Reg{src.id} << ',' << src << "\n";
+    out << "str" << cond << ' ' << Reg{src.id} << ",[" << base << ',' << offset
+        << shift << "]\n";
+  } else {
+    out << "str" << cond << ' ' << src << ",[" << base << ',' << offset << shift
+        << "]\n";
+  }
 }
 
 void LoadStack::gen_asm(ostream &out, AsmContext *ctx) {
@@ -424,13 +436,12 @@ void StoreStack::gen_asm(ostream &out, AsmContext *ctx) {
 }
 
 void Push::gen_asm(ostream &out, AsmContext *ctx) {
-  out << "push" << cond << " {";
-  for (size_t i = 0; i < src.size(); ++i) {
-    if (i > 0)
-      out << ',';
-    out << src[i];
+  for (Reg r : src) {
+    if (r.is_float) {
+      out << 'v';
+    }
+    out << "push" << cond << " {" << r << "}\n";
   }
-  out << "}\n";
   ctx->temp_sp_offset -= static_cast<int32_t>(INT_SIZE * src.size());
 }
 

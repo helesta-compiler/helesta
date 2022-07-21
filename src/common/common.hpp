@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -31,12 +32,10 @@ float parse_float_literal(const std::string &s);
 
 std::string mangle_global_var_name(const std::string &s);
 
-void unreachable();
-
 struct Configuration {
   static constexpr int DEBUG = 0, INFO = 1, WARNING = 2, ERROR = 3;
   int log_level;
-  bool simulate_exec;
+  bool simulate_exec = 0, output_ir = 0;
   std::string input;
   std::set<std::string> disabled_passes;
   std::map<std::string, std::string> args;
@@ -63,3 +62,15 @@ extern LogStream<Configuration::DEBUG> debug;
 extern LogStream<Configuration::INFO> info;
 extern LogStream<Configuration::WARNING> warning;
 extern LogStream<Configuration::ERROR> error;
+
+#ifdef assert
+#undef assert
+#endif
+#define assert(x) ___assert(__LINE__, x, #x, __FILE__)
+#define _throw ___assert(__LINE__, 0, "throw", __FILE__), __or ||
+void ___assert(int lineno, bool value, const char *expr, const char *file);
+struct __or_t {
+  template <typename T> void operator||(const T &) {}
+};
+extern __or_t __or;
+#define unreachable() ___assert(__LINE__, 0, "unreachable", __FILE__)
