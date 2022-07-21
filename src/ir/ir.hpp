@@ -350,6 +350,8 @@ struct UnaryOp : Printable {
     FNEG = 3,
     F2I = 4,
     I2F = 5,
+    F2D0 = 6,
+    F2D1 = 7,
   } type;
   scalar_t compute(scalar_t x);
   UnaryOp(ScalarType _type, Type x) : type(x) {
@@ -376,13 +378,18 @@ struct UnaryOp : Printable {
   }
   UnaryOp(Type x) : type(x) {}
   ScalarType input_type() {
-    return type == FNEG || type == F2I ? ScalarType::Float : ScalarType::Int;
+    return type == FNEG || type == F2I || type == F2D0 || type == F2D1
+               ? ScalarType::Float
+               : ScalarType::Int;
   }
   ScalarType ret_type() {
-    return type == FNEG || type == I2F ? ScalarType::Float : ScalarType::Int;
+    return type == FNEG || type == I2F || type == F2D0 || type == F2D1
+               ? ScalarType::Float
+               : ScalarType::Int;
   }
   const char *get_name() const {
-    static const char *names[] = {"!", "-", "+", "(-F)", "(int)", "(float)"};
+    static const char *names[] = {
+        "!", "-", "+", "(-F)", "(int)", "(float)", "(double.0)", "(double.1)"};
     return names[(int)type];
   }
   void print(ostream &os) const override { os << get_name(); }

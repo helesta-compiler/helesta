@@ -262,6 +262,8 @@ void MoveReg::gen_asm(ostream &out, AsmContext *) {
 }
 
 void FRegInst::gen_asm(ostream &out, AsmContext *) {
+  assert(dst.is_float);
+  assert(src.is_float);
   switch (op) {
   case Neg:
     out << "vneg.f32";
@@ -272,9 +274,17 @@ void FRegInst::gen_asm(ostream &out, AsmContext *) {
   case I2F:
     out << "vcvt.f32.s32";
     break;
+  case F2D0:
+    out << "vcvt.f64.f32 d8," << src << '\n';
+    out << "vmov.f32 " << dst << ",s16\n";
+    return;
+  case F2D1:
+    out << "vcvt.f64.f32 d8," << src << '\n';
+    out << "vmov.f32 " << dst << ",s17\n";
+    return;
+  default:
+    assert(0);
   }
-  assert(dst.is_float);
-  assert(src.is_float);
   out << ' ' << dst << ',' << src << '\n';
 }
 
@@ -556,9 +566,7 @@ void Branch::gen_asm(ostream &out, AsmContext *) {
 
 void FuncCall::gen_asm(ostream &out, AsmContext *) {
   out << "bl" << cond << ' ';
-  if (name == "putf")
-    out << "printf";
-  else if (name == "starttime")
+  if (name == "starttime")
     out << "_sysy_starttime";
   else if (name == "stoptime")
     out << "_sysy_stoptime";

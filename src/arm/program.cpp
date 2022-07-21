@@ -94,6 +94,16 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(make_unique<MoveReg>(dst, tmp));
         break;
       }
+      case IR::UnaryOp::F2D0:
+        info->set_float(dst);
+        info->set_float(src);
+        push_back(make_unique<FRegInst>(FRegInst::F2D0, dst, src));
+        break;
+      case IR::UnaryOp::F2D1:
+        info->set_float(dst);
+        info->set_float(src);
+        push_back(make_unique<FRegInst>(FRegInst::F2D1, dst, src));
+        break;
       default:
         unreachable();
       }
