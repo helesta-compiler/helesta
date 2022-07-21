@@ -39,4 +39,4 @@ jobs:
         host: ${{ secrets.HOST }}
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
-        command: whoami
+        command: python3 /home/pi/github-action/test_all.py --testcase_path /home/pi/github-action/testcases
