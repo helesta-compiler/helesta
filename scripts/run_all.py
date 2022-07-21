@@ -21,7 +21,10 @@ def run_with(args):
             asm_path = full_path[:-1]
             cmd = "{} {} -o {}".format(args.compiler_path, full_path, asm_path)
             print(cmd)
-            subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+            child = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+            child.communicate()
+            if child.returncode != 0:
+                exit(1)
 
 
 if __name__ == '__main__':
