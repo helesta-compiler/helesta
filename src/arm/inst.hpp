@@ -277,7 +277,7 @@ struct MoveReg : Inst {
 
 // dst = op src
 struct FRegInst : Inst {
-  enum Type { Neg, I2F, F2I } op;
+  enum Type { Neg, I2F, F2I, F2D0, F2D1 } op;
   Reg dst, src;
   FRegInst(Type _op, Reg _dst, Reg _src) : op(_op), dst(_dst), src(_src) {}
 

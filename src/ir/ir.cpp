@@ -360,6 +360,10 @@ scalar_t UnaryOpInstr::compute(scalar_t s1) { return op.compute(s1); }
 scalar_t UnaryOp::compute(scalar_t s1) {
   int32_t i1 = s1.int_value();
   float f1 = s1.float_value();
+  union {
+    double d;
+    float f0, f1;
+  } f2d;
   switch (type) {
   case UnaryOp::LNOT:
     return int32_t(!i1);
@@ -373,6 +377,12 @@ scalar_t UnaryOp::compute(scalar_t s1) {
     return int32_t(f1);
   case UnaryOp::I2F:
     return float(i1);
+  case UnaryOp::F2D0:
+    f2d.d = f1;
+    return f2d.f0;
+  case UnaryOp::F2D1:
+    f2d.d = f1;
+    return f2d.f1;
   default:
     assert(0);
     return 0;

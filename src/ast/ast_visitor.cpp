@@ -981,6 +981,7 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
       !entry->interface.variadic)
     _throw InvalidFuncCallArg("wrong number of function arguments");
   vector<IR::Reg> arg_regs;
+  size_t offset = 0;
   for (size_t i = 0; i < args.size(); ++i) {
     if (IRValue *cur = std::get_if<IRValue>(&args[i])) {
       if (i < entry->interface.args_type.size()) {
@@ -995,7 +996,24 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
         } else
           _throw InvalidFuncCallArg("type error on function argument");
       } else {
-        arg_regs.push_back(_get_value(*cur));
+        ScalarType type = cur->type.scalar_type;
+        IR::Reg arg_reg = _get_value(type, *cur);
+        if (type == ScalarType::Float) {
+          if (offset % 2) {
+            arg_regs.push_back(IR::Reg{});
+            offset += 1;
+          }
+          for (auto op : {IR::UnaryOp::F2D0, IR::UnaryOp::F2D1}) {
+            IR::Reg reg1 = new_reg();
+            cur_bb->push(new IR::UnaryOpInstr(reg1, arg_reg, op));
+            arg_regs.push_back(reg1);
+          }
+          offset += 1;
+        } else if (type == ScalarType::Int) {
+          arg_regs.push_back(arg_reg);
+        } else {
+          assert(0);
+        }
       }
     } else {
       IR::MemObject *&cur_str = std::get<IR::MemObject *>(args[i]);
@@ -1007,11 +1025,13 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
         } else
           _throw InvalidFuncCallArg("type error on function argument");
       } else {
+        assert(0);
         IR::Reg addr = new_reg();
         cur_bb->push(new IR::LoadAddr(addr, cur_str));
         arg_regs.push_back(addr);
       }
     }
+    offset += 1;
   }
   if (func_name == "starttime" || func_name == "stoptime") {
     int32_t line_no = static_cast<int32_t>(ctx->start->getLine());
