@@ -66,11 +66,11 @@ extern LogStream<Configuration::ERROR> error;
 #ifdef assert
 #undef assert
 #endif
-#define assert(x) __assert(__LINE__, x, #x, __FILE__)
-#define _throw __assert(__LINE__, 0, "throw", __FILE__), __or ||
-void __assert(int lineno, bool value, const char *expr, const char *file);
+#define assert(x) ___assert(__LINE__, x, #x, __FILE__)
+#define _throw ___assert(__LINE__, 0, "throw", __FILE__), __or ||
+void ___assert(int lineno, bool value, const char *expr, const char *file);
 struct __or_t {
   template <typename T> void operator||(const T &) {}
 };
 extern __or_t __or;
-#define unreachable() __assert(__LINE__, 0, "unreachable", __FILE__)
+#define unreachable() ___assert(__LINE__, 0, "unreachable", __FILE__)

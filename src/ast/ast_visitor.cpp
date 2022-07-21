@@ -112,7 +112,7 @@ CondJumpList ASTVisitor::to_CondJumpList(antlrcpp::Any value) {
 
 IR::Reg ASTVisitor::get_value(int lineno, const IRValue &value) {
   if (value.type.is_array())
-    __assert(lineno, 0, "", __FILE__);
+    ___assert(lineno, 0, "", __FILE__);
   //_throw ArrayTypedValueUsed();
   IR::Reg ret = value.reg;
   if (value.is_left_value) {
@@ -126,7 +126,7 @@ IR::Reg ASTVisitor::get_value(int lineno, const IRValue &value) {
 IR::Reg ASTVisitor::get_value(int lineno, ScalarType type,
                               const IRValue &value) {
   if (value.type.is_array())
-    __assert(lineno, 0, "", __FILE__);
+    ___assert(lineno, 0, "", __FILE__);
   IR::Reg ret = get_value(lineno, value);
   switch (value.type.scalar_type) {
   case ScalarType::Int:
