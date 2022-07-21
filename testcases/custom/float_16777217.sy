@@ -1,0 +1,6 @@
+int main() {
+    int x = 16777217.0;
+    putint(x);
+    putch(10);
+    return 0;
+}
