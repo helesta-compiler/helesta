@@ -950,11 +950,15 @@ ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
 }
 
 antlrcpp::Any ASTVisitor::visitNumber(SysYParser::NumberContext *ctx) {
-  if (ctx->IntLiteral() != 0) {
-    return parse_int32_literal(ctx->getText());
+  if (currentScalarType == ScalarType::Int) {
+    if (ctx->IntLiteral() != 0) {
+      return parse_int32_literal(ctx->getText());
+    } else {
+      double res = stod(ctx->FloatLiteral()->getText());
+      return static_cast<int>(res);
+    }
   } else {
-    return parse_float_literal(ctx->FloatLiteral()->getText());
-    // int32_t(stof(ctx->FloatLiteral()->getText()));
+    return stof(ctx->FloatLiteral()->getText());
   }
 }
 
