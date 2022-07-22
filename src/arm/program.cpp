@@ -636,6 +636,8 @@ void Func::gen_asm(ostream &out) {
     size_t save_reg_cnt = save_regs.size();
     if (save_reg_cnt)
       save_reg_cnt += 16;
+    if ((stack_size + save_reg_cnt * 4) % 8)
+      stack_size += 4;
     prologue = [save_regs, stack_size](ostream &out) {
       if (save_regs.size()) {
         out << "push {";
