@@ -59,6 +59,7 @@ struct Reg : Printable {
   bool operator==(const Reg &r) const { return id == r.id; }
   bool operator<(const Reg &r) const { return id < r.id; }
 };
+
 } // namespace IR
 namespace std {
 template <> struct hash<IR::Reg> {
