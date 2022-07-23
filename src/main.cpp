@@ -6,6 +6,7 @@
 #include "ast/ast_visitor.hpp"
 #include "common/errors.hpp"
 #include "ir/ir.hpp"
+#include "ir/opt/opt.hpp"
 #include "parser/SysYLexer.h"
 #include "parser/SysYParser.h"
 
@@ -40,6 +41,8 @@ int main(int argc, char **argv) {
   if (!found_main) {
     _throw MainFuncNotFound();
   }
+
+  optimize_ir(&ir);
 
   if (global_config.simulate_exec)
     IR::exec(ir);
