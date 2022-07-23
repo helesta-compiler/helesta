@@ -15,7 +15,7 @@ file(GLOB_RECURSE DIR_SRC "src/arm/*.cpp" "src/ast/*.cpp" "src/ir/*.cpp" "src/co
 file(GLOB_RECURSE PSR_SRC "src/parser/*.cpp")
 file(GLOB_RECURSE HDR_SRC "src/*.hpp")
 file(GLOB_RECURSE DIR_LIB_SRC "third_party/*.cpp")
-add_compile_options(-g3 -std=c++17 -O0 -Wno-attributes)
+add_compile_options(-g3 -std=c++17 -O2 -Wno-attributes)
 include_directories(src)
 include_directories(third_party/antlr4-runtime)
 set_property(SOURCE ${DIR_SRC} PROPERTY COMPILE_FLAGS "-Wall -Wextra -Werror -Wno-error=attributes")
