@@ -32,7 +32,7 @@ void MemScope::print(ostream &os) const {
   os << "}\n";
 }
 
-const std::vector<BB *> &&BB::getOutNodes() const {
+const std::vector<BB *> &BB::getOutNodes() const {
   auto last = back();
   if (auto jump_instr = dynamic_cast<JumpInstr *>(last)) {
     return std::move(std::vector<BB *>{jump_instr->target});

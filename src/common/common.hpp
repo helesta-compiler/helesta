@@ -47,7 +47,7 @@ struct Configuration {
 };
 
 template <typename NodeType> struct Traversable {
-  virtual const std::vector<NodeType *> &&getOutNodes() const = 0;
+  virtual const std::vector<NodeType *> &getOutNodes() const = 0;
   virtual ~Traversable() = default;
 };
 

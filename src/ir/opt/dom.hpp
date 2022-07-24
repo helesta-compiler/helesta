@@ -12,8 +12,8 @@ struct DomTreeNode : Traversable<DomTreeNode> {
   DomTreeContext *ctx;
 
   DomTreeNode(DomTreeContext *ctx_) : ctx{ctx_} {}
-  const std::vector<DomTreeNode *> &&getOutNodes() const override {
-    return std::move(out_nodes);
+  const std::vector<DomTreeNode *> &getOutNodes() const override {
+    return out_nodes;
   }
 };
 
