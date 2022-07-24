@@ -45,6 +45,11 @@ struct Configuration {
   int get_int_arg(std::string key, int default_value);
 };
 
+template <typename NodeType> struct Traversable {
+  virtual const std::vector<NodeType *> &&getOutNodes() const = 0;
+  virtual ~Traversable() = default;
+};
+
 extern Configuration global_config;
 
 // set global_config, return <input file, output file>

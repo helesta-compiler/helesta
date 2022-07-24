@@ -191,7 +191,7 @@ struct Instr : Printable {
   // MemObject by f3
 };
 struct PhiInstr;
-struct BB : Printable {
+struct BB : Printable, Traversable<BB> {
   // basic block
   string name;
   list<unique_ptr<Instr>> instrs;
@@ -214,11 +214,13 @@ struct BB : Printable {
   void push(Instr *x) { instrs.emplace_back(x); }
   void push1(Instr *x) { instrs.insert(--instrs.end(), unique_ptr<Instr>(x)); }
   void pop() { instrs.pop_back(); }
-  Instr *back() { return instrs.back().get(); }
+  Instr *back() const { return instrs.back().get(); }
   void map_BB(std::function<void(BB *&)> f) {
     for (auto &x : instrs)
       x->map_BB(f);
   }
+
+  const std::vector<BB *> &&getOutNodes() const override;
 
 private:
   friend struct NormalFunc;
