@@ -220,11 +220,12 @@ struct BB : Printable, Traversable<BB> {
       x->map_BB(f);
   }
 
-  const std::vector<BB *> &getOutNodes() const override;
+  const std::vector<BB *> getOutNodes() const override;
 
 private:
   friend struct NormalFunc;
   BB(string name) : name(name) {}
+  std::vector<BB *> outs;
 };
 
 struct Func : Printable {
