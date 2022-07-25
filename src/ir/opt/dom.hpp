@@ -65,5 +65,6 @@ struct DomTreeNode : Traversable<DomTreeNode> {
 
 struct DomTreeContext {
   std::vector<std::unique_ptr<DomTreeNode>> nodes;
+  std::vector<DomTreeNode *> dfn;
   DomTreeNode *entry;
 };

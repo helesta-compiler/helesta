@@ -37,11 +37,13 @@ int DomTreeBuilderContext::dfs(DomTreeNode *node) {
 void DomTreeBuilderContext::construct_dom_frontiers() {
   // SSA Book Algorithm 3.2
   for (auto &node_i : nodes) {
-    for (auto &node_j : nodes) {
+    auto outs = node_i->getOutNodes();
+    for (auto &node_j : outs) {
       auto x = node_i->node;
       auto b = node_j->node;
       while (!x->sdom(b)) {
         x->dom_frontiers.push_back(b);
+        x = x->dom_fa;
       }
     }
   }
@@ -96,6 +98,7 @@ std::unique_ptr<DomTreeContext> DomTreeBuilderContext::construct_dom_tree() {
   dom_dfn.clear();
   dom_dfn.reserve(nodes.size());
   dfs(ctx->entry);
+  ctx->dfn = dom_dfn;
   // 4. construct dominance frontiers
   construct_dom_frontiers();
   return ctx;
