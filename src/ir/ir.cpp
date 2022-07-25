@@ -121,20 +121,6 @@ void PhiInstr::print(ostream &os) const {
     os << c;
   os << " )";
 }
-void MemDef::print(ostream &os) const {
-  os << d1 << " = "
-     << " memdef " << data->name;
-}
-void MemUse::print(ostream &os) const { os << s1 << " used"; }
-void MemEffect::print(ostream &os) const {
-  os << d1 << " = " << s1 << " updated";
-}
-void MemRead::print(ostream &os) const {
-  os << d1 << " = " << mem << " at " << addr;
-}
-void MemWrite::print(ostream &os) const {
-  os << d1 << " = " << mem << " at " << addr << " write " << s1;
-}
 
 CompileUnit::CompileUnit() : scope("global", 1) {
   LibFunc *f;
@@ -316,52 +302,6 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
     f1(u->d1);
     for (auto &x : u->uses)
       f1(x.first), f2(x.second);
-    return u;
-  }
-  Case(MemDef, w, this) {
-    auto u = w;
-    if (copy)
-      u = new MemDef(*w);
-    f1(u->d1);
-    f3(u->data);
-    return u;
-  }
-  Case(MemUse, w, this) {
-    auto u = w;
-    if (copy)
-      u = new MemUse(*w);
-    f1(u->s1);
-    f3(u->data);
-    return u;
-  }
-  Case(MemEffect, w, this) {
-    auto u = w;
-    if (copy)
-      u = new MemEffect(*w);
-    f1(u->d1);
-    f1(u->s1);
-    f3(u->data);
-    return u;
-  }
-  Case(MemRead, w, this) {
-    auto u = w;
-    if (copy)
-      u = new MemRead(*w);
-    f1(u->d1);
-    f1(u->mem);
-    f1(u->addr);
-    f3(u->data);
-    return u;
-  }
-  Case(MemWrite, w, this) {
-    auto u = w;
-    if (copy)
-      u = new MemWrite(*w);
-    f1(u->d1);
-    f1(u->mem);
-    f1(u->addr);
-    f1(u->s1);
-    f3(u->data);
     return u;
   }
   assert(0);
@@ -586,21 +526,6 @@ int exec(CompileUnit &c) {
           wReg(x->d1, rMem(rReg(x->addr).int_value()));
         }
         else Case(StoreInstr, x, x0) {
-          wMem(rReg(x->addr).int_value(), rReg(x->s1));
-        }
-        else Case(MemDef, x, x0) {
-          skip_instr(x);
-        }
-        else Case(MemUse, x, x0) {
-          skip_instr(x);
-        }
-        else Case(MemEffect, x, x0) {
-          skip_instr(x);
-        }
-        else Case(MemRead, x, x0) {
-          wReg(x->d1, rMem(rReg(x->addr).int_value()));
-        }
-        else Case(MemWrite, x, x0) {
           wMem(rReg(x->addr).int_value(), rReg(x->s1));
         }
         else Case(JumpInstr, x, x0) {
