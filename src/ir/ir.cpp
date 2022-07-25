@@ -32,6 +32,18 @@ void MemScope::print(ostream &os) const {
   os << "}\n";
 }
 
+const std::vector<BB *> BB::getOutNodes() const {
+  auto last = back();
+  if (auto jump_instr = dynamic_cast<JumpInstr *>(last)) {
+    return {jump_instr->target};
+  } else if (auto branch_instr = dynamic_cast<BranchInstr *>(last)) {
+    return {branch_instr->target0, branch_instr->target1};
+  } else {
+    assert(dynamic_cast<ReturnInstr *>(last) != nullptr);
+  }
+  return {};
+}
+
 void BB::print(ostream &os) const {
   os << "BB(" << name << "){\n";
   for (auto &x : instrs) {

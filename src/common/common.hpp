@@ -5,9 +5,12 @@
 #include <iostream>
 #include <limits>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 using MemSize = uint64_t;
 
@@ -43,6 +46,32 @@ struct Configuration {
   Configuration(); // for default setting
   std::string get_arg(std::string key, std::string default_value);
   int get_int_arg(std::string key, int default_value);
+};
+
+template <typename NodeType> struct Traversable {
+  virtual const std::vector<NodeType *> getOutNodes() const = 0;
+  virtual void addOutNode(NodeType *node) = 0;
+  virtual ~Traversable() = default;
+};
+
+template <typename NodeSrc, typename NodeDst>
+std::vector<std::unique_ptr<NodeDst>>
+transfer_graph(const std::vector<std::unique_ptr<NodeSrc>> &srcs) {
+  std::unordered_map<NodeSrc *, NodeDst *> src2dst;
+  std::vector<std::unique_ptr<NodeDst>> dsts;
+  dsts.reserve(srcs.size());
+  for (auto &src : srcs) {
+    dsts.push_back(std::make_unique<NodeDst>());
+    src2dst.insert({src.get(), dsts.back().get()});
+  }
+  for (auto &src : srcs) {
+    auto dst = src2dst[src.get()];
+    auto outs = src->getOutNodes();
+    for (auto out : outs) {
+      dst->addOutNode(src2dst[out]);
+    }
+  }
+  return dsts;
 };
 
 extern Configuration global_config;
