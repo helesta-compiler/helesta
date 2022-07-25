@@ -2,9 +2,10 @@
 
 #include "ir/opt/opt.hpp"
 
-void mem2reg_func(IR::NormalFunc *func) {
+std::unordered_set<IR::Reg> mem2reg_func(IR::NormalFunc *func) {
   std::unordered_map<IR::Reg, IR::MemObject *> addr2mem;
   std::unordered_map<IR::MemObject *, IR::Reg> mem2value;
+  std::unordered_set<IR::Reg> value_regs;
   func->for_each([&](IR::BB *bb) {
     for (auto it = bb->instrs.begin(); it != bb->instrs.end(); it++) {
       if (auto load_addr_instr = dynamic_cast<IR::LoadAddr *>(it->get())) {
@@ -12,6 +13,7 @@ void mem2reg_func(IR::NormalFunc *func) {
         if (!mem_obj->global && mem_obj->is_single_var()) {
           if (mem2value.find(mem_obj) == mem2value.end()) {
             auto value_reg = func->new_Reg(mem_obj->name);
+            value_regs.insert(value_reg);
             mem2value.insert({mem_obj, value_reg});
           }
           addr2mem.insert({load_addr_instr->d1, mem_obj});
@@ -35,6 +37,12 @@ void mem2reg_func(IR::NormalFunc *func) {
       }
     }
   });
+  return value_regs;
 }
 
-void mem2reg(IR::CompileUnit *ir) { ir->for_each(mem2reg_func); }
+void mem2reg(IR::CompileUnit *ir) {
+  ir->for_each([&](IR::NormalFunc *func) {
+    auto value_regs = mem2reg_func(func);
+    ssa_construction(func, value_regs);
+  });
+}

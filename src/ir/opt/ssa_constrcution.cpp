@@ -109,8 +109,8 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
   }
 }
 
-void ssa_construction_func(IR::NormalFunc *func,
-                           const std::unordered_set<IR::Reg> &checking_regs) {
+void ssa_construction(IR::NormalFunc *func,
+                      const std::unordered_set<IR::Reg> &checking_regs) {
   for (auto reg : checking_regs) {
     auto dom_ctx = DomTreeBuilderContext(func).construct_dom_tree();
     // phase 1: phi insertion
@@ -118,11 +118,4 @@ void ssa_construction_func(IR::NormalFunc *func,
     // phase 2: varaible renaming
     varaible_renaming(func, dom_ctx.get(), reg, phis);
   }
-}
-
-void ssa_construction(IR::CompileUnit *ir,
-                      const std::unordered_set<IR::Reg> &checking_regs) {
-  ir->for_each([&](IR::NormalFunc *func) {
-    ssa_construction_func(func, checking_regs);
-  });
 }
