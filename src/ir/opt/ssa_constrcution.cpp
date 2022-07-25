@@ -88,6 +88,7 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
           reaching_def[new_version.id] = reaching_def[checking_reg.id];
           def_node[new_version.id] = node;
           reaching_def[checking_reg.id] = new_version.id;
+          reg_write_instr->d1.id = new_version.id;
         }
       }
     });

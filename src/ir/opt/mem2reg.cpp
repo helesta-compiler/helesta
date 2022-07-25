@@ -43,12 +43,6 @@ std::unordered_set<IR::Reg> mem2reg_func(IR::NormalFunc *func) {
 void mem2reg(IR::CompileUnit *ir) {
   ir->for_each([&](IR::NormalFunc *func) {
     auto value_regs = mem2reg_func(func);
-    std::cout << *func << std::endl;
-    std::cout << "check " << func->name << " ";
-    for (auto r : value_regs)
-      std::cout << r << " ";
-    std::cout << std::endl;
     ssa_construction(func, value_regs);
-    std::cout << "==============" << std::endl;
   });
 }
