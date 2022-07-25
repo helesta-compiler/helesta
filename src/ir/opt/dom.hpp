@@ -16,6 +16,10 @@ struct DomTreeBuilderNode : Traversable<DomTreeBuilderNode> {
   const std::vector<DomTreeBuilderNode *> getOutNodes() const override {
     return out_nodes;
   }
+
+  void addOutNode(DomTreeBuilderNode *node) override {
+    out_nodes.push_back(node);
+  }
 };
 
 struct DomTreeBuilderContext {
@@ -39,6 +43,8 @@ struct DomTreeNode : Traversable<DomTreeNode> {
   const std::vector<DomTreeNode *> getOutNodes() const override {
     return out_nodes;
   }
+
+  void addOutNode(DomTreeNode *node) override { out_nodes.push_back(node); }
 };
 
 struct DomTreeContext {

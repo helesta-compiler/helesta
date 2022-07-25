@@ -221,6 +221,10 @@ struct BB : Printable, Traversable<BB> {
   }
 
   const std::vector<BB *> getOutNodes() const override;
+  void addOutNode(BB *) override {
+    // unreachable
+    assert(false);
+  }
 
 private:
   friend struct NormalFunc;

@@ -1,23 +1,13 @@
 #include <unordered_map>
 
+#include "common/common.hpp"
 #include "ir/opt/dom.hpp"
 
 DomTreeBuilderContext::DomTreeBuilderContext(IR::NormalFunc *func) {
-  std::unordered_map<IR::BB *, DomTreeBuilderNode *> bb2node;
-  for (auto &bb : func->bbs) {
-    nodes.push_back(std::make_unique<DomTreeBuilderNode>());
-    bb2node.insert({bb.get(), nodes.back().get()});
-    if (bb.get() == func->entry) {
-      entry = nodes.back().get();
-    }
-  }
-  for (auto &bb : func->bbs) {
-    auto node = bb2node[bb.get()];
-    auto outs = bb->getOutNodes();
-    node->out_nodes.clear();
-    for (auto out : outs) {
-      node->out_nodes.push_back(bb2node[out]);
-    }
+  nodes = transfer_graph<IR::BB, DomTreeBuilderNode>(func->bbs);
+  for (size_t idx = 0; idx < func->bbs.size(); idx++) {
+    if (func->bbs[idx].get() == func->entry)
+      entry = nodes[idx].get();
   }
 }
 
