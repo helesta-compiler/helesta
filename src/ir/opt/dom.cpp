@@ -35,26 +35,13 @@ int DomTreeBuilderContext::dfs(DomTreeNode *node) {
 }
 
 void DomTreeBuilderContext::construct_dom_frontiers() {
-  // fill in nodes for each node
-  for (auto &node : nodes) {
-    auto outs = node->getOutNodes();
-    for (auto out : outs) {
-      out->in_nodes.push_back(node.get());
-    }
-  }
+  // SSA Book Algorithm 3.2
   for (auto &node_i : nodes) {
     for (auto &node_j : nodes) {
-      if (node_i->node->sdom(node_j->node)) {
-        continue;
-      }
-      bool is_df = false;
-      for (auto node_k : node_j->in_nodes) {
-        if (node_i->node->sdom(node_k->node)) {
-          is_df = true;
-        }
-      }
-      if (is_df) {
-        node_i->node->dom_frontiers.push_back(node_j->node);
+      auto x = node_i->node;
+      auto b = node_j->node;
+      while (!x->sdom(b)) {
+        x->dom_frontiers.push_back(b);
       }
     }
   }
@@ -89,7 +76,7 @@ std::unique_ptr<DomTreeContext> DomTreeBuilderContext::construct_dom_tree() {
   ctx->nodes.reserve(nodes.size());
   std::unordered_map<DomTreeBuilderNode *, DomTreeNode *> builder2node;
   for (auto &node : nodes) {
-    ctx->nodes.push_back(std::make_unique<DomTreeNode>());
+    ctx->nodes.push_back(std::make_unique<DomTreeNode>(node->bb));
     node->node = ctx->nodes.back().get();
     builder2node.insert({node.get(), ctx->nodes.back().get()});
     if (node.get() == entry) {
@@ -98,9 +85,11 @@ std::unique_ptr<DomTreeContext> DomTreeBuilderContext::construct_dom_tree() {
   }
   for (auto &node : nodes) {
     if (node->dom_fa == nullptr) {
+      node->node->dom_fa = nullptr;
       continue;
     }
     auto fa = builder2node[node->dom_fa];
+    node->node->dom_fa = fa;
     fa->out_nodes.push_back(builder2node[node.get()]);
   }
   // 3. get dfn position and sub-tree size for each node

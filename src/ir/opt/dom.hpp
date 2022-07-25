@@ -9,12 +9,13 @@ struct DomTreeNode;
 
 struct DomTreeBuilderNode : Traversable<DomTreeBuilderNode> {
   std::vector<DomTreeBuilderNode *> out_nodes;
-  std::vector<DomTreeBuilderNode *> in_nodes; // optionally filled
   DomTreeBuilderNode *dom_fa;
   DomTreeNode *node;
   int tag;
+  IR::BB *bb;
 
-  DomTreeBuilderNode() = default;
+  DomTreeBuilderNode() = delete;
+  DomTreeBuilderNode(IR::BB *bb_) : bb(bb_) {}
   const std::vector<DomTreeBuilderNode *> getOutNodes() const override {
     return out_nodes;
   }
@@ -44,7 +45,12 @@ private:
 struct DomTreeNode : Traversable<DomTreeNode> {
   std::vector<DomTreeNode *> out_nodes;
   std::vector<DomTreeNode *> dom_frontiers;
+  DomTreeNode *dom_fa;
   int dfn, size;
+  IR::BB *bb;
+
+  DomTreeNode() = delete;
+  DomTreeNode(IR::BB *bb_) : bb(bb_) {}
 
   const std::vector<DomTreeNode *> getOutNodes() const override {
     return out_nodes;
