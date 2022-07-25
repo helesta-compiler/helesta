@@ -68,3 +68,5 @@ struct DomTreeContext {
   std::vector<DomTreeNode *> dfn;
   DomTreeNode *entry;
 };
+
+std::unique_ptr<DomTreeContext> dominator_tree(IR::NormalFunc *);

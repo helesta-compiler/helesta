@@ -5,6 +5,7 @@
 
 DomTreeBuilderContext::DomTreeBuilderContext(IR::NormalFunc *func) {
   nodes = transfer_graph<IR::BB, DomTreeBuilderNode>(func->bbs);
+  assert(nodes.size() == func->bbs.size());
   for (size_t idx = 0; idx < func->bbs.size(); idx++) {
     if (func->bbs[idx].get() == func->entry)
       entry = nodes[idx].get();
@@ -41,7 +42,7 @@ void DomTreeBuilderContext::construct_dom_frontiers() {
     for (auto &node_j : outs) {
       auto x = node_i->node;
       auto b = node_j->node;
-      while (!x->sdom(b)) {
+      while (x != nullptr && !x->sdom(b)) {
         x->dom_frontiers.push_back(b);
         x = x->dom_fa;
       }
@@ -101,6 +102,7 @@ std::unique_ptr<DomTreeContext> DomTreeBuilderContext::construct_dom_tree() {
   ctx->dfn = dom_dfn;
   // 4. construct dominance frontiers
   construct_dom_frontiers();
+  std::cout << "phase 4 done" << std::endl;
   return ctx;
 }
 
