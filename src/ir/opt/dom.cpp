@@ -102,7 +102,6 @@ std::unique_ptr<DomTreeContext> DomTreeBuilderContext::construct_dom_tree() {
   ctx->dfn = dom_dfn;
   // 4. construct dominance frontiers
   construct_dom_frontiers();
-  std::cout << "phase 4 done" << std::endl;
   return ctx;
 }
 

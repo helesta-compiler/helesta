@@ -47,7 +47,9 @@ std::multiset<IR::PhiInstr *> phi_insertion(DomTreeContext *ctx,
 inline void update_reaching_def(std::vector<int> &reaching_def,
                                 std::vector<DomTreeNode *> &def_node,
                                 int reg_id, DomTreeNode *cur) {
-  auto x = reg_id;
+  assert(cur != nullptr);
+  assert(reaching_def.size() == def_node.size());
+  auto x = reaching_def[reg_id];
   while (x > 0) {
     auto node = def_node[x];
     if (node->sdom(cur) || node == cur) {
@@ -61,8 +63,8 @@ inline void update_reaching_def(std::vector<int> &reaching_def,
 void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
                        IR::Reg checking_reg,
                        const std::multiset<IR::PhiInstr *> phis) {
-  std::vector<int> reaching_def(func->max_reg_id, 0);
-  std::vector<DomTreeNode *> def_node(func->max_reg_id, nullptr);
+  std::vector<int> reaching_def(func->max_reg_id + 1, 0);
+  std::vector<DomTreeNode *> def_node(func->max_reg_id + 1, nullptr);
   int version_count = 0;
   for (auto node : ctx->dfn) {
     node->bb->for_each([&](IR::Instr *i) {
@@ -81,6 +83,8 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
           update_reaching_def(reaching_def, def_node, checking_reg.id, node);
           auto new_version = func->new_Reg(func->get_name(checking_reg) + "_" +
                                            std::to_string(version_count++));
+          reaching_def.resize(func->max_reg_id + 1, 0);
+          def_node.resize(func->max_reg_id + 1, nullptr);
           reaching_def[new_version.id] = reaching_def[checking_reg.id];
           def_node[new_version.id] = node;
           reaching_def[checking_reg.id] = new_version.id;
@@ -113,12 +117,9 @@ void ssa_construction(IR::NormalFunc *func,
                       const std::unordered_set<IR::Reg> &checking_regs) {
   for (auto reg : checking_regs) {
     auto dom_ctx = dominator_tree(func);
-    std::cout << "dom tree built" << std::endl;
     // phase 1: phi insertion
     auto phis = phi_insertion(dom_ctx.get(), reg);
-    std::cout << "phi insertion done" << std::endl;
     // phase 2: varaible renaming
     varaible_renaming(func, dom_ctx.get(), reg, phis);
-    std::cout << "varaible renaming done" << std::endl;
   }
 }
