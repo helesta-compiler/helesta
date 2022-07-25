@@ -586,13 +586,11 @@ struct ReturnInstr : ControlInstr {
   void print(ostream &os) const override;
 };
 
-struct MemUse;
 struct CallInstr : RegWriteInstr {
   // d1 = f(args[0],args[1],...)
   vector<Reg> args;
   Func *f;
   bool ignore_return_value, pure = 0;
-  list<MemUse *> in; // record mem-use and mem-effect in array ssa
   CallInstr(Reg d1, Func *f, vector<Reg> args, bool ignore_return_value)
       : RegWriteInstr(d1), args(args), f(f),
         ignore_return_value(ignore_return_value) {}

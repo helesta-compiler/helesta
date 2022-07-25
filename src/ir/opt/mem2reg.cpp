@@ -37,6 +37,9 @@ std::unordered_set<IR::Reg> mem2reg_func(IR::NormalFunc *func) {
       }
     }
   });
+  for (auto reg : value_regs) {
+    func->entry->push_front(new IR::LoadConst(reg, 0));
+  }
   return value_regs;
 }
 

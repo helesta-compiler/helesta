@@ -62,8 +62,6 @@ std::unique_ptr<DomTreeContext> DomTreeBuilderContext::construct_dom_tree() {
   dfs(entry);
   assert(dfn.front() == entry);
   for (auto node : dfn) {
-    if (node == entry)
-      continue;
     tag += 1;
     node->tag = tag;
     dfs(entry);
@@ -94,6 +92,10 @@ std::unique_ptr<DomTreeContext> DomTreeBuilderContext::construct_dom_tree() {
     auto fa = builder2node[node->dom_fa];
     node->node->dom_fa = fa;
     fa->out_nodes.push_back(builder2node[node.get()]);
+    auto outs = node->getOutNodes();
+    for (auto out : outs) {
+      node->node->cfg_out_nodes.push_back(builder2node[out]);
+    }
   }
   // 3. get dfn position and sub-tree size for each node
   dom_dfn.clear();

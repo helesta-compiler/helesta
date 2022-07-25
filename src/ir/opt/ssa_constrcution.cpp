@@ -35,7 +35,7 @@ std::multiset<IR::PhiInstr *> phi_insertion(DomTreeContext *ctx,
         auto instr = std::make_unique<IR::PhiInstr>(checking_reg);
         phis.insert(instr.get());
         df->bb->instrs.push_front(std::move(instr));
-        if (defs.find(df) != defs.end()) {
+        if (defs.find(df) == defs.end()) {
           W.push_back(df);
         }
       }
@@ -75,6 +75,7 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
           if (cur.id != checking_reg.id)
             return;
           update_reaching_def(reaching_def, def_node, cur.id, node);
+          assert(reaching_def[cur.id] != 0);
           cur.id = reaching_def[cur.id];
         });
       }
@@ -92,18 +93,20 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
         }
       }
     });
-    for (auto succ_bb : node->bb->getOutNodes()) {
-      succ_bb->for_each([&](IR::Instr *i) {
+    for (auto cfg_out : node->cfg_out_nodes) {
+      cfg_out->bb->for_each([&](IR::Instr *i) {
         if (auto phi_instr = dynamic_cast<IR::PhiInstr *>(i)) {
           if (phis.find(phi_instr) != phis.end()) {
-            update_reaching_def(reaching_def, def_node, checking_reg.id, node);
+            update_reaching_def(reaching_def, def_node, checking_reg.id,
+                                cfg_out);
+            assert(reaching_def[checking_reg.id] > 0);
             phi_instr->add_use(IR::Reg(reaching_def[checking_reg.id]),
                                node->bb);
           } else {
             for (auto &kv : phi_instr->uses) {
               if (kv.second == node->bb && kv.first.id == checking_reg.id) {
                 update_reaching_def(reaching_def, def_node, checking_reg.id,
-                                    node);
+                                    cfg_out);
                 kv.first.id = reaching_def[checking_reg.id];
               }
             }
