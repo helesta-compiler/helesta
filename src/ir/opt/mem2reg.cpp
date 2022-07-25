@@ -38,6 +38,7 @@ std::unordered_set<IR::Reg> mem2reg_func(IR::NormalFunc *func) {
     }
   });
   for (auto reg : value_regs) {
+    // we need to set an initial value as the root for SSA
     func->entry->push_front(new IR::LoadConst(reg, 0));
   }
   return value_regs;
