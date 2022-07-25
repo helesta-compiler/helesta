@@ -15,6 +15,11 @@ std::unordered_set<IR::Reg> mem2reg_func(IR::NormalFunc *func) {
             auto value_reg = func->new_Reg(mem_obj->name);
             value_regs.insert(value_reg);
             mem2value.insert({mem_obj, value_reg});
+            if (mem_obj->scalar_type == ScalarType::Int) {
+              func->entry->push_front(new IR::LoadConst(value_reg, 0.0));
+            } else {
+              func->entry->push_front(new IR::LoadConst(value_reg, 0));
+            }
           }
           addr2mem.insert({load_addr_instr->d1, mem_obj});
         }
@@ -37,10 +42,6 @@ std::unordered_set<IR::Reg> mem2reg_func(IR::NormalFunc *func) {
       }
     }
   });
-  for (auto reg : value_regs) {
-    // we need to set an initial value as the root for SSA
-    func->entry->push_front(new IR::LoadConst(reg, 0));
-  }
   return value_regs;
 }
 
