@@ -61,7 +61,7 @@ transfer_graph(const std::vector<std::unique_ptr<NodeSrc>> &srcs) {
   std::vector<std::unique_ptr<NodeDst>> dsts;
   dsts.reserve(srcs.size());
   for (auto &src : srcs) {
-    dsts.push_back(std::make_unique<NodeDst>());
+    dsts.push_back(std::make_unique<NodeDst>(src.get()));
     src2dst.insert({src.get(), dsts.back().get()});
   }
   for (auto &src : srcs) {
