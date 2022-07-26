@@ -35,7 +35,7 @@ std::multiset<IR::PhiInstr *> phi_insertion(DomTreeContext *ctx,
         auto instr = std::make_unique<IR::PhiInstr>(checking_reg);
         phis.insert(instr.get());
         df->bb->instrs.push_front(std::move(instr));
-        if (defs.find(df) != defs.end()) {
+        if (defs.find(df) == defs.end()) {
           W.push_back(df);
         }
       }
@@ -75,6 +75,7 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
           if (cur.id != checking_reg.id)
             return;
           update_reaching_def(reaching_def, def_node, cur.id, node);
+          assert(reaching_def[cur.id] != 0);
           cur.id = reaching_def[cur.id];
         });
       }
@@ -97,6 +98,7 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
         if (auto phi_instr = dynamic_cast<IR::PhiInstr *>(i)) {
           if (phis.find(phi_instr) != phis.end()) {
             update_reaching_def(reaching_def, def_node, checking_reg.id, node);
+            assert(reaching_def[checking_reg.id] > 0);
             phi_instr->add_use(IR::Reg(reaching_def[checking_reg.id]),
                                node->bb);
           } else {
@@ -116,8 +118,8 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
 
 void ssa_construction(IR::NormalFunc *func,
                       const std::unordered_set<IR::Reg> &checking_regs) {
+  auto dom_ctx = dominator_tree(func);
   for (auto reg : checking_regs) {
-    auto dom_ctx = dominator_tree(func);
     // phase 1: phi insertion
     auto phis = phi_insertion(dom_ctx.get(), reg);
     // phase 2: varaible renaming

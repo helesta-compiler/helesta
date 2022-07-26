@@ -586,13 +586,11 @@ struct ReturnInstr : ControlInstr {
   void print(ostream &os) const override;
 };
 
-struct MemUse;
 struct CallInstr : RegWriteInstr {
   // d1 = f(args[0],args[1],...)
   vector<Reg> args;
   Func *f;
   bool ignore_return_value, pure = 0;
-  list<MemUse *> in; // record mem-use and mem-effect in array ssa
   CallInstr(Reg d1, Func *f, vector<Reg> args, bool ignore_return_value)
       : RegWriteInstr(d1), args(args), f(f),
         ignore_return_value(ignore_return_value) {}
@@ -624,64 +622,6 @@ struct PhiInstr : RegWriteInstr {
   vector<std::pair<Reg, BB *>> uses;
   PhiInstr(Reg d1) : RegWriteInstr(d1) {}
   void add_use(Reg r, BB *pos) { uses.emplace_back(r, pos); }
-  void print(ostream &os) const override;
-};
-
-// for array-ssa
-
-struct MemDef : RegWriteInstr {
-  // only for array-ssa
-  // d1:int
-  MemObject *data;
-  // array from arg: data->global=0 data->size=0 data->arg=1 //TODO
-  // local array def: data->global=0
-  // global array intro: data->global=1
-  MemDef(Reg d1, MemObject *data) : RegWriteInstr(d1), data(data) {
-    assert(data);
-  }
-  void print(ostream &os) const override;
-};
-
-struct MemUse : Instr {
-  // only for array-ssa
-  // s1 is used
-  // the concrete use is unknown
-  // usually inserted before call
-  Reg s1;
-  MemObject *data;
-  MemUse(Reg s1, MemObject *data) : s1(s1), data(data) {}
-  void print(ostream &os) const override;
-};
-
-struct MemEffect : RegWriteInstr {
-  // only for array-ssa
-  // d1 is updated from s1
-  // the concrete update is unknown
-  // usually inserted after call
-  Reg s1;
-  MemObject *data;
-  MemEffect(Reg d1, Reg s1, MemObject *data)
-      : RegWriteInstr(d1), s1(s1), data(data) {}
-  void print(ostream &os) const override;
-};
-
-struct MemRead : RegWriteInstr {
-  // only for array-ssa
-  // d1:int = read mem at addr
-  Reg mem, addr;
-  MemObject *data;
-  MemRead(Reg d1, Reg mem, Reg addr, MemObject *data)
-      : RegWriteInstr(d1), mem(mem), addr(addr), data(data) {}
-  void print(ostream &os) const override;
-};
-
-struct MemWrite : RegWriteInstr {
-  // only for array-ssa
-  // d1:mem = write mem at addr with value s1
-  Reg mem, addr, s1;
-  MemObject *data;
-  MemWrite(Reg d1, Reg mem, Reg addr, Reg s1, MemObject *data)
-      : RegWriteInstr(d1), mem(mem), addr(addr), s1(s1), data(data) {}
   void print(ostream &os) const override;
 };
 

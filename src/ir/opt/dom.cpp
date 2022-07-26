@@ -62,8 +62,6 @@ std::unique_ptr<DomTreeContext> DomTreeBuilderContext::construct_dom_tree() {
   dfs(entry);
   assert(dfn.front() == entry);
   for (auto node : dfn) {
-    if (node == entry)
-      continue;
     tag += 1;
     node->tag = tag;
     dfs(entry);
