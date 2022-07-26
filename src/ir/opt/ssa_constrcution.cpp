@@ -118,8 +118,8 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
 
 void ssa_construction(IR::NormalFunc *func,
                       const std::unordered_set<IR::Reg> &checking_regs) {
+  auto dom_ctx = dominator_tree(func);
   for (auto reg : checking_regs) {
-    auto dom_ctx = dominator_tree(func);
     // phase 1: phi insertion
     auto phis = phi_insertion(dom_ctx.get(), reg);
     // phase 2: varaible renaming
