@@ -17,8 +17,6 @@ int main(int argc, char **argv) {
   std::ifstream source(filename.first);
   for (auto fn : {
            "brainfuck-mandelbrot-nerf",
-           "dead-code-elimination-2",
-           "dead-code-elimination-3",
            "hoist-2",
            "hoist-3",
            "instruction-combining-3",
