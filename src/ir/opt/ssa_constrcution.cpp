@@ -97,8 +97,7 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
       cfg_out->bb->for_each([&](IR::Instr *i) {
         if (auto phi_instr = dynamic_cast<IR::PhiInstr *>(i)) {
           if (phis.find(phi_instr) != phis.end()) {
-            update_reaching_def(reaching_def, def_node, checking_reg.id,
-                                cfg_out);
+            update_reaching_def(reaching_def, def_node, checking_reg.id, node);
             assert(reaching_def[checking_reg.id] > 0);
             phi_instr->add_use(IR::Reg(reaching_def[checking_reg.id]),
                                node->bb);
@@ -106,7 +105,7 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
             for (auto &kv : phi_instr->uses) {
               if (kv.second == node->bb && kv.first.id == checking_reg.id) {
                 update_reaching_def(reaching_def, def_node, checking_reg.id,
-                                    cfg_out);
+                                    node);
                 kv.first.id = reaching_def[checking_reg.id];
               }
             }
