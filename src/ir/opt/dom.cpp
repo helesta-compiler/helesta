@@ -85,10 +85,6 @@ std::unique_ptr<DomTreeContext> DomTreeBuilderContext::construct_dom_tree() {
     }
   }
   for (auto &node : nodes) {
-    auto outs = node->getOutNodes();
-    for (auto out : outs) {
-      node->node->cfg_out_nodes.push_back(builder2node[out]);
-    }
     if (node->dom_fa == nullptr) {
       node->node->dom_fa = nullptr;
       continue;

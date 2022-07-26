@@ -45,7 +45,6 @@ private:
 struct DomTreeNode : Traversable<DomTreeNode> {
   std::vector<DomTreeNode *> out_nodes;
   std::vector<DomTreeNode *> dom_frontiers;
-  std::vector<DomTreeNode *> cfg_out_nodes;
   DomTreeNode *dom_fa;
   int dfn, size;
   IR::BB *bb;

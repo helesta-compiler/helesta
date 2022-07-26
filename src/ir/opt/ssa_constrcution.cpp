@@ -93,8 +93,8 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
         }
       }
     });
-    for (auto cfg_out : node->cfg_out_nodes) {
-      cfg_out->bb->for_each([&](IR::Instr *i) {
+    for (auto succ_bb : node->bb->getOutNodes()) {
+      succ_bb->for_each([&](IR::Instr *i) {
         if (auto phi_instr = dynamic_cast<IR::PhiInstr *>(i)) {
           if (phis.find(phi_instr) != phis.end()) {
             update_reaching_def(reaching_def, def_node, checking_reg.id, node);
