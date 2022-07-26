@@ -15,17 +15,7 @@ int main(int argc, char **argv) {
   std::pair<std::string, std::string> filename = parse_arg(argc, argv);
 
   std::ifstream source(filename.first);
-  for (auto fn : {
-           "brainfuck-mandelbrot-nerf",
-           "hoist-2",
-           "hoist-3",
-           "instruction-combining-3",
-           "integer-divide-optimization-2",
-           "integer-divide-optimization-3",
-       }) {
-    if (filename.first.find(fn) != std::string::npos)
-      exit(255);
-  }
+
   antlr4::ANTLRInputStream input(source);
   SysYLexer lexer(&input);
   antlr4::CommonTokenStream tokens(&lexer);
