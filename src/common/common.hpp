@@ -54,6 +54,20 @@ template <typename NodeType> struct Traversable {
   virtual ~Traversable() = default;
 };
 
+template <typename NodeType> struct TreeNode {
+  virtual NodeType *getFather() const = 0;
+  virtual ~TreeNode() = default;
+};
+
+template <typename NodeType>
+void construct_outs_for_tree(std::vector<std::unique_ptr<NodeType>> &nodes) {
+  for (auto &node : nodes) {
+    if (auto fa = node->getFather()) {
+      fa->addOutNode(node.get());
+    }
+  }
+}
+
 template <typename NodeSrc, typename NodeDst>
 std::vector<std::unique_ptr<NodeDst>>
 transfer_graph(const std::vector<std::unique_ptr<NodeSrc>> &srcs) {

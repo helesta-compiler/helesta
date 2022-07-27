@@ -42,7 +42,7 @@ private:
   void construct_dom_frontiers();
 };
 
-struct DomTreeNode : Traversable<DomTreeNode> {
+struct DomTreeNode : Traversable<DomTreeNode>, TreeNode<DomTreeNode> {
   std::vector<DomTreeNode *> out_nodes;
   std::vector<DomTreeNode *> dom_frontiers;
   DomTreeNode *dom_fa;
@@ -61,6 +61,7 @@ struct DomTreeNode : Traversable<DomTreeNode> {
   }
 
   void addOutNode(DomTreeNode *node) override { out_nodes.push_back(node); }
+  DomTreeNode *getFather() const override { return dom_fa; }
 };
 
 struct DomTreeContext {
