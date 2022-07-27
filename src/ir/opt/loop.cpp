@@ -35,6 +35,11 @@ LoopTreeBuilderContext::construct_loop_tree(IR::NormalFunc *func) {
   dfs(entry);
   auto ctx = std::make_unique<LoopTreeContext>();
   ctx->proxies = transfer_graph<IR::BB, LoopTreeNodeProxy>(func->bbs);
+  for (auto &node : ctx->proxies) {
+    if (node->bb == func->entry) {
+      ctx->proxy_entry = node.get();
+    }
+  }
   for (auto it = nodes.rbegin(); it != nodes.rend(); it++) {
     auto node = it->get();
     auto outs = node->getOutNodes();
@@ -56,6 +61,7 @@ LoopTreeBuilderContext::construct_loop_tree(IR::NormalFunc *func) {
       }
     }
   }
+  // todo: gen a dummy node
   construct_outs_for_tree(ctx->nodes);
   assert(nodes.size() == ctx->proxies.size());
   for (size_t i = 0; i < nodes.size(); i++) {

@@ -39,6 +39,8 @@ struct LoopTreeNode : Traversable<LoopTreeNode>, TreeNode<LoopTreeNode> {
 struct LoopTreeContext {
   std::vector<std::unique_ptr<LoopTreeNode>> nodes;
   std::vector<std::unique_ptr<LoopTreeNodeProxy>> proxies;
+  LoopTreeNode *entry;
+  LoopTreeNodeProxy *proxy_entry;
 };
 
 struct LoopTreeBuilderNode : Traversable<LoopTreeBuilderNode> {
