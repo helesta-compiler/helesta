@@ -8,6 +8,7 @@ LoopTreeBuilderContext::LoopTreeBuilderContext(IR::NormalFunc *func) {
   for (auto &node : nodes) {
     node->visited = false;
     node->loop_node = nullptr;
+    node->dfn = -1;
     if (node->bb == func->entry) {
       entry = node.get();
     }
@@ -23,7 +24,8 @@ void LoopTreeBuilderContext::dfs(LoopTreeBuilderNode *node) {
   node->dfn = dfn.size() - 1;
   auto outs = node->getOutNodes();
   for (auto out : outs) {
-    out->fa = node;
+    if (!out->visited)
+      out->fa = node;
     dfs(out);
   }
 }
@@ -43,13 +45,16 @@ LoopTreeBuilderContext::construct_loop_tree(IR::NormalFunc *func) {
   dfs(entry);
   auto ctx = std::make_unique<LoopTreeContext>();
   ctx->proxies = transfer_graph<IR::BB, LoopTreeNodeProxy>(func->bbs);
+  std::cout << "transfer done" << std::endl;
   for (auto &node : ctx->proxies) {
     if (node->bb == func->entry) {
       ctx->proxy_entry = node.get();
     }
   }
-  for (auto it = nodes.rbegin(); it != nodes.rend(); it++) {
-    auto node = it->get();
+  std::cout << "start build loop tree" << std::endl;
+  for (auto it = dfn.rbegin(); it != dfn.rend(); it++) {
+    auto node = *it;
+    std::cout << "work on " << node->bb->name << std::endl;
     auto outs = node->getOutNodes();
     for (auto out : outs) {
       if (out->dfn <= node->dfn) {
@@ -59,8 +64,8 @@ LoopTreeBuilderContext::construct_loop_tree(IR::NormalFunc *func) {
           continue;
         auto cur = node->fa;
         while (cur->fa != out->fa) {
-          if (cur->loop_node != nullptr) {
-            assert(cur->loop_node->fa == nullptr);
+            std::cout << "cur = " << cur->bb->name << " out = " << out->bb->name << std::endl;
+          if (cur->loop_node != nullptr && cur->loop_node->fa == nullptr) {
             cur->loop_node->fa = out->loop_node;
           }
           cur = cur->fa;
@@ -69,6 +74,7 @@ LoopTreeBuilderContext::construct_loop_tree(IR::NormalFunc *func) {
       }
     }
   }
+  std::cout << "loop tree built" << std::endl;
   auto root = std::make_unique<LoopTreeNode>(nullptr);
   root->dep = 0;
   for (auto &node : ctx->nodes) {
@@ -82,6 +88,9 @@ LoopTreeBuilderContext::construct_loop_tree(IR::NormalFunc *func) {
   assert(nodes.size() == ctx->proxies.size());
   for (size_t i = 0; i < nodes.size(); i++) {
     ctx->proxies[i]->loop_node = nodes[i]->loop_node;
+    if (ctx->proxies[i]->loop_node == nullptr) {
+      ctx->proxies[i]->loop_node = ctx->nodes.back().get();
+    }
   }
   return ctx;
 }
