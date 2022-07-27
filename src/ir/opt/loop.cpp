@@ -28,6 +28,14 @@ void LoopTreeBuilderContext::dfs(LoopTreeBuilderNode *node) {
   }
 }
 
+void LoopTreeBuilderContext::dfs(LoopTreeNode *node) {
+  auto outs = node->getOutNodes();
+  for (auto out : outs) {
+    out->dep = node->dep + 1;
+    dfs(out);
+  }
+}
+
 std::unique_ptr<LoopTreeContext>
 LoopTreeBuilderContext::construct_loop_tree(IR::NormalFunc *func) {
   dfn.clear();
@@ -61,7 +69,15 @@ LoopTreeBuilderContext::construct_loop_tree(IR::NormalFunc *func) {
       }
     }
   }
-  // todo: gen a dummy node
+  auto root = std::make_unique<LoopTreeNode>(nullptr);
+  root->dep = 0;
+  for (auto &node : ctx->nodes) {
+    if (node->fa == nullptr) {
+      node->fa = root.get();
+    }
+  }
+  dfs(root.get());
+  ctx->nodes.push_back(std::move(root));
   construct_outs_for_tree(ctx->nodes);
   assert(nodes.size() == ctx->proxies.size());
   for (size_t i = 0; i < nodes.size(); i++) {

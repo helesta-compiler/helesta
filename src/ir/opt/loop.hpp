@@ -71,6 +71,7 @@ struct LoopTreeBuilderContext {
 
 private:
   void dfs(LoopTreeBuilderNode *);
+  void dfs(LoopTreeNode *);
 };
 
 std::unique_ptr<LoopTreeContext> construct_loop_tree(IR::NormalFunc *func);
