@@ -30,6 +30,7 @@ int DomTreeBuilderContext::dfs(DomTreeNode *node) {
   node->size = 1;
   auto outs = node->getOutNodes();
   for (auto out : outs) {
+    out->depth = node->depth + 1;
     node->size += dfs(out);
   }
   return node->size;
@@ -96,6 +97,7 @@ std::unique_ptr<DomTreeContext> DomTreeBuilderContext::construct_dom_tree() {
   // 3. get dfn position and sub-tree size for each node
   dom_dfn.clear();
   dom_dfn.reserve(nodes.size());
+  ctx->entry->depth = 0;
   dfs(ctx->entry);
   ctx->dfn = dom_dfn;
   // 4. construct dominance frontiers
@@ -103,7 +105,7 @@ std::unique_ptr<DomTreeContext> DomTreeBuilderContext::construct_dom_tree() {
   return ctx;
 }
 
-std::unique_ptr<DomTreeContext> dominator_tree(IR::NormalFunc *func) {
+std::unique_ptr<DomTreeContext> construct_dom_tree(IR::NormalFunc *func) {
   auto builder_ctx = std::make_unique<DomTreeBuilderContext>(func);
   auto ctx = builder_ctx->construct_dom_tree();
   return ctx;
