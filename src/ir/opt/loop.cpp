@@ -56,6 +56,7 @@ LoopTreeBuilderContext::construct_loop_tree(IR::NormalFunc *func) {
       }
     }
   }
+  construct_outs_for_tree(ctx->nodes);
   assert(nodes.size() == ctx->proxies.size());
   for (size_t i = 0; i < nodes.size(); i++) {
     ctx->proxies[i]->loop_node = nodes[i]->loop_node;

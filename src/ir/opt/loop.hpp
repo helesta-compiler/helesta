@@ -20,12 +20,14 @@ struct LoopTreeNodeProxy : Traversable<LoopTreeNodeProxy> {
   void addOutNode(LoopTreeNodeProxy *node) override { outs.push_back(node); }
 };
 
-struct LoopTreeNode : Traversable<LoopTreeNode> {
+struct LoopTreeNode : Traversable<LoopTreeNode>, TreeNode<LoopTreeNode> {
   LoopTreeNode *fa;
   std::vector<LoopTreeNode *> outs;
   int dep;
 
   LoopTreeNode(LoopTreeNode *fa_) : fa(fa_) {}
+
+  LoopTreeNode *getFather() const override { return fa; }
 
   const std::vector<LoopTreeNode *> getOutNodes() const override {
     return outs;

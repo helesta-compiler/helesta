@@ -63,7 +63,7 @@ template <typename NodeType>
 void construct_outs_for_tree(std::vector<std::unique_ptr<NodeType>> &nodes) {
   for (auto &node : nodes) {
     if (auto fa = node->getFather()) {
-      fa->addOutNode(node);
+      fa->addOutNode(node.get());
     }
   }
 }
