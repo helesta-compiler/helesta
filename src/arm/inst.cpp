@@ -17,6 +17,12 @@ using std::unique_ptr;
 
 namespace ARMv7 {
 
+Reg index_to_reg(int index) {
+  int id = index >> 1;
+  bool is_float = index % 2;
+  return Reg{id, is_float};
+}
+
 InstCond logical_not(InstCond c) {
   switch (c) {
   case Eq:

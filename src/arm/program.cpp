@@ -534,14 +534,14 @@ vector<int> Func::get_branch_in_deg() {
   return ret;
 }
 
-vector<int> Func::reg_allocate(RegAllocStat *stat) {
+vector<Reg> Func::reg_allocate(RegAllocStat *stat) {
   info << "register allocation for function: " << name << '\n';
   info << "reg_n = " << reg_n << '\n';
   stat->spill_cnt = 0;
   info << "using SimpleColoringAllocator\n";
   while (true) {
     SimpleColoringAllocator allocator(this);
-    vector<int> ret = allocator.run(stat);
+    vector<Reg> ret = allocator.run(stat);
     if (stat->succeed)
       return ret;
   }
@@ -573,12 +573,11 @@ bool Func::check_store_stack() {
   return ret;
 }
 
-void Func::replace_with_reg_alloc(const vector<int> &reg_alloc) {
+void Func::replace_with_reg_alloc(const vector<Reg> &reg_alloc) {
   for (auto &block : blocks)
     for (auto &inst : block->insts)
       for (Reg *i : inst->regs())
-        if (i->is_pseudo())
-          i->id = reg_alloc[i->id];
+        *i = reg_alloc[i->id];
 }
 
 void Func::replace_complex_inst() {
@@ -615,7 +614,7 @@ void Func::replace_complex_inst() {
 
 void Func::gen_asm(ostream &out) {
   RegAllocStat stat;
-  vector<int> reg_alloc;
+  vector<Reg> reg_alloc;
   AsmContext ctx;
   std::function<void(ostream & out)> prologue;
   while (true) {
@@ -625,24 +624,32 @@ void Func::gen_asm(ostream &out) {
       (*i)->position = stack_size;
       stack_size += (*i)->size;
     }
-    vector<Reg> save_regs;
-    bool used[RegCount] = {};
-    for (int i : reg_alloc)
-      if (i >= 0)
-        used[i] = true;
+    vector<Reg> save_int_regs;
+    vector<Reg> save_float_regs;
+    bool int_used[RegCount] = {};
+    bool float_used[FloatRegCount] = {};
+    for (Reg r : reg_alloc)
+      if (r.id >= 0) {
+        if (r.is_float) {
+          float_used[r.id] = true;
+        } else {
+          int_used[r.id] = true;
+        }
+      }
     for (int i = 0; i < RegCount; ++i)
-      if (REGISTER_USAGE[i] == callee_save && used[i])
-        save_regs.emplace_back(i);
-    size_t save_reg_cnt = save_regs.size();
-    if (save_reg_cnt)
-      save_reg_cnt += 16;
-    prologue = [save_regs, stack_size](ostream &out) {
-      if (save_regs.size()) {
+      if (REGISTER_USAGE[i] == callee_save && int_used[i])
+        save_int_regs.emplace_back(Reg{i, 0});
+    for (int i = 0; i < FloatRegCount; ++i)
+      if (FLOAT_REGISTER_USAGE[i] == callee_save && float_used[i])
+        save_float_regs.emplace_back(Reg{i, 1});
+    size_t save_reg_cnt = save_int_regs.size() + save_float_regs.size();
+    prologue = [save_int_regs, save_float_regs, stack_size](ostream &out) {
+      if (save_int_regs.size()) { // TODO: finish vpush and vpop logic
         out << "push {";
-        for (size_t i = 0; i < save_regs.size(); ++i) {
+        for (size_t i = 0; i < save_int_regs.size(); ++i) {
           if (i > 0)
             out << ',';
-          out << save_regs[i];
+          out << save_int_regs[i];
         }
         out << "}\n";
         out << "vpush {d0,d1,d2,d3,d4,d5,d6,d7}\n";
@@ -650,21 +657,22 @@ void Func::gen_asm(ostream &out) {
       if (stack_size != 0)
         sp_move_asm(-stack_size, out);
     };
-    ctx.epilogue = [save_regs, stack_size](ostream &out) -> bool {
+    ctx.epilogue = [save_int_regs, save_float_regs,
+                    stack_size](ostream &out) -> bool {
       if (stack_size != 0)
         sp_move_asm(stack_size, out);
       bool pop_lr = false;
-      if (save_regs.size()) {
+      if (save_int_regs.size()) {
         out << "vpop {d0,d1,d2,d3,d4,d5,d6,d7}\n";
         out << "pop {";
-        for (size_t i = 0; i < save_regs.size(); ++i) {
+        for (size_t i = 0; i < save_int_regs.size(); ++i) {
           if (i > 0)
             out << ',';
-          if (save_regs[i].id == lr) {
+          if (save_int_regs[i].id == lr) {
             pop_lr = true;
             out << "pc";
           } else
-            out << save_regs[i];
+            out << save_int_regs[i];
         }
         out << "}\n";
       }

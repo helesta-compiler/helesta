@@ -37,11 +37,32 @@ struct Reg {
   Reg(int _id = -1, bool _is_float = 0) : id(_id), is_float(_is_float) {}
   bool is_machine() const { return id < RegCount; }
   bool is_pseudo() const { return id >= RegCount; }
-  bool operator<(const Reg &rhs) const { return id < rhs.id; }
-  bool operator==(const Reg &rhs) const { return id == rhs.id; }
-  bool operator>(const Reg &rhs) const { return id > rhs.id; }
-  bool operator!=(const Reg &rhs) const { return id != rhs.id; }
+  bool operator<(const Reg &rhs) const {
+    if (id == rhs.id) {
+      return !is_float;
+    }
+    return id < rhs.id;
+  }
+  bool operator==(const Reg &rhs) const {
+    return (id == rhs.id) && (is_float == rhs.is_float);
+  }
+  bool operator>(const Reg &rhs) const {
+    if (id == rhs.id) {
+      return is_float;
+    }
+    return id > rhs.id;
+  }
+  bool operator!=(const Reg &rhs) const {
+    return (id != rhs.id) || (is_float != rhs.is_float);
+  }
+  int get_index() const { return (id << 1) + is_float; }
+  bool id_less_than(const Reg &rhs) const { return id < rhs.id; }
+  bool id_greater_than(const Reg &rhs) const { return id > rhs.id; }
+  bool id_equal(const Reg &rhs) const { return id == rhs.id; }
+  bool id_not_equal(const Reg &rhs) const { return id != rhs.id; }
 };
+
+Reg index_to_reg(int index);
 
 std::ostream &operator<<(std::ostream &os, const Reg &reg);
 
