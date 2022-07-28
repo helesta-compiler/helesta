@@ -60,6 +60,10 @@ struct DomTreeNode : Traversable<DomTreeNode>, TreeNode<DomTreeNode> {
     return dfn < node->dfn && node->dfn <= dfn + size - 1;
   }
 
+  inline bool dom(const DomTreeNode *node) const {
+    return dfn <= node->dfn && node->dfn <= dfn + size - 1;
+  }
+
   void addOutNode(DomTreeNode *node) override { out_nodes.push_back(node); }
   DomTreeNode *getFather() const override { return dom_fa; }
 };

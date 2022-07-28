@@ -3,100 +3,96 @@
 #include "common/common.hpp"
 #include "ir/opt/loop.hpp"
 
-LoopTreeBuilderContext::LoopTreeBuilderContext(IR::NormalFunc *func) {
+LoopTreeBuilderContext::LoopTreeBuilderContext(IR::NormalFunc *func,
+                                               DomTreeContext *ctx) {
   nodes = transfer_graph<IR::BB, LoopTreeBuilderNode>(func->bbs);
   for (auto &node : nodes) {
-    node->visited = false;
-    node->loop_node = nullptr;
-    node->dfn = -1;
     if (node->bb == func->entry) {
       entry = node.get();
     }
+    node->visited = false;
   }
+  std::unordered_map<DomTreeNode *, LoopTreeBuilderNode *> dom2builder;
+  assert(ctx->nodes.size() == nodes.size());
+  for (size_t i = 0; i < ctx->nodes.size(); i++) {
+    auto builder = nodes[i].get();
+    auto dom = ctx->nodes[i].get();
+    dom2builder[dom] = builder;
+    builder->dom = dom;
+  }
+  for (auto &node : nodes) {
+    if (node->dom->dom_fa == nullptr) {
+      node->fa = nullptr;
+    } else {
+      node->fa = dom2builder[node->dom->dom_fa];
+    }
+  }
+  dfn.clear();
 }
 
 void LoopTreeBuilderContext::dfs(LoopTreeBuilderNode *node) {
-  if (node->visited) {
+  if (node->visited)
     return;
-  }
   node->visited = true;
   dfn.push_back(node);
-  node->dfn = dfn.size() - 1;
   auto outs = node->getOutNodes();
   for (auto out : outs) {
-    if (!out->visited)
-      out->fa = node;
     dfs(out);
   }
 }
 
-void LoopTreeBuilderContext::dfs(LoopTreeNode *node) {
-  auto outs = node->getOutNodes();
-  for (auto out : outs) {
-    out->dep = node->dep + 1;
-    dfs(out);
+void LoopTreeBuilderContext::dfs(LoopTreeBuilderNode *node,
+                                 LoopTreeBuilderNode *header) {
+  if (node == header) {
+    return;
   }
-}
-
-std::unique_ptr<LoopTreeContext>
-LoopTreeBuilderContext::construct_loop_tree(IR::NormalFunc *func) {
-  dfn.clear();
-  dfn.reserve(nodes.size());
-  dfs(entry);
-  auto ctx = std::make_unique<LoopTreeContext>();
-  ctx->proxies = transfer_graph<IR::BB, LoopTreeNodeProxy>(func->bbs);
-  std::cout << "transfer done" << std::endl;
-  for (auto &node : ctx->proxies) {
-    if (node->bb == func->entry) {
-      ctx->proxy_entry = node.get();
+  if (!node->visited) {
+    node->fa = header;
+    dfs(node->fa, header);
+  } else {
+    node->visited = true;
+    for (auto in : node->ins) {
+      dfs(in, header);
     }
   }
-  std::cout << "start build loop tree" << std::endl;
-  for (auto it = dfn.rbegin(); it != dfn.rend(); it++) {
-    auto node = *it;
-    std::cout << "work on " << node->bb->name << std::endl;
+}
+
+std::unique_ptr<LoopTreeContext> LoopTreeBuilderContext::construct_loop_tree() {
+  dfs(entry);
+  for (auto &node : nodes) {
+    node->visited = false;
     auto outs = node->getOutNodes();
     for (auto out : outs) {
-      if (out->dfn <= node->dfn) {
-        ctx->nodes.push_back(std::make_unique<LoopTreeNode>(out->loop_node));
-        out->loop_node = ctx->nodes.back().get();
-        if (out == node)
-          continue;
-        auto cur = node->fa;
-        while (cur->fa != out->fa) {
-            std::cout << "cur = " << cur->bb->name << " out = " << out->bb->name << std::endl;
-          if (cur->loop_node != nullptr && cur->loop_node->fa == nullptr) {
-            cur->loop_node->fa = out->loop_node;
-          }
-          cur = cur->fa;
-          assert(cur != nullptr);
-        }
+      out->ins.push_back(node.get());
+    }
+  }
+  std::cout << "finding loops" << std::endl;
+  for (auto it = dfn.rbegin(); it != dfn.rend(); it++) {
+    auto node = *it;
+    for (auto in : node->ins) {
+      if (node->dom->dom(in->dom)) {
+        dfs(in, node);
       }
     }
   }
-  std::cout << "loop tree built" << std::endl;
-  auto root = std::make_unique<LoopTreeNode>(nullptr);
-  root->dep = 0;
-  for (auto &node : ctx->nodes) {
-    if (node->fa == nullptr) {
-      node->fa = root.get();
-    }
-  }
-  dfs(root.get());
-  ctx->nodes.push_back(std::move(root));
-  construct_outs_for_tree(ctx->nodes);
-  assert(nodes.size() == ctx->proxies.size());
+  std::cout << "calc depths" << std::endl;
+  auto ctx = std::make_unique<LoopTreeContext>();
   for (size_t i = 0; i < nodes.size(); i++) {
-    ctx->proxies[i]->loop_node = nodes[i]->loop_node;
-    if (ctx->proxies[i]->loop_node == nullptr) {
-      ctx->proxies[i]->loop_node = ctx->nodes.back().get();
+    ctx->nodes.push_back(std::make_unique<LoopTreeNode>(nullptr, 0));
+    nodes[i]->node = ctx->nodes.back().get();
+  }
+  for (auto node : dfn) {
+    if (node->fa != nullptr) {
+      node->node->fa = node->fa->node;
+      node->node->dep = node->fa->node->dep + 1;
     }
   }
   return ctx;
 }
 
-std::unique_ptr<LoopTreeContext> construct_loop_tree(IR::NormalFunc *func) {
-  auto builder_ctx = std::make_unique<LoopTreeBuilderContext>(func);
-  auto ctx = builder_ctx->construct_loop_tree(func);
-  return ctx;
+std::unique_ptr<LoopTreeContext> construct_loop_tree(IR::NormalFunc *func,
+                                                     DomTreeContext *ctx) {
+  auto builder_ctx = std::make_unique<LoopTreeBuilderContext>(func, ctx);
+  auto loop_ctx = builder_ctx->construct_loop_tree();
+  return loop_ctx;
 }

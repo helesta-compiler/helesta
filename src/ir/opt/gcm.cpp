@@ -14,6 +14,12 @@ struct GCMInstr {
       return true;
     if (dynamic_cast<IR::ControlInstr *>(i))
       return true;
+    if (dynamic_cast<IR::CallInstr *>(i))
+      return true;
+    if (dynamic_cast<IR::LoadInstr *>(i))
+      return true;
+    if (dynamic_cast<IR::StoreInstr *>(i))
+      return true;
     return false;
   }
 };
@@ -54,15 +60,12 @@ GCMNode *LCA(GCMNode *node1, GCMNode *node2) {
 
 std::unique_ptr<GCMContext> construct_gcm_context(IR::NormalFunc *func) {
   auto dom_ctx = construct_dom_tree(func);
-  std::cout << "got dom tree" << std::endl;
-  auto loop_ctx = construct_loop_tree(func);
-  std::cout << "got loop tree" << std::endl;
+  auto loop_ctx = construct_loop_tree(func, dom_ctx.get());
   auto ctx = std::make_unique<GCMContext>();
   std::unordered_map<IR::BB *, GCMNode *> bb2gcm;
   ctx->nodes.reserve(func->bbs.size());
   ctx->defs.resize(func->max_reg_id + 1, nullptr);
   ctx->uses.resize(func->max_reg_id + 1);
-  std::cout << "mapping nodes" << std::endl;
   for (size_t i = 0; i < func->bbs.size(); i++) {
     auto node = std::make_unique<GCMNode>();
     bb2gcm[func->bbs[i].get()] = node.get();
@@ -79,13 +82,12 @@ std::unique_ptr<GCMContext> construct_gcm_context(IR::NormalFunc *func) {
       bb2gcm[out]->ins.push_back(ctx->nodes[i].get());
     }
   }
-  std::cout << "transforming instructions" << std::endl;
   assert(func->bbs.size() == dom_ctx->nodes.size());
-  assert(func->bbs.size() == loop_ctx->proxies.size());
+  assert(func->bbs.size() == loop_ctx->nodes.size());
   for (size_t i = 0; i < func->bbs.size(); i++) {
     auto node = ctx->nodes[i].get();
     node->dom_depth = dom_ctx->nodes[i]->depth;
-    node->loop_depth = loop_ctx->proxies[i]->loop_node->dep;
+    node->loop_depth = loop_ctx->nodes[i]->dep;
     node->bb = func->bbs[i].get();
     if (func->bbs[i].get() == func->entry) {
       ctx->entry = node;
@@ -136,7 +138,7 @@ GCMNode *schedule_early(GCMInstr *i, GCMContext *ctx) {
       target = res;
     }
   });
-  if (!i->pinned())
+  if (!i->pinned() && target != i->node)
     move_instr(i, target, false);
   return i->node;
 }
@@ -164,28 +166,29 @@ GCMNode *schedule_late(GCMInstr *i, GCMContext *ctx) {
   }
   i->visited = true;
   GCMNode *lca = nullptr;
-  if (auto reg_write_instr = dynamic_cast<IR::RegWriteInstr *>(i->i)) {
-    for (auto use : ctx->uses[reg_write_instr->d1.id]) {
-      auto res = schedule_late(use, ctx);
-      if (auto phi_instr = dynamic_cast<IR::PhiInstr *>(use->i)) {
-        IR::BB *pre_bb = nullptr;
-        for (auto kv : phi_instr->uses) {
-          if (kv.first == reg_write_instr->d1) {
-            pre_bb = kv.second;
-          }
-        }
-        assert(pre_bb != nullptr);
-        for (auto in : use->node->ins) {
-          if (in->bb == pre_bb) {
-            res = in;
-          }
+  auto reg_write_instr = dynamic_cast<IR::RegWriteInstr *>(i->i);
+  if (reg_write_instr == nullptr)
+    return i->node;
+  for (auto use : ctx->uses[reg_write_instr->d1.id]) {
+    auto res = schedule_late(use, ctx);
+    if (auto phi_instr = dynamic_cast<IR::PhiInstr *>(use->i)) {
+      IR::BB *pre_bb = nullptr;
+      for (auto kv : phi_instr->uses) {
+        if (kv.first == reg_write_instr->d1) {
+          pre_bb = kv.second;
         }
       }
-      if (lca == nullptr) {
-        lca = res;
-      } else {
-        lca = LCA(lca, res);
+      assert(pre_bb != nullptr);
+      for (auto in : use->node->ins) {
+        if (in->bb == pre_bb) {
+          res = in;
+        }
       }
+    }
+    if (lca == nullptr) {
+      lca = res;
+    } else {
+      lca = LCA(lca, res);
     }
   }
   if (i->pinned()) {
@@ -200,7 +203,8 @@ GCMNode *schedule_late(GCMInstr *i, GCMContext *ctx) {
     }
     cur = cur->fa;
   }
-  move_instr(i, best, true);
+  if (i->node != best)
+    move_instr(i, best, true);
   return i->node;
 }
 
@@ -236,14 +240,9 @@ void reconstruct(GCMContext *ctx, IR::NormalFunc *func) {
 }
 
 void global_code_motion_func(IR::NormalFunc *func) {
-  std::cout << "work on " << func->name << std::endl;
-  std::cout << "constucting context" << std::endl;
   auto ctx = construct_gcm_context(func);
-  std::cout << "schedule early" << std::endl;
   schedule_early(ctx.get());
-  std::cout << "schedule late" << std::endl;
   schedule_late(ctx.get());
-  std::cout << "reconstructing function" << std::endl;
   reconstruct(ctx.get(), func);
 }
 

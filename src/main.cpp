@@ -30,9 +30,6 @@ int main(int argc, char **argv) {
     _throw MainFuncNotFound();
   }
 
-  std::cout << "before" << std::endl;
-  std::cout << ir << std::endl;
-
   optimize_ir(&ir);
 
   if (global_config.simulate_exec)
