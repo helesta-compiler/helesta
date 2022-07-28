@@ -24,9 +24,9 @@ struct LoopTreeBuilderNode : Traversable<LoopTreeBuilderNode> {
   std::vector<LoopTreeBuilderNode *> ins;
   IR::BB *bb;
   DomTreeNode *dom;
-  LoopTreeBuilderNode *fa;
+  LoopTreeBuilderNode *fa, *loop_fa;
   LoopTreeNode *node;
-  bool visited;
+  bool visited, is_header;
 
   const std::vector<LoopTreeBuilderNode *> getOutNodes() const override {
     return outs;

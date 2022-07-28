@@ -11,6 +11,8 @@ LoopTreeBuilderContext::LoopTreeBuilderContext(IR::NormalFunc *func,
       entry = node.get();
     }
     node->visited = false;
+    node->is_header = false;
+    node->loop_fa = nullptr;
   }
   std::unordered_map<DomTreeNode *, LoopTreeBuilderNode *> dom2builder;
   assert(ctx->nodes.size() == nodes.size());
@@ -47,7 +49,7 @@ void LoopTreeBuilderContext::dfs(LoopTreeBuilderNode *node,
     return;
   }
   if (!node->visited) {
-    node->fa = header;
+    node->loop_fa = header;
     dfs(node->fa, header);
   } else {
     node->visited = true;
@@ -70,6 +72,7 @@ std::unique_ptr<LoopTreeContext> LoopTreeBuilderContext::construct_loop_tree() {
     auto node = *it;
     for (auto in : node->ins) {
       if (node->dom->dom(in->dom)) {
+        node->is_header = true;
         dfs(in, node);
       }
     }
@@ -80,9 +83,15 @@ std::unique_ptr<LoopTreeContext> LoopTreeBuilderContext::construct_loop_tree() {
     nodes[i]->node = ctx->nodes.back().get();
   }
   for (auto node : dfn) {
-    if (node->fa != nullptr) {
-      node->node->fa = node->fa->node;
-      node->node->dep = node->fa->node->dep + 1;
+    if (node->loop_fa != nullptr) {
+      node->node->fa = node->loop_fa->node;
+      if (node->is_header) {
+        node->node->dep = node->loop_fa->node->dep + 1;
+      } else {
+        node->node->dep = node->loop_fa->node->dep;
+      }
+    } else if (node->is_header) {
+        node->node->dep = 1;
     }
   }
   return ctx;
