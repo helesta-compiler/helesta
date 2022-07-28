@@ -129,6 +129,7 @@ GCMNode *schedule_early(GCMInstr *i, GCMContext *ctx) {
   }
   i->visited = true;
   auto target = ctx->entry;
+  assert(i->i != nullptr);
   i->i->map_use([&](auto r) {
     auto def = ctx->defs[r.id];
     assert(def != nullptr);
@@ -151,6 +152,7 @@ void schedule_early(GCMContext *ctx) {
       if (!i->pinned())
         continue;
       i->visited = true;
+      assert(i->i != nullptr);
       i->i->map_use([&](auto r) {
         auto def = ctx->defs[r.id];
         assert(def != nullptr);

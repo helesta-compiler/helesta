@@ -11,6 +11,19 @@
 #include "parser/SysYParser.h"
 
 int main(int argc, char **argv) {
+  const rlim_t kStackSize = 64L * 1024L * 1024L;
+  struct rlimit rl;
+  int result;
+  result = getrlimit(RLIMIT_STACK, &rl);
+  if (result == 0) {
+    if (rl.rlim_cur < kStackSize) {
+      rl.rlim_cur = kStackSize;
+      result = setrlimit(RLIMIT_STACK, &rl);
+      if (result != 0)
+        std::cerr << "setrlimit failed, use ulimit -s unlimited instead."
+                  << std::endl;
+    }
+  }
 
   std::pair<std::string, std::string> filename = parse_arg(argc, argv);
 
