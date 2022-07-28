@@ -91,7 +91,7 @@ std::unique_ptr<LoopTreeContext> LoopTreeBuilderContext::construct_loop_tree() {
         node->node->dep = node->loop_fa->node->dep;
       }
     } else if (node->is_header) {
-        node->node->dep = 1;
+      node->node->dep = 1;
     }
   }
   return ctx;
