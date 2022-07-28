@@ -205,8 +205,9 @@ GCMNode *schedule_late(GCMInstr *i, GCMContext *ctx) {
     }
     cur = cur->fa;
   }
-  if (i->node != best)
+  if (i->node != best) {
     move_instr(i, best, true);
+  }
   return i->node;
 }
 

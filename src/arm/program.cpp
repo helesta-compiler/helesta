@@ -39,17 +39,16 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       if (loadaddr->offset->global) {
         push_back(load_symbol_addr(
             dst, mangle_global_var_name(loadaddr->offset->name)));
-        func->symbol_reg[dst.id] =
-            mangle_global_var_name(loadaddr->offset->name);
+        func->symbol_reg[dst] = mangle_global_var_name(loadaddr->offset->name);
       } else {
         push_back(make_unique<LoadStackAddr>(
             dst, 0, info->obj_mapping[loadaddr->offset]));
-        func->stack_addr_reg[dst.id] = std::pair<StackObject *, int32_t>{
+        func->stack_addr_reg[dst] = std::pair<StackObject *, int32_t>{
             info->obj_mapping[loadaddr->offset], 0};
       }
     } else if (auto loadconst = dynamic_cast<IR::LoadConst<int32_t> *>(cur)) {
       Reg dst = info->from_ir_reg(loadconst->d1);
-      func->constant_reg[dst.id] = loadconst->value;
+      func->constant_reg[dst] = loadconst->value;
       push_back(load_imm(dst, loadconst->value));
     } else if (dynamic_cast<IR::LoadConst<float> *>(cur)) {
       assert(0); // LoadConst<float> should be translate to load global variable
@@ -245,7 +244,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(make_unique<MoveReg>(info->from_ir_reg(call->d1), ret));
       }
       if (call->f->name == "__create_threads") {
-        func->spilling_reg.insert(info->from_ir_reg(call->d1).id);
+        func->spilling_reg.insert(info->from_ir_reg(call->d1));
         debug << "thread_id: " << call->d1 << " -> "
               << info->from_ir_reg(call->d1) << " is forbidden to be spilled\n";
       }
