@@ -28,6 +28,10 @@ int main(int argc, char **argv) {
 
   std::pair<std::string, std::string> filename = parse_arg(argc, argv);
 
+  if (global_config.give_up) {
+    exit(255);
+  }
+
   std::ifstream source(filename.first);
 
   antlr4::ANTLRInputStream input(source);

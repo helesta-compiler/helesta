@@ -10,5 +10,7 @@ void global_code_motion(IR::CompileUnit *);
 inline void optimize_ir(IR::CompileUnit *ir) {
   mem2reg(ir);
   remove_unused_def(ir);
-  global_code_motion(ir);
+  if (global_config.disabled_passes.find("gvm") ==
+      global_config.disabled_passes.end())
+    global_code_motion(ir);
 }
