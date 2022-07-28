@@ -614,13 +614,11 @@ void Func::replace_complex_inst() {
 }
 
 void Func::gen_asm(ostream &out) {
-  std::cout << "work on " << name << std::endl;
   RegAllocStat stat;
   vector<int> reg_alloc;
   AsmContext ctx;
   std::function<void(ostream & out)> prologue;
   while (true) {
-    std::cout << "allocate reg" << std::endl;
     reg_alloc = reg_allocate(&stat);
     int32_t stack_size = 0;
     for (auto i = stack_objects.rbegin(); i != stack_objects.rend(); ++i) {
@@ -682,7 +680,6 @@ void Func::gen_asm(ostream &out) {
     if (check_store_stack())
       break;
   }
-  std::cout << "allocate reg done" << std::endl;
   info << "Register allocation:\n"
        << "spill: " << stat.spill_cnt << '\n'
        << "move instructions eliminated: " << stat.move_eliminated << '\n'

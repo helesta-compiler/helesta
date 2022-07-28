@@ -66,7 +66,6 @@ std::unique_ptr<LoopTreeContext> LoopTreeBuilderContext::construct_loop_tree() {
       out->ins.push_back(node.get());
     }
   }
-  std::cout << "finding loops" << std::endl;
   for (auto it = dfn.rbegin(); it != dfn.rend(); it++) {
     auto node = *it;
     for (auto in : node->ins) {
@@ -75,7 +74,6 @@ std::unique_ptr<LoopTreeContext> LoopTreeBuilderContext::construct_loop_tree() {
       }
     }
   }
-  std::cout << "calc depths" << std::endl;
   auto ctx = std::make_unique<LoopTreeContext>();
   for (size_t i = 0; i < nodes.size(); i++) {
     ctx->nodes.push_back(std::make_unique<LoopTreeNode>(nullptr, 0));
