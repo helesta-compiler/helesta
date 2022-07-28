@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <fstream>
 #include <string>
+#include <sys/resource.h>
 
 #include "arm/program.hpp"
 #include "ast/ast_visitor.hpp"
