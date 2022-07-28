@@ -46,7 +46,7 @@ struct DomTreeNode : Traversable<DomTreeNode>, TreeNode<DomTreeNode> {
   std::vector<DomTreeNode *> out_nodes;
   std::vector<DomTreeNode *> dom_frontiers;
   DomTreeNode *dom_fa;
-  int dfn, size;
+  int dfn, size, depth;
   IR::BB *bb;
 
   DomTreeNode() = delete;
@@ -60,6 +60,10 @@ struct DomTreeNode : Traversable<DomTreeNode>, TreeNode<DomTreeNode> {
     return dfn < node->dfn && node->dfn <= dfn + size - 1;
   }
 
+  inline bool dom(const DomTreeNode *node) const {
+    return dfn <= node->dfn && node->dfn <= dfn + size - 1;
+  }
+
   void addOutNode(DomTreeNode *node) override { out_nodes.push_back(node); }
   DomTreeNode *getFather() const override { return dom_fa; }
 };
@@ -70,4 +74,4 @@ struct DomTreeContext {
   DomTreeNode *entry;
 };
 
-std::unique_ptr<DomTreeContext> dominator_tree(IR::NormalFunc *);
+std::unique_ptr<DomTreeContext> construct_dom_tree(IR::NormalFunc *);

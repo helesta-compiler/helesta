@@ -3,53 +3,30 @@
 #include <vector>
 
 #include "ir/ir.hpp"
+#include "ir/opt/dom.hpp"
 
 struct LoopTreeNode;
 
-struct LoopTreeNodeProxy : Traversable<LoopTreeNodeProxy> {
-  std::vector<LoopTreeNodeProxy *> outs;
-  IR::BB *bb;
-  LoopTreeNode *loop_node;
-
-  LoopTreeNodeProxy(IR::BB *bb_) : bb(bb_) {}
-
-  const std::vector<LoopTreeNodeProxy *> getOutNodes() const override {
-    return outs;
-  }
-
-  void addOutNode(LoopTreeNodeProxy *node) override { outs.push_back(node); }
-};
-
-struct LoopTreeNode : Traversable<LoopTreeNode>, TreeNode<LoopTreeNode> {
+struct LoopTreeNode {
   LoopTreeNode *fa;
-  std::vector<LoopTreeNode *> outs;
   int dep;
 
-  LoopTreeNode(LoopTreeNode *fa_) : fa(fa_) {}
-
-  LoopTreeNode *getFather() const override { return fa; }
-
-  const std::vector<LoopTreeNode *> getOutNodes() const override {
-    return outs;
-  }
-
-  void addOutNode(LoopTreeNode *node) override { outs.push_back(node); }
+  LoopTreeNode(LoopTreeNode *fa_, int dep_) : fa(fa_), dep(dep_) {}
 };
 
 struct LoopTreeContext {
   std::vector<std::unique_ptr<LoopTreeNode>> nodes;
-  std::vector<std::unique_ptr<LoopTreeNodeProxy>> proxies;
   LoopTreeNode *entry;
-  LoopTreeNodeProxy *proxy_entry;
 };
 
 struct LoopTreeBuilderNode : Traversable<LoopTreeBuilderNode> {
   std::vector<LoopTreeBuilderNode *> outs;
+  std::vector<LoopTreeBuilderNode *> ins;
   IR::BB *bb;
-  int dfn;
-  bool visited;
-  LoopTreeNode *loop_node;
-  LoopTreeBuilderNode *fa;
+  DomTreeNode *dom;
+  LoopTreeBuilderNode *fa, *loop_fa;
+  LoopTreeNode *node;
+  bool visited, is_header;
 
   const std::vector<LoopTreeBuilderNode *> getOutNodes() const override {
     return outs;
@@ -65,13 +42,14 @@ struct LoopTreeBuilderContext {
   std::vector<LoopTreeBuilderNode *> dfn;
   LoopTreeBuilderNode *entry;
 
-  LoopTreeBuilderContext(IR::NormalFunc *);
+  LoopTreeBuilderContext(IR::NormalFunc *, DomTreeContext *);
 
-  std::unique_ptr<LoopTreeContext> construct_loop_tree(IR::NormalFunc *func);
+  std::unique_ptr<LoopTreeContext> construct_loop_tree();
 
 private:
   void dfs(LoopTreeBuilderNode *);
-  void dfs(LoopTreeNode *);
+  void dfs(LoopTreeBuilderNode *, LoopTreeBuilderNode *);
 };
 
-std::unique_ptr<LoopTreeContext> construct_loop_tree(IR::NormalFunc *func);
+std::unique_ptr<LoopTreeContext> construct_loop_tree(IR::NormalFunc *func,
+                                                     DomTreeContext *ctx);
