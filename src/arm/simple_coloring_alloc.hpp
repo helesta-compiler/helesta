@@ -1,7 +1,7 @@
 #pragma once
 
 #include <queue>
-#include <unordered_set>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -13,11 +13,11 @@ struct Func;
 // no coalescing
 class SimpleColoringAllocator {
   Func *func;
-  std::vector<bool> occur; // in fact it's boolean array
-  std::vector<std::unordered_set<int>> interfere_edge;
+  std::vector<unsigned char> occur; // in fact it's boolean array
+  std::vector<std::set<int>> interfere_edge;
   std::queue<int> simplify_nodes;
   std::vector<std::pair<int, std::vector<int>>> simplify_history;
-  std::unordered_set<int> remain_pesudo_nodes;
+  std::set<int> remain_pesudo_nodes;
 
   void build_graph(); // build occur, interfere_edge
   void spill(const std::vector<int> &spill_nodes);

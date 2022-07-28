@@ -87,10 +87,10 @@ struct Func {
       caller_stack_object; // caller_stack_object is for argument
   std::vector<Reg> arg_reg;
   Block *entry;
-  std::unordered_set<int> spilling_reg;
-  std::unordered_map<int, int32_t> constant_reg;
-  std::unordered_map<int, std::string> symbol_reg;
-  std::unordered_map<int, std::pair<StackObject *, int32_t>> stack_addr_reg;
+  std::set<Reg> spilling_reg;
+  std::map<Reg, int32_t> constant_reg;
+  std::map<Reg, std::string> symbol_reg;
+  std::map<Reg, std::pair<StackObject *, int32_t>> stack_addr_reg;
   int reg_n;
 
   std::vector<std::set<OccurPoint>> reg_def, reg_use;

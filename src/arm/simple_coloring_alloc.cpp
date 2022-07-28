@@ -12,6 +12,7 @@
 #include "common/common.hpp"
 
 using std::make_unique;
+using std::set;
 using std::vector;
 
 namespace ARMv7 {
@@ -20,10 +21,11 @@ SimpleColoringAllocator::SimpleColoringAllocator(Func *_func) : func(_func) {}
 
 void SimpleColoringAllocator::spill(const vector<int> &spill_nodes) {
   vector<StackObject *> spill_obj;
-  std::unordered_set<int> constant_spilled;
+  set<int> constant_spilled;
   for (size_t i = 0; i < spill_nodes.size(); ++i)
-    if (func->constant_reg.find(spill_nodes[i]) != func->constant_reg.end() ||
-        func->symbol_reg.find(spill_nodes[i]) != func->symbol_reg.end()) {
+    if (func->constant_reg.find(Reg{spill_nodes[i]}) !=
+            func->constant_reg.end() ||
+        func->symbol_reg.find(Reg{spill_nodes[i]}) != func->symbol_reg.end()) {
       constant_spilled.insert(spill_nodes[i]);
       spill_obj.push_back(nullptr);
     } else {
@@ -49,30 +51,30 @@ void SimpleColoringAllocator::spill(const vector<int> &spill_nodes) {
       for (size_t j = 0; j < spill_nodes.size(); ++j) {
         int id = spill_nodes[j];
         bool cur_def = (*i)->def(Reg{id}), cur_use = (*i)->use(Reg{id});
-        if (func->constant_reg.find(id) != func->constant_reg.end()) {
+        if (func->constant_reg.find(Reg{id}) != func->constant_reg.end()) {
           assert(!cur_def);
           if (cur_use) {
             Reg tmp{func->reg_n++, (bool)func->float_regs.count(Reg{id})};
-            func->spilling_reg.insert(tmp.id);
-            func->constant_reg[tmp.id] = func->constant_reg[id];
-            insert(block->insts, i, load_imm(tmp, func->constant_reg[id]));
+            func->spilling_reg.insert(tmp);
+            func->constant_reg[tmp] = func->constant_reg[Reg{id}];
+            insert(block->insts, i, load_imm(tmp, func->constant_reg[Reg{id}]));
             (*i)->replace_reg(Reg{id}, tmp);
           }
-        } else if (func->symbol_reg.find(id) != func->symbol_reg.end()) {
+        } else if (func->symbol_reg.find(Reg{id}) != func->symbol_reg.end()) {
           assert(!cur_def);
           if (cur_use) {
             Reg tmp{func->reg_n++, (bool)func->float_regs.count(Reg{id})};
-            func->spilling_reg.insert(tmp.id);
-            func->symbol_reg[tmp.id] = func->symbol_reg[id];
+            func->spilling_reg.insert(tmp);
+            func->symbol_reg[tmp] = func->symbol_reg[Reg{id}];
             insert(block->insts, i,
-                   load_symbol_addr(tmp, func->symbol_reg[id]));
+                   load_symbol_addr(tmp, func->symbol_reg[Reg{id}]));
             (*i)->replace_reg(Reg{id}, tmp);
           }
         } else {
           if (cur_def || cur_use) {
             StackObject *cur_obj = spill_obj[j];
             Reg tmp{func->reg_n++, (bool)func->float_regs.count(Reg{id})};
-            func->spilling_reg.insert(tmp.id);
+            func->spilling_reg.insert(tmp);
             if (cur_use)
               block->insts.insert(i, make_unique<LoadStack>(tmp, 0, cur_obj));
             if (cur_def)
@@ -90,66 +92,52 @@ void SimpleColoringAllocator::build_graph() {
   occur.resize(func->reg_n);
   interfere_edge.resize(func->reg_n);
   std::fill(occur.begin(), occur.end(), 0);
-  for (auto &e : interfere_edge)
-    e.clear();
+  std::fill(interfere_edge.begin(), interfere_edge.end(), set<int>{});
   func->calc_live();
   vector<int> temp, new_nodes;
-  std::vector<bool> live(func->reg_n + 1, false);
   for (auto &block : func->blocks) {
-    std::fill(live.begin(), live.end(), false);
-    for (auto r : block->live_out)
-      live[r.id] = true;
+    set<Reg> live = block->live_out;
     temp.clear();
-    for (size_t i = 0; i < live.size(); i++) {
-      if (!live[i])
-        continue;
-      auto r = Reg(i);
+    for (Reg r : live)
       if (r.is_pseudo() || allocable(r.id))
         temp.push_back(r.id);
-    }
     if (block->insts.size() > 0)
       for (Reg r : (*block->insts.rbegin())->def_reg())
         if (r.is_pseudo() || allocable(r.id))
           temp.push_back(r.id);
-    std::sort(temp.begin(), temp.end());
-    temp.erase(std::unique(temp.begin(), temp.end()), temp.end());
     for (size_t idx1 = 0; idx1 < temp.size(); ++idx1)
-      for (size_t idx0 = 0; idx0 < idx1; ++idx0) {
-        interfere_edge[temp[idx0]].insert(temp[idx1]);
-        interfere_edge[temp[idx1]].insert(temp[idx0]);
-      }
+      for (size_t idx0 = 0; idx0 < idx1; ++idx0)
+        if (temp[idx0] != temp[idx1]) {
+          interfere_edge[temp[idx0]].insert(temp[idx1]);
+          interfere_edge[temp[idx1]].insert(temp[idx0]);
+        }
     for (auto i = block->insts.rbegin(); i != block->insts.rend(); ++i) {
       new_nodes.clear();
       for (Reg r : (*i)->def_reg())
         if (r.is_pseudo() || allocable(r.id)) {
           occur[r.id] = 1;
-          live[r.id] = false;
+          live.erase(r);
         }
       for (Reg r : (*i)->use_reg())
         if (r.is_pseudo() || allocable(r.id)) {
           occur[r.id] = 1;
-          if (live[r.id] == false) {
-            for (size_t o = 0; o < live.size(); o++) {
-              if (!live[o])
-                continue;
-              interfere_edge[r.id].insert(o);
-              interfere_edge[o].insert(r.id);
+          if (live.find(r) == live.end()) {
+            for (Reg o : live) {
+              interfere_edge[r.id].insert(o.id);
+              interfere_edge[o.id].insert(r.id);
             }
-            live[r.id] = true;
+            live.insert(r);
           }
           new_nodes.push_back(r.id);
         }
-      auto ni = std::next(i);
-      if (ni != block->insts.rend())
-        for (Reg r : (*ni)->def_reg())
+      if (std::next(i) != block->insts.rend())
+        for (Reg r : (*std::next(i))->def_reg())
           if (r.is_pseudo() || allocable(r.id)) {
             new_nodes.push_back(r.id);
-            if (live[r.id] == false)
-              for (size_t o = 0; o < live.size(); o++) {
-                if (!live[o])
-                  continue;
-                interfere_edge[r.id].insert(o);
-                interfere_edge[o].insert(r.id);
+            if (live.find(r) == live.end())
+              for (Reg o : live) {
+                interfere_edge[r.id].insert(o.id);
+                interfere_edge[o.id].insert(r.id);
               }
           }
       for (size_t idx1 = 0; idx1 < new_nodes.size(); ++idx1)
@@ -199,15 +187,15 @@ void SimpleColoringAllocator::clear() {
 int SimpleColoringAllocator::choose_spill() {
   int spill_node = -1;
   for (int i : remain_pesudo_nodes)
-    if (func->spilling_reg.find(i) == func->spilling_reg.end())
-      if (func->constant_reg.find(i) != func->constant_reg.end() ||
-          func->symbol_reg.find(i) != func->symbol_reg.end())
+    if (func->spilling_reg.find(Reg{i}) == func->spilling_reg.end())
+      if (func->constant_reg.find(Reg{i}) != func->constant_reg.end() ||
+          func->symbol_reg.find(Reg{i}) != func->symbol_reg.end())
         if (spill_node == -1 ||
             interfere_edge[i].size() > interfere_edge[spill_node].size())
           spill_node = i;
   if (spill_node == -1) {
     for (int i : remain_pesudo_nodes)
-      if (func->spilling_reg.find(i) == func->spilling_reg.end())
+      if (func->spilling_reg.find(Reg{i}) == func->spilling_reg.end())
         if (spill_node == -1 ||
             interfere_edge[i].size() > interfere_edge[spill_node].size())
           spill_node = i;

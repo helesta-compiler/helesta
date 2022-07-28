@@ -196,6 +196,7 @@ struct BB : Printable, Traversable<BB> {
   string name;
   list<unique_ptr<Instr>> instrs;
   int id;
+  bool disable_schedule_early = 0;
   // list of instructions in this basic block
   // the last one is ControlInstr, others are RegWriteInstr or StoreInstr
   void print(ostream &os) const override;
