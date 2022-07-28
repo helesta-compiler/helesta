@@ -115,9 +115,9 @@ void SimpleColoringAllocator::build_graph() {
     temp.erase(std::unique(temp.begin(), temp.end()), temp.end());
     for (size_t idx1 = 0; idx1 < temp.size(); ++idx1)
       for (size_t idx0 = 0; idx0 < idx1; ++idx0) {
-          interfere_edge[temp[idx0]].insert(temp[idx1]);
-          interfere_edge[temp[idx1]].insert(temp[idx0]);
-        }
+        interfere_edge[temp[idx0]].insert(temp[idx1]);
+        interfere_edge[temp[idx1]].insert(temp[idx0]);
+      }
     for (auto i = block->insts.rbegin(); i != block->insts.rend(); ++i) {
       new_nodes.clear();
       for (Reg r : (*i)->def_reg())
