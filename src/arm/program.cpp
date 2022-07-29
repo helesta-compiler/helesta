@@ -1,8 +1,8 @@
 #include "arm/program.hpp"
 
 #include <bitset>
-#include <functional>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <memory>
 #include <ostream>
