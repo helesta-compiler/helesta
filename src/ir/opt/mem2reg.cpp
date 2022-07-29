@@ -16,11 +16,9 @@ std::unordered_set<IR::Reg> mem2reg_func(IR::NormalFunc *func) {
             value_regs.insert(value_reg);
             mem2value.insert({mem_obj, value_reg});
             if (mem_obj->scalar_type == ScalarType::Int) {
-              func->entry->push_front(new IR::LoadConst(value_reg, 0));
+              func->entry->push_front(new IR::LoadConst<int32_t>(value_reg, 0));
             } else {
-              func->entry->push_front(
-                  new IR::UnaryOpInstr(value_reg, value_reg, IR::UnaryOp::I2F));
-              func->entry->push_front(new IR::LoadConst(value_reg, 0));
+              func->entry->push_front(new IR::LoadConst<float>(value_reg, 0));
             }
           }
           addr2mem.insert({load_addr_instr->d1, mem_obj});

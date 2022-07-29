@@ -910,43 +910,11 @@ antlrcpp::Any
 ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
   auto literal_value = ctx->number()->accept(this);
   if (literal_value.is<int32_t>()) {
-    if (mode == compile_time) {
-      return CompileTimeValueAny(literal_value.as<int32_t>());
-    } else {
-      IR::Reg value = new_reg();
-      cur_bb->push(new IR::LoadConst(value, literal_value.as<int32_t>()));
-      IRValue ret(ScalarType::Int);
-      ret.is_left_value = false;
-      ret.reg = value;
-      return ret;
-    }
-  }
-  if (literal_value.is<float>()) {
-    if (mode == compile_time) {
-      return CompileTimeValueAny(literal_value.as<float>());
-    } else {
-      IR::Reg value = new_reg();
-
-      // cur_bb->push(new IR::LoadConst(value, literal_value.as<float>()));
-
-      float *data = new float[1];
-      *data = literal_value.as<float>();
-      IR::MemObject *ir_obj = ir.scope.new_MemObject(
-          ".float_literal" + std::to_string(float_literal_n++));
-      ir_obj->init(data, 4);
-      IR::Reg start_addr = new_reg();
-      cur_bb->push(new IR::LoadAddr(start_addr, ir_obj));
-      cur_bb->push(new IR::LoadInstr(value, start_addr));
-
-      IRValue ret(ScalarType::Float);
-      ret.is_left_value = false;
-      ret.reg = value;
-      return ret;
-    }
-  } else {
-    _throw InvalidLiteral(ctx->number()->getText());
-    return nullptr;
-  }
+    return visitPrimaryExp3Generic<int32_t>(literal_value);
+  } else if (literal_value.is<float>()) {
+    return visitPrimaryExp3Generic<float>(literal_value);
+  } else
+    assert(false);
 }
 
 antlrcpp::Any ASTVisitor::visitNumber(SysYParser::NumberContext *ctx) {
