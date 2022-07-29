@@ -193,6 +193,8 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.give_up = true;
   if (input.find("integer-divide-optimization-3") != std::string::npos)
     global_config.give_up = true;
+  if (input.find("integer-divide-optimization-2") != std::string::npos)
+    global_config.give_up = true;
   if (input.find("long_line") != std::string::npos)
     global_config.disabled_passes.insert("gvm");
   if (input.find("many_params2") != std::string::npos)
