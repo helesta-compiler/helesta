@@ -53,7 +53,6 @@ file(MAKE_DIRECTORY "${output_file_path}")
 # test which cases
 if (CUSTOM_TEST)
 	file(MAKE_DIRECTORY "${output_file_path}/custom")
-	message("Custom test: ${file}")
 	foreach(file ${custom_test})
 		get_filename_component(file_name "${file}" NAME_WE)
 		add_test(NAME ${file_name} COMMAND ./compiler "${file}" -S -o "${output_file_path}/custom/${file_name}.s")
