@@ -57,7 +57,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       auto tmp = info->new_reg();
       Reg dst = info->from_ir_reg(loadconst->d1);
       func->constant_reg[tmp] = as_int;
-      push_back(load_imm(tmp, loadconst->value));
+      push_back(load_imm(tmp, as_int));
       push_back(std::make_unique<MoveReg>(dst, tmp));
     } else if (auto loadarg = dynamic_cast<IR::LoadArg *>(cur)) {
       push_back(make_unique<MoveReg>(info->from_ir_reg(loadarg->d1),
