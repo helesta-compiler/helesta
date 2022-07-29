@@ -2,6 +2,7 @@
 
 #include <bitset>
 #include <functional>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <ostream>
