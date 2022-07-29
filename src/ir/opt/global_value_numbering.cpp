@@ -6,7 +6,7 @@ struct GVNNode : Traversable<GVNNode>, TreeNode<GVNNode> {
   GVNNode *fa;
   DomTreeNode *dom;
 
-  GVNNode(DomTreeNode *dom_) : dom(dom_) { }
+  GVNNode(DomTreeNode *dom_) : dom(dom_) {}
 
   const std::vector<GVNNode *> getOutNodes() const override { return outs; }
 
@@ -20,13 +20,13 @@ struct GVNContext {
   std::vector<GVNNode *> dfn;
 
   GVNContext(DomTreeContext *ctx) {
-      nodes = transfer_graph<DomTreeNode, GVNNode>(ctx->nodes);
-      for (auto &node: nodes) {
-          auto outs = node->getOutNodes();
-          for (auto out: outs) {
-              out->fa = node.get();
-          }
+    nodes = transfer_graph<DomTreeNode, GVNNode>(ctx->nodes);
+    for (auto &node : nodes) {
+      auto outs = node->getOutNodes();
+      for (auto out : outs) {
+        out->fa = node.get();
       }
+    }
   }
 };
 
