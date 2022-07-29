@@ -51,7 +51,8 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       func->constant_reg[dst] = loadconst->value;
       push_back(load_imm(dst, loadconst->value));
     } else if (auto loadconst = dynamic_cast<IR::LoadConst<float> *>(cur)) {
-      int as_int = *((int *)&loadconst->value);
+      int as_int;
+      memcpy(&as_int, &loadconst->value, sizeof(float));
       auto tmp = info->new_reg();
       Reg dst = info->from_ir_reg(loadconst->d1);
       func->constant_reg[tmp] = as_int;
