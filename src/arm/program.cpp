@@ -50,8 +50,13 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Reg dst = info->from_ir_reg(loadconst->d1);
       func->constant_reg[dst] = loadconst->value;
       push_back(load_imm(dst, loadconst->value));
-    } else if (dynamic_cast<IR::LoadConst<float> *>(cur)) {
-      assert(0); // LoadConst<float> should be translate to load global variable
+    } else if (auto loadconst = dynamic_cast<IR::LoadConst<float> *>(cur)) {
+      int as_int = *((int *)&loadconst->value);
+      auto tmp = info->new_reg();
+      Reg dst = info->from_ir_reg(loadconst->d1);
+      func->constant_reg[tmp] = as_int;
+      push_back(load_imm(tmp, loadconst->value));
+      push_back(std::make_unique<MoveReg>(dst, tmp));
     } else if (auto loadarg = dynamic_cast<IR::LoadArg *>(cur)) {
       push_back(make_unique<MoveReg>(info->from_ir_reg(loadarg->d1),
                                      func->arg_reg[loadarg->id]));
