@@ -494,6 +494,33 @@ void Func::merge_inst() {
             }
             RegImm(RegImmInst::Asr, bop->dst, r2, log2v);
             Del();
+          } else if (v > 1) {
+            int32_t A0 = v;
+            int ex = __builtin_ctz(A0);
+            int32_t A = A0 >> ex;
+            int64_t L = 1ll << 32;
+            int log2L = 32;
+            while (L / (A - L % A) < (1ll << 31))
+              L <<= 1, ++log2L;
+            int64_t B = L / A + 1;
+            int s = ex + log2L - 32;
+            assert(0 <= B && B < (1ll << 32));
+            Reg lo = Reg{r4};
+            Reg hi = Reg{r5};
+            int32_t B0 = B & 0x7fffffff;
+            std::cerr << "div_any: " << A0 << ' ' << B << ' ' << s << std::endl;
+            Reg x = bop->lhs;
+            Ins(load_imm(lo, B0));
+            Ins(new SMulL(lo, hi, x, lo));
+            if (B & (1ll << 31)) {
+              RegReg(RegRegInst::Add, hi, hi, x, Shift(Shift::ASR, 1));
+              RegReg(RegRegInst::And, lo, x, lo, Shift(Shift::LSR, 31));
+              RegReg(RegRegInst::Add, hi, hi, lo);
+            }
+            RegImm(RegImmInst::Asr, bop->dst, hi, s);
+            RegReg(RegRegInst::Add, bop->dst, bop->dst, hi,
+                   Shift(Shift::LSR, 31));
+            Del();
           }
           break;
         case RegRegInst::Mod:

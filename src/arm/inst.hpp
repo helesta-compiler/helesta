@@ -152,7 +152,7 @@ void replace(std::list<std::unique_ptr<Inst>> &inserted_list,
 // (reg, reg) -> reg
 // shift is invalid for mul and div
 struct RegRegInst : Inst {
-  enum Type { Add, Sub, Mul, Div, RevSub, Mod } op;
+  enum Type { Add, Sub, Mul, Div, RevSub, Mod, And } op;
   Reg dst, lhs, rhs;
   Shift shift;
   RegRegInst(Type _op, Reg _dst, Reg _lhs, Reg _rhs)
@@ -160,7 +160,7 @@ struct RegRegInst : Inst {
   RegRegInst(Type _op, Reg _dst, Reg _lhs, Reg _rhs, Shift _shift)
       : op(_op), dst(_dst), lhs(_lhs), rhs(_rhs), shift(_shift) {
     if (shift.w != 0)
-      assert(op == Add || op == Sub || op == RevSub);
+      assert(op == Add || op == Sub || op == RevSub || op == And);
   }
   virtual std::vector<Reg> def_reg() override { return {dst}; }
   virtual std::vector<Reg> use_reg() override {
@@ -239,6 +239,22 @@ struct ML : Inst {
       return {s1, s2, s3};
   }
   virtual std::vector<Reg *> regs() override { return {&dst, &s1, &s2, &s3}; }
+  virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
+};
+
+struct SMulL : Inst {
+  Reg d1, d2, s1, s2;
+  SMulL(Reg _d1, Reg _d2, Reg _s1, Reg _s2)
+      : d1(_d1), d2(_d2), s1(_s1), s2(_s2) {}
+
+  virtual std::vector<Reg> def_reg() override { return {d1, d2}; }
+  virtual std::vector<Reg> use_reg() override {
+    if (cond != Always)
+      return {d1, d2, s1, s2};
+    else
+      return {s1, s2};
+  }
+  virtual std::vector<Reg *> regs() override { return {&d1, &d2, &s1, &s2}; }
   virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
 };
 

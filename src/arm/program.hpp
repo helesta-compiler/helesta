@@ -130,6 +130,12 @@ private:
   template <class... T> void RegImm(T... args) {
     _ls->insert(_it, std::make_unique<RegImmInst>(args...));
   }
+  void Ins(Inst *x) { _ls->insert(_it, std::unique_ptr<Inst>(x)); }
+  void Ins(List &&ls) {
+    for (auto &x : ls) {
+      _ls->insert(_it, std::move(x));
+    }
+  }
   void Del() {
     assert(_it != _ls->begin());
     auto p = std::prev(_it);
