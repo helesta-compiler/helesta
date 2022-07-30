@@ -472,7 +472,7 @@ void reverse_for_each_del(std::list<T> &ls, const F &f) {
     auto it0 = it;
     if (f(*--it)) {
       ls.erase(it);
-      it = --it0;
+      it = it0;
     }
   }
 }
