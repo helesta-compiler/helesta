@@ -436,12 +436,13 @@ void Func::merge_inst() {
     for (auto it = block->insts.begin(); it != block->insts.end(); ++it) {
       Inst *inst = it->get();
       if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
-        if (bop->op == RegRegInst::Add) {
+        if (bop->op == RegRegInst::Add || bop->op == RegRegInst::Sub) {
+          RegImmInst::Type op =
+              bop->op == RegRegInst::Add ? RegImmInst::Add : RegImmInst::Sub;
           if (constant_reg.count(bop->rhs)) {
             int32_t v = constant_reg[bop->rhs];
             if (is_legal_immediate(v)) {
-              *it = make_unique<RegImmInst>(RegImmInst::Add, bop->dst, bop->lhs,
-                                            v);
+              *it = make_unique<RegImmInst>(op, bop->dst, bop->lhs, v);
             }
           }
         }
