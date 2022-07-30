@@ -442,6 +442,7 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     }
   }
   merge_inst();
+  dce();
 }
 
 void Func::merge_inst() {
@@ -462,6 +463,38 @@ void Func::merge_inst() {
         }
       }
     }
+  }
+}
+
+template <class T, class F>
+void reverse_for_each_del(std::list<T> &ls, const F &f) {
+  for (auto it = ls.end(); it != ls.begin();) {
+    auto it0 = it;
+    if (f(*--it)) {
+      ls.erase(it);
+      it = --it0;
+    }
+  }
+}
+
+void Func::dce() {
+  calc_live();
+  for (auto &block : blocks) {
+    auto live = block->live_out;
+    bool use_cpsr = false;
+    reverse_for_each_del(block->insts, [&](std::unique_ptr<Inst> &cur) -> bool {
+      bool used = cur->side_effect();
+      used |= (cur->change_cpsr() && use_cpsr);
+      for (Reg r : cur->def_reg())
+        if ((r.is_machine() && !allocable(r.id)) || live.count(r))
+          used = true;
+      if (!used)
+        return 1;
+      use_cpsr &= !cur->change_cpsr();
+      use_cpsr |= cur->use_cpsr();
+      cur->update_live(live);
+      return 0;
+    });
   }
 }
 
