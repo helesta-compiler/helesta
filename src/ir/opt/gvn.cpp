@@ -180,10 +180,10 @@ struct GVNContext {
             i->removed = true;
             if (s1_value.has_value()) {
               assert(binary->s1.id != 0);
-              replace_same_value(binary->d1.id, binary->s1.id);
+              replace_same_value(binary->d1.id, binary->s2.id);
             } else if (s2_value.has_value()) {
               assert(binary->s2.id != 0);
-              replace_same_value(binary->d1.id, binary->s2.id);
+              replace_same_value(binary->d1.id, binary->s1.id);
             } else
               assert(false);
           } else {
