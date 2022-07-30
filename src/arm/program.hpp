@@ -99,6 +99,7 @@ struct Func {
   Func(Program *prog, std::string _name, IR::NormalFunc *ir_func);
   void merge_inst();
   void dce();
+
   void erase_def_use(const OccurPoint &p, Inst *inst);
   void add_def_use(const OccurPoint &p, Inst *inst);
   void build_def_use();
