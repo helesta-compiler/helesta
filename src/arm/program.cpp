@@ -441,7 +441,8 @@ void Func::merge_inst() {
     for (auto it = block->insts.begin(); it != block->insts.end(); ++it) {
       Inst *inst = it->get();
       if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
-        if (bop->op == RegRegInst::Add || bop->op == RegRegInst::Sub) {
+        if ((bop->op == RegRegInst::Add || bop->op == RegRegInst::Sub) &&
+            bop->shift.w == 0) {
           RegImmInst::Type op =
               bop->op == RegRegInst::Add ? RegImmInst::Add : RegImmInst::Sub;
           if (constant_reg.count(bop->rhs)) {
