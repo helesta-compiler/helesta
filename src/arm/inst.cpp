@@ -2,6 +2,7 @@
 
 #include "arm/program.hpp"
 #include "common/common.hpp"
+#include "ir/scalar.hpp"
 
 using std::list;
 using std::make_unique;
@@ -94,19 +95,19 @@ ostream &operator<<(ostream &os, const InstCond &cond) {
   return os;
 }
 
-InstCond from_ir_binary_op(IR::BinaryOp::Type op) {
+InstCond from_ir_binary_op(IR::BinaryCompute op) {
   switch (op) {
-  case IR::BinaryOp::LEQ:
-  case IR::BinaryOp::FLEQ:
+  case IR::BinaryCompute::LEQ:
+  case IR::BinaryCompute::FLEQ:
     return Le;
-  case IR::BinaryOp::LESS:
-  case IR::BinaryOp::FLESS:
+  case IR::BinaryCompute::LESS:
+  case IR::BinaryCompute::FLESS:
     return Lt;
-  case IR::BinaryOp::EQ:
-  case IR::BinaryOp::FEQ:
+  case IR::BinaryCompute::EQ:
+  case IR::BinaryCompute::FEQ:
     return Eq;
-  case IR::BinaryOp::NEQ:
-  case IR::BinaryOp::FNEQ:
+  case IR::BinaryCompute::NEQ:
+  case IR::BinaryCompute::FNEQ:
     return Ne;
   default:
     unreachable();

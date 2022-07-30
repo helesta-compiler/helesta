@@ -29,7 +29,7 @@ std::unordered_set<IR::Reg> mem2reg_func(IR::NormalFunc *func) {
           assert(mem2value.find(mem_obj) != mem2value.end());
           auto value_reg = mem2value[mem_obj];
           *it = std::make_unique<IR::UnaryOpInstr>(load_instr->d1, value_reg,
-                                                   IR::UnaryOp::ID);
+                                                   IR::UnaryCompute::ID);
         }
       } else if (auto store_instr = dynamic_cast<IR::StoreInstr *>(it->get())) {
         if (addr2mem.find(store_instr->addr) != addr2mem.end()) {
@@ -37,7 +37,7 @@ std::unordered_set<IR::Reg> mem2reg_func(IR::NormalFunc *func) {
           assert(mem2value.find(mem_obj) != mem2value.end());
           auto value_reg = mem2value[mem_obj];
           *it = std::make_unique<IR::UnaryOpInstr>(value_reg, store_instr->s1,
-                                                   IR::UnaryOp::ID);
+                                                   IR::UnaryCompute::ID);
         }
       }
     }

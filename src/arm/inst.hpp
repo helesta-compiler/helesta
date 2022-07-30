@@ -11,6 +11,7 @@
 #include "arm/archinfo.hpp"
 #include "common/common.hpp"
 #include "ir/ir.hpp"
+#include "ir/scalar.hpp"
 
 namespace ARMv7 {
 
@@ -53,7 +54,7 @@ InstCond reverse_operand(InstCond c);
 
 std::ostream &operator<<(std::ostream &os, const InstCond &cond);
 
-InstCond from_ir_binary_op(IR::BinaryOp::Type op);
+InstCond from_ir_binary_op(IR::BinaryCompute op);
 
 struct StackObject {
   int32_t size, position;
@@ -172,15 +173,15 @@ struct RegRegInst : Inst {
   virtual std::vector<Reg *> regs() override { return {&dst, &lhs, &rhs}; }
   virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
 
-  static Type from_ir_binary_op(IR::BinaryOp::Type op) {
+  static Type from_ir_binary_op(IR::BinaryCompute op) {
     switch (op) {
-    case IR::BinaryOp::ADD:
+    case IR::BinaryCompute::ADD:
       return Add;
-    case IR::BinaryOp::SUB:
+    case IR::BinaryCompute::SUB:
       return Sub;
-    case IR::BinaryOp::MUL:
+    case IR::BinaryCompute::MUL:
       return Mul;
-    case IR::BinaryOp::DIV:
+    case IR::BinaryCompute::DIV:
       return Div;
     default:
       unreachable();
@@ -204,15 +205,15 @@ struct FRegRegInst : Inst {
   virtual std::vector<Reg *> regs() override { return {&dst, &lhs, &rhs}; }
   virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
 
-  static Type from_ir_binary_op(IR::BinaryOp::Type op) {
+  static Type from_ir_binary_op(IR::BinaryCompute op) {
     switch (op) {
-    case IR::BinaryOp::FADD:
+    case IR::BinaryCompute::FADD:
       return Add;
-    case IR::BinaryOp::FSUB:
+    case IR::BinaryCompute::FSUB:
       return Sub;
-    case IR::BinaryOp::FMUL:
+    case IR::BinaryCompute::FMUL:
       return Mul;
-    case IR::BinaryOp::FDIV:
+    case IR::BinaryCompute::FDIV:
       return Div;
     default:
       unreachable();

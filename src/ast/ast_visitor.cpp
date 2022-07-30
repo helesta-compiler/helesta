@@ -136,7 +136,7 @@ IR::Reg ASTVisitor::get_value(int lineno, ScalarType type,
     case ScalarType::Float: {
       IR::Reg temp = new_reg();
       cur_bb->push(
-          new IR::UnaryOpInstr(temp, ret, IR::UnaryOp(IR::UnaryOp::I2F)));
+          new IR::UnaryOpInstr(temp, ret, IR::UnaryOp(IR::UnaryCompute::I2F)));
       ret = temp;
       break;
     }
@@ -149,7 +149,7 @@ IR::Reg ASTVisitor::get_value(int lineno, ScalarType type,
     case ScalarType::Int: {
       IR::Reg temp = new_reg();
       cur_bb->push(
-          new IR::UnaryOpInstr(temp, ret, IR::UnaryOp(IR::UnaryOp::F2I)));
+          new IR::UnaryOpInstr(temp, ret, IR::UnaryOp(IR::UnaryCompute::F2I)));
       ret = temp;
       break;
     }
@@ -604,7 +604,7 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     cur_bb->push(new IR::LoadConst(zero, static_cast<int32_t>(0)));
     if (return_value_is_float) {
       IR::Reg tmp = new_reg();
-      cur_bb->push(new IR::UnaryOpInstr(tmp, zero, IR::UnaryOp::I2F));
+      cur_bb->push(new IR::UnaryOpInstr(tmp, zero, IR::UnaryCompute::I2F));
       zero = tmp;
     }
     cur_bb->push(new IR::JumpInstr(return_bb));
@@ -971,7 +971,7 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
             arg_regs.push_back(IR::Reg{});
             offset += 1;
           }
-          for (auto op : {IR::UnaryOp::F2D0, IR::UnaryOp::F2D1}) {
+          for (auto op : {IR::UnaryCompute::F2D0, IR::UnaryCompute::F2D1}) {
             IR::Reg reg1 = new_reg();
             cur_bb->push(new IR::UnaryOpInstr(reg1, arg_reg, op));
             arg_regs.push_back(reg1);
@@ -1050,13 +1050,13 @@ antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
     switch (op) {
     case '-':
       res_value = new_reg();
-      cur_bb->push(new IR::UnaryOpInstr(res_value, rhs_value,
-                                        IR::UnaryOp(type, IR::UnaryOp::NEG)));
+      cur_bb->push(new IR::UnaryOpInstr(
+          res_value, rhs_value, IR::UnaryOp(type, IR::UnaryCompute::NEG)));
       break;
     case '!':
       res_value = new_reg();
-      cur_bb->push(new IR::UnaryOpInstr(res_value, rhs_value,
-                                        IR::UnaryOp(type, IR::UnaryOp::LNOT)));
+      cur_bb->push(new IR::UnaryOpInstr(
+          res_value, rhs_value, IR::UnaryOp(type, IR::UnaryCompute::LNOT)));
       break;
     default:; //+, do nothing
       assert(op == '+');
@@ -1083,8 +1083,8 @@ antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
         assert(op == '-');
         IR::Reg rhs_value = _get_value(rhs);
         IR::Reg res_value = new_reg();
-        cur_bb->push(new IR::UnaryOpInstr(res_value, rhs_value,
-                                          IR::UnaryOp(type, IR::UnaryOp::NEG)));
+        cur_bb->push(new IR::UnaryOpInstr(
+            res_value, rhs_value, IR::UnaryOp(type, IR::UnaryCompute::NEG)));
         IRValue ret(rhs.type.scalar_type);
         ret.is_left_value = false;
         ret.reg = res_value;
@@ -1172,16 +1172,16 @@ antlrcpp::Any ASTVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
           res_reg = new_reg();
   switch (op) {
   case '*':
-    cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
-                                       IR::BinaryOp(type, IR::BinaryOp::MUL)));
+    cur_bb->push(new IR::BinaryOpInstr(
+        res_reg, lhs_reg, rhs_reg, IR::BinaryOp(type, IR::BinaryCompute::MUL)));
     break;
   case '/':
-    cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
-                                       IR::BinaryOp(type, IR::BinaryOp::DIV)));
+    cur_bb->push(new IR::BinaryOpInstr(
+        res_reg, lhs_reg, rhs_reg, IR::BinaryOp(type, IR::BinaryCompute::DIV)));
     break;
   case '%':
-    cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
-                                       IR::BinaryOp(type, IR::BinaryOp::MOD)));
+    cur_bb->push(new IR::BinaryOpInstr(
+        res_reg, lhs_reg, rhs_reg, IR::BinaryOp(type, IR::BinaryCompute::MOD)));
     break;
   }
   IRValue ret(type);
@@ -1231,10 +1231,10 @@ antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
     cur_bb->push(new IR::LoadConst<int32_t>(size_reg, size));
     IR::Reg step_reg = new_reg();
     cur_bb->push(new IR::BinaryOpInstr(step_reg, rhs_reg, size_reg,
-                                       IR::BinaryOp(IR::BinaryOp::MUL)));
+                                       IR::BinaryOp(IR::BinaryCompute::MUL)));
     IR::Reg res_reg = new_reg();
     cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, step_reg,
-                                       IR::BinaryOp(IR::BinaryOp::ADD)));
+                                       IR::BinaryOp(IR::BinaryCompute::ADD)));
     IRValue ret(lhs.type.scalar_type);
     ret.type = lhs.type;
     ret.is_left_value = false;
@@ -1252,12 +1252,12 @@ antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
 
   switch (op) {
   case '+':
-    cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
-                                       IR::BinaryOp(type, IR::BinaryOp::ADD)));
+    cur_bb->push(new IR::BinaryOpInstr(
+        res_reg, lhs_reg, rhs_reg, IR::BinaryOp(type, IR::BinaryCompute::ADD)));
     break;
   case '-':
-    cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
-                                       IR::BinaryOp(type, IR::BinaryOp::SUB)));
+    cur_bb->push(new IR::BinaryOpInstr(
+        res_reg, lhs_reg, rhs_reg, IR::BinaryOp(type, IR::BinaryCompute::SUB)));
     break;
   }
   IRValue ret(type);
@@ -1277,19 +1277,19 @@ antlrcpp::Any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
   string ops = ctx->children[1]->getText();
   assert(ops == "<" || ops == ">" || ops == "<=" || ops == ">=");
   debug << __FUNCTION__ << " op: " << ops << '\n';
-  IR::BinaryOp::Type opt;
+  IR::BinaryCompute opt;
   bool rev;
   if (ops == "<") {
-    opt = IR::BinaryOp::LESS;
+    opt = IR::BinaryCompute::LESS;
     rev = false;
   } else if (ops == ">") {
-    opt = IR::BinaryOp::LESS;
+    opt = IR::BinaryCompute::LESS;
     rev = true;
   } else if (ops == "<=") {
-    opt = IR::BinaryOp::LEQ;
+    opt = IR::BinaryCompute::LEQ;
     rev = false;
   } else {
-    opt = IR::BinaryOp::LEQ;
+    opt = IR::BinaryCompute::LEQ;
     rev = true;
   }
   if (mode == compile_time) {
@@ -1297,7 +1297,7 @@ antlrcpp::Any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
                         rhs = ctx->addExp()->accept(this), res;
     if (rev)
       std::swap(lhs, rhs);
-    if (opt == IR::BinaryOp::LESS)
+    if (opt == IR::BinaryCompute::LESS)
       res = (lhs < rhs);
     else
       res = (lhs <= rhs);
@@ -1341,15 +1341,15 @@ antlrcpp::Any ASTVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
   string ops = ctx->children[1]->getText();
   assert(ops == "==" || ops == "!=");
   debug << __FUNCTION__ << " op: " << ops << '\n';
-  IR::BinaryOp::Type opt;
+  IR::BinaryCompute opt;
   if (ops == "==")
-    opt = IR::BinaryOp::EQ;
+    opt = IR::BinaryCompute::EQ;
   else
-    opt = IR::BinaryOp::NEQ;
+    opt = IR::BinaryCompute::NEQ;
   if (mode == compile_time) {
     CompileTimeValueAny lhs = ctx->eqExp()->accept(this),
                         rhs = ctx->relExp()->accept(this), res;
-    if (opt == IR::BinaryOp::EQ)
+    if (opt == IR::BinaryCompute::EQ)
       res = (lhs == rhs);
     else
       res = (lhs != rhs);

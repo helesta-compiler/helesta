@@ -15,6 +15,11 @@ inline void optimize_ir(IR::CompileUnit *ir) {
       global_config.disabled_passes.end())
     global_value_numbering(ir);
   if (global_config.disabled_passes.find("gvm") ==
-      global_config.disabled_passes.end())
+      global_config.disabled_passes.end()) {
+
     global_code_motion(ir);
+    if (global_config.disabled_passes.find("gvn") ==
+        global_config.disabled_passes.end())
+      global_value_numbering(ir);
+  }
 }
