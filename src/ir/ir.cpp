@@ -428,7 +428,7 @@ int exec(CompileUnit &c) {
         else Case(LoadAddr, x, x0) {
           wReg(x->d1, (x->offset->global ? 0 : sp) + x->offset->offset);
         }
-        else Case(LoadConst<int>, x, x0) {
+        else Case(LoadConst<int32_t>, x, x0) {
           wReg(x->d1, x->value);
         }
         else Case(LoadConst<float>, x, x0) {
