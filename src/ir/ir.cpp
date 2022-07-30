@@ -665,7 +665,10 @@ int exec(CompileUnit &c) {
                 in_fork = 0;
               }
               // std::cerr<<">>> join"<<std::endl;
+            } else if (x->f->name == "starttime") {
+            } else if (x->f->name == "stoptime") {
             } else {
+              std::cerr << "unknown func: " << x->f->name << std::endl;
               assert(0);
             }
           }
