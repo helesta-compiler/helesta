@@ -262,9 +262,14 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
           s1 = info->from_ir_reg(array_index->s1),
           s2 = info->from_ir_reg(array_index->s2);
       // TODO: optimize when size=2^k
-      Reg step = info->new_reg();
-      push_back(load_imm(step, array_index->size));
-      push_back(make_unique<ML>(ML::Mla, dst, s2, step, s1));
+      if (array_index->size == 4) {
+        push_back(make_unique<RegRegInst>(RegRegInst::Add, dst, s1, s2,
+                                          Shift(Shift::LSL, 2)));
+      } else {
+        Reg step = info->new_reg();
+        push_back(load_imm(step, array_index->size));
+        push_back(make_unique<ML>(ML::Mla, dst, s2, step, s1));
+      }
     } else if (dynamic_cast<IR::PhiInstr *>(cur)) {
       // do nothing
     } else
