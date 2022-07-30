@@ -102,7 +102,10 @@ struct GVNContext {
         }
       } else if (auto unary = dynamic_cast<IR::UnaryOpInstr *>(i->i)) {
         auto key = std::make_pair(unary->op.type, unary->s1.id);
-        if (unary_values.find(key) != unary_values.end()) {
+        if (unary->op.type == IR::UnaryOp::ID) {
+          i->removed = true;
+          replace_same_value(unary->d1.id, unary->s1.id);
+        } else if (unary_values.find(key) != unary_values.end()) {
           i->removed = true;
           replace_same_value(unary->d1.id, unary_values[key]);
         } else {

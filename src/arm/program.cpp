@@ -262,9 +262,22 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
           s1 = info->from_ir_reg(array_index->s1),
           s2 = info->from_ir_reg(array_index->s2);
       // TODO: optimize when size=2^k
-      Reg step = info->new_reg();
-      push_back(load_imm(step, array_index->size));
-      push_back(make_unique<ML>(ML::Mla, dst, s2, step, s1));
+      if (func->constant_reg.count(s2)) {
+        int32_t v2 = func->constant_reg[s2] * array_index->size;
+        if (is_legal_immediate(v2)) {
+          push_back(make_unique<RegImmInst>(RegImmInst::Add, dst, s1, v2));
+          continue;
+        }
+      }
+
+      if (array_index->size == 4) {
+        push_back(make_unique<RegRegInst>(RegRegInst::Add, dst, s1, s2,
+                                          Shift(Shift::LSL, 2)));
+      } else {
+        Reg step = info->new_reg();
+        push_back(load_imm(step, array_index->size));
+        push_back(make_unique<ML>(ML::Mla, dst, s2, step, s1));
+      }
     } else if (dynamic_cast<IR::PhiInstr *>(cur)) {
       // do nothing
     } else
@@ -425,6 +438,28 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
       for (Reg *r : inst->regs()) {
         if (r->is_pseudo())
           r->is_float = float_regs.count(*r);
+      }
+    }
+  }
+  merge_inst();
+}
+
+void Func::merge_inst() {
+  for (auto &block : blocks) {
+    for (auto it = block->insts.begin(); it != block->insts.end(); ++it) {
+      Inst *inst = it->get();
+      if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
+        if ((bop->op == RegRegInst::Add || bop->op == RegRegInst::Sub) &&
+            bop->shift.w == 0) {
+          RegImmInst::Type op =
+              bop->op == RegRegInst::Add ? RegImmInst::Add : RegImmInst::Sub;
+          if (constant_reg.count(bop->rhs)) {
+            int32_t v = constant_reg[bop->rhs];
+            if (is_legal_immediate(v)) {
+              *it = make_unique<RegImmInst>(op, bop->dst, bop->lhs, v);
+            }
+          }
+        }
       }
     }
   }
