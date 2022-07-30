@@ -479,14 +479,31 @@ void Func::merge_inst() {
           }
           break;
         }
-        case RegRegInst::Mul:
-          if (v > 1 && v == (v & -v)) {
-            int32_t log2v = __builtin_ctz(v);
-            assert(v == (1 << log2v));
+        case RegRegInst::Mul: {
+          if (v <= 1)
+            break;
+          int32_t log2v = __builtin_ctz(v);
+          int32_t v0 = 1 << log2v;
+          if (v == v0) {
             RegImm(RegImmInst::Lsl, bop->dst, bop->lhs, log2v);
+            Del();
+          } else if (__builtin_popcount(v - v0) == 1) {
+            int32_t s = __builtin_ctz(v - v0);
+            RegReg(RegRegInst::Add, bop->dst, bop->lhs, bop->lhs,
+                   Shift(Shift::LSL, s - log2v));
+            if (log2v)
+              RegImm(RegImmInst::Lsl, bop->dst, bop->dst, log2v);
+            Del();
+          } else if (__builtin_popcount(v + v0) == 1) {
+            int32_t s = __builtin_ctz(v + v0);
+            RegReg(RegRegInst::RevSub, bop->dst, bop->lhs, bop->lhs,
+                   Shift(Shift::LSL, s - log2v));
+            if (log2v)
+              RegImm(RegImmInst::Lsl, bop->dst, bop->dst, log2v);
             Del();
           }
           break;
+        }
         case RegRegInst::Div:
           if (v > 1 && v == (v & -v)) {
             int32_t log2v = __builtin_ctz(v);
