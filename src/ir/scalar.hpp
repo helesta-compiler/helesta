@@ -142,7 +142,7 @@ inline typed_scalar_t typed_compute(BinaryCompute op, Scalar s1, Scalar s2) {
     if constexpr (std::is_same<int32_t, Scalar>::value) {
       return s1 % s2;
     } else {
-      assert(false);
+      throw;
     }
   case BinaryCompute::FADD:
     return s1 + s2;
