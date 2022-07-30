@@ -160,12 +160,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         cmp_info[dst].lhs = s1;
         cmp_info[dst].rhs = s2;
         cmp_info[dst].is_float = 1;
-      } /*else if (binary->op.type == IR::BinaryOp::MOD) {
-        Reg k = info->new_reg();
-        push_back(make_unique<RegRegInst>(RegRegInst::Div, k, s1, s2));
-        push_back(make_unique<ML>(ML::Mls, dst, s2, k, s1));
-      } */
-      else
+      } else
         unreachable();
     } else if (auto load = dynamic_cast<IR::LoadInstr *>(cur)) {
       Reg dst = info->from_ir_reg(load->d1),
@@ -447,6 +442,20 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
   dce();
 }
 
+std::pair<int64_t, int> div_opt(int32_t A0) {
+  int ex = __builtin_ctz(A0);
+  int32_t A = A0 >> ex;
+  int64_t L = 1ll << 32;
+  int log2L = 32;
+  while (L / (A - L % A) < (1ll << 31))
+    L <<= 1, ++log2L;
+  int64_t B = L / A + 1;
+  int s = ex + log2L - 32;
+  assert(0 <= B && B < (1ll << 32));
+  // std::cerr << ">>> div_any: " << A0 << ' ' << B << ' ' << s << std::endl;
+  return {B, s};
+}
+
 void Func::merge_inst() {
   for (auto &block : blocks) {
     auto &insts = block->insts;
@@ -495,20 +504,10 @@ void Func::merge_inst() {
             RegImm(RegImmInst::Asr, bop->dst, r2, log2v);
             Del();
           } else if (v > 1) {
-            int32_t A0 = v;
-            int ex = __builtin_ctz(A0);
-            int32_t A = A0 >> ex;
-            int64_t L = 1ll << 32;
-            int log2L = 32;
-            while (L / (A - L % A) < (1ll << 31))
-              L <<= 1, ++log2L;
-            int64_t B = L / A + 1;
-            int s = ex + log2L - 32;
-            assert(0 <= B && B < (1ll << 32));
+            auto [B, s] = div_opt(v);
             Reg lo = Reg{r4};
             Reg hi = Reg{r5};
             int32_t B0 = B & 0x7fffffff;
-            std::cerr << "div_any: " << A0 << ' ' << B << ' ' << s << std::endl;
             Reg x = bop->lhs;
             Ins(load_imm(lo, B0));
             Ins(new SMulL(lo, hi, x, lo));
@@ -546,6 +545,26 @@ void Func::merge_inst() {
               RegReg(RegRegInst::Sub, bop->dst, r0, r3,
                      Shift(Shift::LSL, log2v));
             }
+            Del();
+          } else if (v > 1) {
+            auto [B, s] = div_opt(v);
+            Reg lo = Reg{r4};
+            Reg hi = Reg{r5};
+            int32_t B0 = B & 0x7fffffff;
+            Reg x = bop->lhs;
+            Ins(load_imm(lo, B0));
+            Ins(new SMulL(lo, hi, x, lo));
+            if (B & (1ll << 31)) {
+              RegReg(RegRegInst::Add, hi, hi, x, Shift(Shift::ASR, 1));
+              RegReg(RegRegInst::And, lo, x, lo, Shift(Shift::LSR, 31));
+              RegReg(RegRegInst::Add, hi, hi, lo);
+            }
+            RegImm(RegImmInst::Asr, bop->dst, hi, s);
+            RegReg(RegRegInst::Add, bop->dst, bop->dst, hi,
+                   Shift(Shift::LSR, 31));
+            Ins(load_imm(lo, v));
+            RegReg(RegRegInst::Mul, bop->dst, bop->dst, lo);
+            RegReg(RegRegInst::Sub, bop->dst, x, bop->dst);
             Del();
           }
           break;
