@@ -152,7 +152,7 @@ void replace(std::list<std::unique_ptr<Inst>> &inserted_list,
 // (reg, reg) -> reg
 // shift is invalid for mul and div
 struct RegRegInst : Inst {
-  enum Type { Add, Sub, Mul, Div, RevSub } op;
+  enum Type { Add, Sub, Mul, Div, RevSub, Mod } op;
   Reg dst, lhs, rhs;
   Shift shift;
   RegRegInst(Type _op, Reg _dst, Reg _lhs, Reg _rhs)
@@ -182,6 +182,8 @@ struct RegRegInst : Inst {
       return Mul;
     case IR::BinaryOp::DIV:
       return Div;
+    case IR::BinaryOp::MOD:
+      return Mod;
     default:
       unreachable();
       return Add;
@@ -243,7 +245,7 @@ struct ML : Inst {
 // (reg, imm) -> reg
 // precondition: is_legal_immediate(rhs)
 struct RegImmInst : Inst {
-  enum Type { Add, Sub, RevSub } op;
+  enum Type { Add, Sub, RevSub, Lsl, Lsr, Asr, Bic } op;
   Reg dst, lhs;
   int32_t rhs;
   RegImmInst(Type _op, Reg _dst, Reg _lhs, int32_t _rhs)

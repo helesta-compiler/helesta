@@ -116,6 +116,26 @@ private:
   void replace_with_reg_alloc(const std::vector<int> &reg_alloc);
   void replace_complex_inst(); // replace out-of-range LoadStack, all of
                                // LoadStackAddr and LoadStackOffset
+
+  typedef std::list<std::unique_ptr<Inst>> List;
+  List *_ls;
+  List::iterator _it;
+  void visit(List &ls, List::iterator it) {
+    _it = it;
+    _ls = &ls;
+  }
+  template <class... T> void RegReg(T... args) {
+    _ls->insert(_it, std::make_unique<RegRegInst>(args...));
+  }
+  template <class... T> void RegImm(T... args) {
+    _ls->insert(_it, std::make_unique<RegImmInst>(args...));
+  }
+  void Del() {
+    assert(_it != _ls->begin());
+    auto p = std::prev(_it);
+    *_it = std::move(*p);
+    _ls->erase(p);
+  }
 };
 
 struct Program {

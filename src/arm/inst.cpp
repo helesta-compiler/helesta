@@ -237,6 +237,18 @@ void RegImmInst::gen_asm(ostream &out, AsmContext *) {
   case RevSub:
     out << "rsb";
     break;
+  case Lsl:
+    out << "lsl";
+    break;
+  case Lsr:
+    out << "lsr";
+    break;
+  case Asr:
+    out << "asr";
+    break;
+  case Bic:
+    out << "bic";
+    break;
   default:
     unreachable();
   }

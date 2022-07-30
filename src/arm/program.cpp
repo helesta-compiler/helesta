@@ -121,7 +121,8 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       if (binary->op.type == IR::BinaryOp::ADD ||
           binary->op.type == IR::BinaryOp::SUB ||
           binary->op.type == IR::BinaryOp::MUL ||
-          binary->op.type == IR::BinaryOp::DIV) {
+          binary->op.type == IR::BinaryOp::DIV ||
+          binary->op.type == IR::BinaryOp::MOD) {
         push_back(make_unique<RegRegInst>(
             RegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
       } else if (binary->op.type == IR::BinaryOp::FADD ||
@@ -159,11 +160,12 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         cmp_info[dst].lhs = s1;
         cmp_info[dst].rhs = s2;
         cmp_info[dst].is_float = 1;
-      } else if (binary->op.type == IR::BinaryOp::MOD) {
+      } /*else if (binary->op.type == IR::BinaryOp::MOD) {
         Reg k = info->new_reg();
         push_back(make_unique<RegRegInst>(RegRegInst::Div, k, s1, s2));
         push_back(make_unique<ML>(ML::Mls, dst, s2, k, s1));
-      } else
+      } */
+      else
         unreachable();
     } else if (auto load = dynamic_cast<IR::LoadInstr *>(cur)) {
       Reg dst = info->from_ir_reg(load->d1),
@@ -447,19 +449,97 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
 
 void Func::merge_inst() {
   for (auto &block : blocks) {
-    for (auto it = block->insts.begin(); it != block->insts.end(); ++it) {
+    auto &insts = block->insts;
+    for (auto it = insts.begin(); it != insts.end(); ++it) {
+      visit(insts, it);
       Inst *inst = it->get();
       if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
-        if ((bop->op == RegRegInst::Add || bop->op == RegRegInst::Sub) &&
-            bop->shift.w == 0) {
-          RegImmInst::Type op =
+        if (bop->shift.w)
+          continue;
+        if (!constant_reg.count(bop->rhs))
+          continue;
+        int32_t v = constant_reg[bop->rhs];
+        switch (bop->op) {
+        case RegRegInst::Add:
+        case RegRegInst::Sub: {
+          auto op =
               bop->op == RegRegInst::Add ? RegImmInst::Add : RegImmInst::Sub;
-          if (constant_reg.count(bop->rhs)) {
-            int32_t v = constant_reg[bop->rhs];
-            if (is_legal_immediate(v)) {
-              *it = make_unique<RegImmInst>(op, bop->dst, bop->lhs, v);
-            }
+          if (is_legal_immediate(v)) {
+            RegImm(op, bop->dst, bop->lhs, v);
+            Del();
           }
+          break;
+        }
+        case RegRegInst::Mul:
+          if (v > 1 && v == (v & -v)) {
+            int32_t log2v = __builtin_ctz(v);
+            assert(v == (1 << log2v));
+            RegImm(RegImmInst::Lsl, bop->dst, bop->lhs, log2v);
+            Del();
+          }
+          break;
+        case RegRegInst::Div:
+          if (v > 1 && v == (v & -v)) {
+            int32_t log2v = __builtin_ctz(v);
+            assert(v == (1 << log2v));
+            auto r0 = bop->lhs;
+            auto r1 = bop->dst;
+            auto r2 = bop->dst;
+            if (v == 2) {
+              RegReg(RegRegInst::Add, r2, r0, r0, Shift(Shift::LSR, 31));
+            } else {
+              RegImm(RegImmInst::Asr, r1, r0, 31);
+              RegReg(RegRegInst::Add, r2, r0, r1,
+                     Shift(Shift::LSR, 32 - log2v));
+            }
+            RegImm(RegImmInst::Asr, bop->dst, r2, log2v);
+            Del();
+          }
+          break;
+        case RegRegInst::Mod:
+          if (v > 1 && v == (v & -v)) {
+            int32_t log2v = __builtin_ctz(v);
+            assert(v == (1 << log2v));
+            auto r0 = bop->lhs;
+            auto r1 = bop->dst;
+            auto r2 = bop->dst;
+            auto r3 = bop->dst;
+            if (v == 2) {
+              RegReg(RegRegInst::Add, r2, r0, r0, Shift(Shift::LSR, 31));
+            } else {
+              RegImm(RegImmInst::Asr, r1, r0, 31);
+              RegReg(RegRegInst::Add, r2, r0, r1,
+                     Shift(Shift::LSR, 32 - log2v));
+            }
+            if (is_legal_immediate(v - 1)) {
+              RegImm(RegImmInst::Bic, r3, r2, v - 1);
+              RegReg(RegRegInst::Sub, bop->dst, r0, r3);
+            } else {
+              RegImm(RegImmInst::Lsr, r3, r2, log2v);
+              RegReg(RegRegInst::Sub, bop->dst, r0, r3,
+                     Shift(Shift::LSL, log2v));
+            }
+            Del();
+          }
+          break;
+        default:
+          break;
+        }
+      }
+    }
+  }
+  for (auto &block : blocks) {
+    auto &insts = block->insts;
+    for (auto it = insts.begin(); it != insts.end(); ++it) {
+      Inst *inst = it->get();
+      if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
+        if (bop->op == RegRegInst::Mod) {
+          auto dst = bop->dst;
+          auto s1 = bop->lhs;
+          auto s2 = bop->rhs;
+          insts.insert(it,
+                       make_unique<RegRegInst>(RegRegInst::Div, dst, s1, s2));
+          *it = make_unique<ML>(ML::Mls, dst, s2, dst, s1);
         }
       }
     }
