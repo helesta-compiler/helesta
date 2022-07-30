@@ -20,6 +20,8 @@ struct GVNNode : Traversable<GVNNode>, TreeNode<GVNNode> {
   std::vector<int> new_const_regs;
   std::vector<std::pair<IR::UnaryCompute, int>> new_unaries;
   std::vector<std::tuple<IR::BinaryCompute, int, int>> new_binaries;
+  std::vector<std::tuple<int, int, int>> new_array_indexs;
+  std::vector<int> new_args;
   bool visited = false;
 
   GVNNode(DomTreeNode *dom_) : dom(dom_) {}
@@ -41,6 +43,10 @@ struct GVNContext {
   std::map<std::pair<IR::UnaryCompute, int>, int> unary_values;
   // <reg> op <reg> -> <reg>
   std::map<std::tuple<IR::BinaryCompute, int, int>, int> binary_values;
+  // <reg> + <reg> * <scalar> -> <reg>
+  std::map<std::tuple<int, int, int>, int> array_index_values;
+  // <scalar> -> <reg>
+  std::map<int, int> arg_values;
   GVNNode *entry;
   std::vector<std::vector<GVNInstr *>> uses;
   IR::NormalFunc *func;
@@ -205,6 +211,26 @@ struct GVNContext {
             }
           }
         }
+      } else if (auto ai = dynamic_cast<IR::ArrayIndex *>(i->i)) {
+        auto key = std::make_tuple(ai->s1.id, ai->s2.id, ai->size);
+        if (array_index_values.count(key)) {
+          i->removed = true;
+          assert(array_index_values[key] != 0);
+          replace_same_value(ai->d1.id, array_index_values[key]);
+        } else {
+          array_index_values[key] = ai->d1.id;
+          node->new_array_indexs.push_back(key);
+        }
+      } else if (auto la = dynamic_cast<IR::LoadArg *>(i->i)) {
+        auto key = la->id;
+        if (arg_values.count(key)) {
+          i->removed = true;
+          assert(arg_values[key] != 0);
+          replace_same_value(la->d1.id, arg_values[key]);
+        } else {
+          arg_values[key] = la->d1.id;
+          node->new_args.push_back(key);
+        }
       }
     }
     for (auto out : outs) {
@@ -221,6 +247,12 @@ struct GVNContext {
     }
     for (auto new_binary : node->new_binaries) {
       assert(binary_values.erase(new_binary) == 1);
+    }
+    for (auto new_array_index : node->new_array_indexs) {
+      assert(array_index_values.erase(new_array_index) == 1);
+    }
+    for (auto new_arg : node->new_args) {
+      assert(arg_values.erase(new_arg) == 1);
     }
   }
 
