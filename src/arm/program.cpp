@@ -262,6 +262,14 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
           s1 = info->from_ir_reg(array_index->s1),
           s2 = info->from_ir_reg(array_index->s2);
       // TODO: optimize when size=2^k
+      if (func->constant_reg.count(s2)) {
+        int32_t v2 = func->constant_reg[s2] * array_index->size;
+        if (is_legal_immediate(v2)) {
+          push_back(make_unique<RegImmInst>(RegImmInst::Add, dst, s1, v2));
+          continue;
+        }
+      }
+
       if (array_index->size == 4) {
         push_back(make_unique<RegRegInst>(RegRegInst::Add, dst, s1, s2,
                                           Shift(Shift::LSL, 2)));
