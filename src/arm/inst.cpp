@@ -182,6 +182,9 @@ void RegRegInst::gen_asm(ostream &out, AsmContext *) {
   case RevSub:
     out << "rsb";
     break;
+  case And:
+    out << "and";
+    break;
   default:
     unreachable();
   }
@@ -223,8 +226,20 @@ void ML::gen_asm(ostream &out, AsmContext *) {
     out << "mls";
   else
     unreachable();
-  // TODO:check reg type
+  assert(!dst.is_float);
+  assert(!s1.is_float);
+  assert(!s2.is_float);
+  assert(!s3.is_float);
   out << cond << ' ' << dst << ',' << s1 << ',' << s2 << ',' << s3 << '\n';
+}
+
+void SMulL::gen_asm(ostream &out, AsmContext *) {
+  assert(!d1.is_float);
+  assert(!d2.is_float);
+  assert(!s1.is_float);
+  assert(!s2.is_float);
+  out << "smull" << cond << ' ' << d1 << ',' << d2 << ',' << s1 << ',' << s2
+      << '\n';
 }
 
 void RegImmInst::gen_asm(ostream &out, AsmContext *) {
@@ -237,6 +252,18 @@ void RegImmInst::gen_asm(ostream &out, AsmContext *) {
     break;
   case RevSub:
     out << "rsb";
+    break;
+  case Lsl:
+    out << "lsl";
+    break;
+  case Lsr:
+    out << "lsr";
+    break;
+  case Asr:
+    out << "asr";
+    break;
+  case Bic:
+    out << "bic";
     break;
   default:
     unreachable();
