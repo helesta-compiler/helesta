@@ -198,7 +198,8 @@ struct GVNContext {
             } else {
               node->new_binaries.push_back(key_s1_s2);
               binary_values[key_s1_s2] = binary->d1.id;
-              if (key_s1_s2 != key_s2_s1 && IR::is_commutable_compute(binary->op.type)) {
+              if (key_s1_s2 != key_s2_s1 &&
+                  IR::is_commutable_compute(binary->op.type)) {
                 node->new_binaries.push_back(key_s2_s1);
                 binary_values[key_s2_s1] = binary->d1.id;
               }
