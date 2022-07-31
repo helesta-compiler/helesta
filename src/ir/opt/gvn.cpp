@@ -9,6 +9,13 @@ struct GVNInstr {
   IR::Instr *i;
   GVNNode *node;
   bool removed = false;
+  void setLoadConst(IR::Reg d1, IR::typed_scalar_t computed) {
+    if (std::holds_alternative<int32_t>(computed)) {
+      i = new IR::LoadConst<int32_t>(d1, std::get<int32_t>(computed));
+    } else if (std::holds_alternative<float>(computed)) {
+      i = new IR::LoadConst<float>(d1, std::get<float>(computed));
+    }
+  }
 };
 
 struct GVNNode : Traversable<GVNNode>, TreeNode<GVNNode> {
@@ -20,6 +27,9 @@ struct GVNNode : Traversable<GVNNode>, TreeNode<GVNNode> {
   std::vector<int> new_const_regs;
   std::vector<std::pair<IR::UnaryCompute, int>> new_unaries;
   std::vector<std::tuple<IR::BinaryCompute, int, int>> new_binaries;
+  std::vector<std::tuple<int, int, int>> new_array_indexs;
+  std::vector<int> new_args;
+  std::vector<IR::MemObject *> new_addrs;
   bool visited = false;
 
   GVNNode(DomTreeNode *dom_) : dom(dom_) {}
@@ -41,6 +51,12 @@ struct GVNContext {
   std::map<std::pair<IR::UnaryCompute, int>, int> unary_values;
   // <reg> op <reg> -> <reg>
   std::map<std::tuple<IR::BinaryCompute, int, int>, int> binary_values;
+  // <reg> + <reg> * <scalar> -> <reg>
+  std::map<std::tuple<int, int, int>, int> array_index_values;
+  // <scalar> -> <reg>
+  std::map<int, int> arg_values;
+  // <IR::MemObject*> -> <reg>
+  std::map<IR::MemObject *, int> addr_values;
   GVNNode *entry;
   std::vector<std::vector<GVNInstr *>> uses;
   IR::NormalFunc *func;
@@ -128,6 +144,7 @@ struct GVNContext {
             assert(unary->d1.id != 0);
             scalar_reg_by_value[computed] = unary->d1.id;
             scalar_value_by_reg[unary->d1.id] = computed;
+            i->setLoadConst(unary->d1, computed);
             node->new_scalars.push_back(computed);
             node->new_const_regs.push_back(unary->d1.id);
           }
@@ -162,6 +179,7 @@ struct GVNContext {
             assert(binary->d1.id != 0);
             scalar_reg_by_value[computed] = binary->d1.id;
             scalar_value_by_reg[binary->d1.id] = computed;
+            i->setLoadConst(binary->d1, computed);
             node->new_scalars.push_back(computed);
             node->new_const_regs.push_back(binary->d1.id);
           }
@@ -206,6 +224,36 @@ struct GVNContext {
             }
           }
         }
+      } else if (auto ai = dynamic_cast<IR::ArrayIndex *>(i->i)) {
+        auto key = std::make_tuple(ai->s1.id, ai->s2.id, ai->size);
+        if (array_index_values.count(key)) {
+          i->removed = true;
+          assert(array_index_values[key] != 0);
+          replace_same_value(ai->d1.id, array_index_values[key]);
+        } else {
+          array_index_values[key] = ai->d1.id;
+          node->new_array_indexs.push_back(key);
+        }
+      } else if (auto la = dynamic_cast<IR::LoadArg *>(i->i)) {
+        auto key = la->id;
+        if (arg_values.count(key)) {
+          i->removed = true;
+          assert(arg_values[key] != 0);
+          replace_same_value(la->d1.id, arg_values[key]);
+        } else {
+          arg_values[key] = la->d1.id;
+          node->new_args.push_back(key);
+        }
+      } else if (auto la = dynamic_cast<IR::LoadAddr *>(i->i)) {
+        auto key = la->offset;
+        if (addr_values.count(key)) {
+          i->removed = true;
+          assert(addr_values[key] != 0);
+          replace_same_value(la->d1.id, addr_values[key]);
+        } else {
+          addr_values[key] = la->d1.id;
+          node->new_addrs.push_back(key);
+        }
       }
     }
     for (auto out : outs) {
@@ -222,6 +270,15 @@ struct GVNContext {
     }
     for (auto new_binary : node->new_binaries) {
       assert(binary_values.erase(new_binary) == 1);
+    }
+    for (auto new_array_index : node->new_array_indexs) {
+      assert(array_index_values.erase(new_array_index) == 1);
+    }
+    for (auto new_arg : node->new_args) {
+      assert(arg_values.erase(new_arg) == 1);
+    }
+    for (auto new_addr : node->new_addrs) {
+      assert(addr_values.erase(new_addr) == 1);
     }
   }
 
