@@ -294,19 +294,20 @@ struct SimplifyExpr {
             continue;
           auto ir = w.add.genIR(rw->d1, func);
           if (ir.size() < w.tree_size) {
-
-            std::cerr << "simpl add expr: " << ir.size() << ' ' << w.tree_size
-                      << '\n';
-            if (w.tree_size < 32) {
-              print_tree(rw);
-            } else {
-              std::cerr << *rw << std::endl;
-            }
-            std::cerr << "\n";
-            for (auto &x : ir)
-              std::cerr << *x << std::endl;
-            std::cerr << "----------------\n";
-
+            /*
+                        std::cerr << "simpl add expr: " << ir.size() << ' ' <<
+               w.tree_size
+                                  << '\n';
+                        if (w.tree_size < 32) {
+                          print_tree(rw);
+                        } else {
+                          std::cerr << *rw << std::endl;
+                        }
+                        std::cerr << "\n";
+                        for (auto &x : ir)
+                          std::cerr << *x << std::endl;
+                        std::cerr << "----------------\n";
+            */
             for (auto &x : ir) {
               Case(RegWriteInstr, rw, x.get()) { defs[rw->d1] = rw; }
               inc_use_count(use_count, x.get());

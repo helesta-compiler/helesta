@@ -17,7 +17,7 @@ std::map<BB *, std::vector<BB *>> build_prev(NormalFunc *func) {
   });
   return f;
 }
-
+/*
 struct SimplifyLoadStore {
   NormalFunc *func;
   std::map<Reg, RegWriteInstr *> defs;
@@ -89,6 +89,8 @@ struct SimplifyLoadStore {
   }
 
   SimplifyLoadStore(NormalFunc *_func) : func(_func) {
+    if (global_config.disabled_passes.count("sls"))
+      return;
     defs = build_defs(func);
     prev = build_prev(func);
     func->for_each([&](BB *bb) { getLoadStoreCache(bb); });
@@ -107,3 +109,4 @@ void simplify_load_store_func(NormalFunc *func) { SimplifyLoadStore _(func); }
 void simplify_load_store(CompileUnit *ir) {
   ir->for_each(simplify_load_store_func);
 }
+*/
