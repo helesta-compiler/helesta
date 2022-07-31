@@ -24,6 +24,7 @@ def run_with(args):
             child = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
             child.communicate()
             if child.returncode != 0:
+                print("return code :", child.returncode)
                 exit(1)
 
 

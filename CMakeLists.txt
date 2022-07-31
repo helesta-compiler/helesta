@@ -24,3 +24,51 @@ add_executable(compiler ${DIR_SRC} ${PSR_SRC} ${DIR_LIB_SRC})
 include(formatting.cmake)
 clang_format(format ${DIR_SRC} ${HDR_SRC})
 clang_format_check(format_check ${DIR_SRC} ${HDR_SRC})
+
+# option for test
+option(CUSTOM_TEST "Run custom test cases" ON)
+option(FUNC_TEST "Run functional test cases" OFF)
+option(PERF_TEST "Run performance test cases" OFF)
+
+message("Custom test: ${CUSTOM_TEST}")
+message("Functional test: ${FUNC_TEST}")
+message("Performance test: ${PERF_TEST}")
+
+# add test, usage: `make test` or `ctest`
+enable_testing()
+
+# test files
+if(NOT CUSTOM_TEST_PATH)
+	set(CUSTOM_TEST_PATH "testcases/custom")
+endif()
+message("Custom test path: ${CUSTOM_TEST_PATH}")
+file(GLOB custom_test "${CUSTOM_TEST_PATH}/*.sy")
+file(GLOB functional_test "testcases/functional/*.sy")
+file(GLOB performance_test "testcases/performance/*.sy")
+
+# output .s file path
+set(output_file_path "${CMAKE_BINARY_DIR}/output")
+file(MAKE_DIRECTORY "${output_file_path}")
+
+# test which cases
+if (CUSTOM_TEST)
+	file(MAKE_DIRECTORY "${output_file_path}/custom")
+	foreach(file ${custom_test})
+		get_filename_component(file_name "${file}" NAME_WE)
+		add_test(NAME ${file_name} COMMAND ./compiler "${file}" -S -o "${output_file_path}/custom/${file_name}.s")
+	endforeach()
+endif()
+if (FUNC_TEST)
+	file(MAKE_DIRECTORY "${output_file_path}/functional")
+	foreach(file ${functional_test})
+		get_filename_component(file_name "${file}" NAME_WE)
+		add_test(NAME ${file_name} COMMAND ./compiler "${file}" -S -o "${output_file_path}/functional/${file_name}.s")
+	endforeach()
+endif()
+if (PERF_TEST)
+	file(MAKE_DIRECTORY "${output_file_path}/performance")
+	foreach(file ${performance_test})
+		get_filename_component(file_name "${file}" NAME_WE)
+		add_test(NAME ${file_name} COMMAND ./compiler "${file}" -S -o "${output_file_path}/performance/${file_name}.s")
+	endforeach()
+endif()
