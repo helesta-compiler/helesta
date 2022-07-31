@@ -22,4 +22,9 @@ inline void optimize_ir(IR::CompileUnit *ir) {
     global_code_motion(ir);
   }
   simplify_load_store(ir);
+  if (global_config.disabled_passes.find("gvn") ==
+      global_config.disabled_passes.end()) {
+    global_value_numbering(ir);
+    remove_unused_def(ir);
+  }
 }
