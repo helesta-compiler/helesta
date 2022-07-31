@@ -12,7 +12,7 @@ void global_code_motion(IR::CompileUnit *);
 void global_value_numbering(IR::CompileUnit *);
 void simplify_load_store(IR::CompileUnit *);
 void simplify_expr(IR::CompileUnit *ir);
-//void func_inline(IR::CompileUnit &);
+// void func_inline(IR::CompileUnit &);
 
 inline void gvn(IR::CompileUnit *ir) {
   if (!global_config.disabled_passes.count("gvn")) {
