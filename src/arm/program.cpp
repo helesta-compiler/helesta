@@ -66,26 +66,26 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Reg dst = info->from_ir_reg(unary->d1),
           src = info->from_ir_reg(unary->s1);
       switch (unary->op.type) {
-      case IR::UnaryOp::LNOT:
+      case IR::UnaryCompute::LNOT:
         push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
         push_back(make_unique<RegImmCmp>(RegImmCmp::Cmp, src, 0));
         push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1), Eq));
         // TODO: this can be done better with "rsbs dst, src, #0; adc dst,
         // src, dst" or "clz dst, src; lsr dst, dst, #5"
         break;
-      case IR::UnaryOp::NEG:
+      case IR::UnaryCompute::NEG:
         push_back(make_unique<RegImmInst>(RegImmInst::RevSub, dst, src, 0));
         break;
-      case IR::UnaryOp::FNEG:
+      case IR::UnaryCompute::FNEG:
         info->set_float(dst);
         info->set_float(src);
         push_back(make_unique<FRegInst>(FRegInst::Neg, dst, src));
         break;
-      case IR::UnaryOp::ID:
+      case IR::UnaryCompute::ID:
         info->set_maybe_float_assign(dst, src);
         push_back(make_unique<MoveReg>(dst, src));
         break;
-      case IR::UnaryOp::I2F: {
+      case IR::UnaryCompute::I2F: {
         Reg tmp = info->new_reg();
         info->set_float(dst);
         info->set_float(tmp);
@@ -93,7 +93,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(make_unique<FRegInst>(FRegInst::I2F, dst, tmp));
         break;
       }
-      case IR::UnaryOp::F2I: {
+      case IR::UnaryCompute::F2I: {
         Reg tmp = info->new_reg();
         info->set_float(src);
         info->set_float(tmp);
@@ -101,12 +101,12 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(make_unique<MoveReg>(dst, tmp));
         break;
       }
-      case IR::UnaryOp::F2D0:
+      case IR::UnaryCompute::F2D0:
         info->set_float(dst);
         info->set_float(src);
         push_back(make_unique<FRegInst>(FRegInst::F2D0, dst, src));
         break;
-      case IR::UnaryOp::F2D1:
+      case IR::UnaryCompute::F2D1:
         info->set_float(dst);
         info->set_float(src);
         push_back(make_unique<FRegInst>(FRegInst::F2D1, dst, src));
@@ -118,26 +118,25 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Reg dst = info->from_ir_reg(binary->d1),
           s1 = info->from_ir_reg(binary->s1),
           s2 = info->from_ir_reg(binary->s2);
-      if (binary->op.type == IR::BinaryOp::ADD ||
-          binary->op.type == IR::BinaryOp::SUB ||
-          binary->op.type == IR::BinaryOp::MUL ||
-          binary->op.type == IR::BinaryOp::DIV ||
-          binary->op.type == IR::BinaryOp::MOD) {
+      if (binary->op.type == IR::BinaryCompute::ADD ||
+          binary->op.type == IR::BinaryCompute::SUB ||
+          binary->op.type == IR::BinaryCompute::MUL ||
+          binary->op.type == IR::BinaryCompute::DIV) {
         push_back(make_unique<RegRegInst>(
             RegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
-      } else if (binary->op.type == IR::BinaryOp::FADD ||
-                 binary->op.type == IR::BinaryOp::FSUB ||
-                 binary->op.type == IR::BinaryOp::FMUL ||
-                 binary->op.type == IR::BinaryOp::FDIV) {
+      } else if (binary->op.type == IR::BinaryCompute::FADD ||
+                 binary->op.type == IR::BinaryCompute::FSUB ||
+                 binary->op.type == IR::BinaryCompute::FMUL ||
+                 binary->op.type == IR::BinaryCompute::FDIV) {
         info->set_float(dst);
         info->set_float(s1);
         info->set_float(s2);
         push_back(make_unique<FRegRegInst>(
             FRegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
-      } else if (binary->op.type == IR::BinaryOp::LESS ||
-                 binary->op.type == IR::BinaryOp::LEQ ||
-                 binary->op.type == IR::BinaryOp::EQ ||
-                 binary->op.type == IR::BinaryOp::NEQ) {
+      } else if (binary->op.type == IR::BinaryCompute::LESS ||
+                 binary->op.type == IR::BinaryCompute::LEQ ||
+                 binary->op.type == IR::BinaryCompute::EQ ||
+                 binary->op.type == IR::BinaryCompute::NEQ) {
         push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
         push_back(make_unique<RegRegCmp>(RegRegCmp::Cmp, s1, s2));
         push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1),
@@ -146,10 +145,10 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         cmp_info[dst].lhs = s1;
         cmp_info[dst].rhs = s2;
         cmp_info[dst].is_float = 0;
-      } else if (binary->op.type == IR::BinaryOp::FLESS ||
-                 binary->op.type == IR::BinaryOp::FLEQ ||
-                 binary->op.type == IR::BinaryOp::FEQ ||
-                 binary->op.type == IR::BinaryOp::FNEQ) {
+      } else if (binary->op.type == IR::BinaryCompute::FLESS ||
+                 binary->op.type == IR::BinaryCompute::FLEQ ||
+                 binary->op.type == IR::BinaryCompute::FEQ ||
+                 binary->op.type == IR::BinaryCompute::FNEQ) {
         info->set_float(s1);
         info->set_float(s2);
         push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
@@ -160,6 +159,10 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         cmp_info[dst].lhs = s1;
         cmp_info[dst].rhs = s2;
         cmp_info[dst].is_float = 1;
+      } else if (binary->op.type == IR::BinaryCompute::MOD) {
+        Reg k = info->new_reg();
+        push_back(make_unique<RegRegInst>(RegRegInst::Div, k, s1, s2));
+        push_back(make_unique<ML>(ML::Mls, dst, s2, k, s1));
       } else
         unreachable();
     } else if (auto load = dynamic_cast<IR::LoadInstr *>(cur)) {

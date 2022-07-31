@@ -308,84 +308,13 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
   return NULL;
 }
 
-scalar_t UnaryOpInstr::compute(scalar_t s1) { return op.compute(s1); }
-scalar_t UnaryOp::compute(scalar_t s1) {
-  int32_t i1 = s1.int_value();
-  float f1 = s1.float_value();
-  union {
-    double d;
-    float f0, f1;
-  } f2d;
-  switch (type) {
-  case UnaryOp::LNOT:
-    return int32_t(!i1);
-  case UnaryOp::NEG:
-    return -i1;
-  case UnaryOp::ID:
-    return i1;
-  case UnaryOp::FNEG:
-    return -f1;
-  case UnaryOp::F2I:
-    return int32_t(f1);
-  case UnaryOp::I2F:
-    return float(i1);
-  case UnaryOp::F2D0:
-    f2d.d = f1;
-    return f2d.f0;
-  case UnaryOp::F2D1:
-    f2d.d = f1;
-    return f2d.f1;
-  default:
-    assert(0);
-    return 0;
-  }
+typeless_scalar_t UnaryOpInstr::compute(typeless_scalar_t s1) {
+  return op.compute(s1);
 }
 
-scalar_t BinaryOpInstr::compute(scalar_t s1, scalar_t s2) {
+typeless_scalar_t BinaryOpInstr::compute(typeless_scalar_t s1,
+                                         typeless_scalar_t s2) {
   return op.compute(s1, s2);
-}
-scalar_t BinaryOp::compute(scalar_t s1, scalar_t s2) {
-  int32_t i1 = s1.int_value(), i2 = s2.int_value();
-  float f1 = s1.float_value(), f2 = s2.float_value();
-  switch (type) {
-  case BinaryOp::ADD:
-    return i1 + i2;
-  case BinaryOp::SUB:
-    return i1 - i2;
-  case BinaryOp::MUL:
-    return i1 * i2;
-  case BinaryOp::DIV:
-    return (i2 && !(i1 == -2147483648 && i2 == -1) ? i1 / i2 : 0);
-  case BinaryOp::LESS:
-    return int32_t(i1 < i2);
-  case BinaryOp::LEQ:
-    return int32_t(i1 <= i2);
-  case BinaryOp::EQ:
-    return int32_t(i1 == i2);
-  case BinaryOp::NEQ:
-    return int32_t(i1 != i2);
-  case BinaryOp::MOD:
-    return (i2 ? i1 % i2 : 0);
-  case BinaryOp::FADD:
-    return f1 + f2;
-  case BinaryOp::FSUB:
-    return f1 - f2;
-  case BinaryOp::FMUL:
-    return f1 * f2;
-  case BinaryOp::FDIV:
-    return f1 / f2;
-  case BinaryOp::FLESS:
-    return int32_t(f1 < f2);
-  case BinaryOp::FLEQ:
-    return int32_t(f1 <= f2);
-  case BinaryOp::FEQ:
-    return int32_t(f1 == f2);
-  case BinaryOp::FNEQ:
-    return int32_t(f1 != f2);
-  default:
-    assert(0);
-    return 0;
-  }
 }
 
 void map_use(NormalFunc *f, const std::unordered_map<Reg, Reg> &mp_reg) {
@@ -418,15 +347,15 @@ int exec(CompileUnit &c) {
             fork_cnt = 0, par_instr_cnt = 0;
   int sp = c.scope.size, mem_limit = sp + (8 << 20);
   char *mem = new char[mem_limit];
-  auto wMem = [&](int addr, scalar_t v) {
+  auto wMem = [&](int addr, typeless_scalar_t v) {
     assert(0 <= addr && addr < mem_limit && !(addr % 4));
-    ((scalar_t *)mem)[addr / 4] = v;
+    ((typeless_scalar_t *)mem)[addr / 4] = v;
     ++mem_w_cnt;
   };
-  auto rMem = [&](int addr) -> scalar_t {
+  auto rMem = [&](int addr) -> typeless_scalar_t {
     assert(0 <= addr && addr < mem_limit && !(addr % 4));
     ++mem_r_cnt;
-    return ((scalar_t *)mem)[addr / 4];
+    return ((typeless_scalar_t *)mem)[addr / 4];
   };
   c.scope.for_each([&](MemObject *x) {
     assert(x->global);
@@ -462,25 +391,27 @@ int exec(CompileUnit &c) {
     if (in_fork)
       --par_instr_cnt;
   };
-  std::function<scalar_t(NormalFunc *, std::vector<scalar_t>)> run;
-  run = [&](NormalFunc *func, std::vector<scalar_t> args) -> scalar_t {
+  std::function<typeless_scalar_t(NormalFunc *, std::vector<typeless_scalar_t>)>
+      run;
+  run = [&](NormalFunc *func,
+            std::vector<typeless_scalar_t> args) -> typeless_scalar_t {
     BB *last_bb = NULL;
     BB *cur = func->entry;
     int sz = func->scope.size;
-    std::unordered_map<int, scalar_t> regs;
-    auto wReg = [&](Reg x, scalar_t v) {
+    std::unordered_map<int, typeless_scalar_t> regs;
+    auto wReg = [&](Reg x, typeless_scalar_t v) {
       assert(func->thread_local_regs.count(x) == in_fork);
       assert(1 <= x.id && x.id <= func->max_reg_id);
       regs[x.id] = v;
     };
-    auto rReg = [&](Reg x) -> scalar_t {
+    auto rReg = [&](Reg x) -> typeless_scalar_t {
       assert(1 <= x.id && x.id <= func->max_reg_id);
       return regs[x.id];
     };
     for (int i = 0; i < (int)args.size(); ++i) {
       wReg(i + 1, args[i]);
     }
-    scalar_t _ret = 0;
+    typeless_scalar_t _ret = 0;
     bool last_in_fork = in_fork;
     while (cur) {
       // printf("BB: %s\n",cur->name.data());
@@ -497,7 +428,7 @@ int exec(CompileUnit &c) {
         else Case(LoadAddr, x, x0) {
           wReg(x->d1, (x->offset->global ? 0 : sp) + x->offset->offset);
         }
-        else Case(LoadConst<int>, x, x0) {
+        else Case(LoadConst<int32_t>, x, x0) {
           wReg(x->d1, x->value);
         }
         else Case(LoadConst<float>, x, x0) {
@@ -507,11 +438,12 @@ int exec(CompileUnit &c) {
           wReg(x->d1, args.at(x->id));
         }
         else Case(UnaryOpInstr, x, x0) {
-          scalar_t s1 = rReg(x->s1), d1 = x->compute(s1);
+          typeless_scalar_t s1 = rReg(x->s1), d1 = x->compute(s1);
           wReg(x->d1, d1);
         }
         else Case(BinaryOpInstr, x, x0) {
-          scalar_t s1 = rReg(x->s1), s2 = rReg(x->s2), d1 = x->compute(s1, s2);
+          typeless_scalar_t s1 = rReg(x->s1), s2 = rReg(x->s2),
+                            d1 = x->compute(s1, s2);
           wReg(x->d1, d1);
         }
         else Case(ArrayIndex, x, x0) {
@@ -550,8 +482,8 @@ int exec(CompileUnit &c) {
           break;
         }
         else Case(CallInstr, x, x0) {
-          scalar_t ret = 0;
-          std::vector<scalar_t> args;
+          typeless_scalar_t ret = 0;
+          std::vector<typeless_scalar_t> args;
           for (Reg p : x->args)
             args.push_back(rReg(p));
           Case(NormalFunc, f, x->f) {
