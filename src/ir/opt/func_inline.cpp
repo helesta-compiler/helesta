@@ -26,7 +26,7 @@ void phi_src_rewrite(IR::BB *bb_cur, IR::BB *bb_old) {
 void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
   using namespace IR;
 
-  std::cerr << "Start move func" << std::endl;
+  // std::cerr << "Start move func" << std::endl;
 
   struct InlineState {
     std::unordered_map<MemObject *, MemObject *> map_mm;
@@ -38,7 +38,7 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
     // map local var to fa
     // move all local vars to fa
 
-    std::cerr << fa->name << " " << son_func->name << std::endl;
+    // std::cerr << fa->name << " " << son_func->name << std::endl;
 
     if (!is.count(son_func)) {
       son_func->scope.for_each([&](MemObject *x0, MemObject *x1) {
@@ -53,7 +53,7 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
       });
     }
 
-    std::cerr << "pass count" << std::endl;
+    // std::cerr << "pass count" << std::endl;
 
     std::unordered_map<BB *, BB *> map_bb;
     std::unordered_map<Reg, Reg> map_reg;
@@ -68,12 +68,12 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
             map_reg[r] =
                 fa->new_Reg(son_func->get_name(r) + "_" + son_func->name + "_" +
                             std::to_string(is[son_func].cnt));
-            std::cerr << fa->reg_names[map_reg[r].id] << std::endl;
+            // std::cerr << fa->reg_names[map_reg[r].id] << std::endl;
           }
         }
       });
     });
-    std::cerr << "start to copy all BBs" << std::endl;
+    // std::cerr << "start to copy all BBs" << std::endl;
     BB *nxt = fa->new_BB();
     auto find_nxt_instr = [](BB *bb, CallInstr *instr) {
       for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
@@ -95,33 +95,32 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
       //             << "\n";
       //   assert(0);
       // }
-      std::cerr << "map reg (" << reg;
+      // std::cerr << "map reg (" << reg;
       reg = map_reg.at(reg);
-      std::cerr << ")" << std::endl;
+      // std::cerr << ")" << std::endl;
     };
     auto map_bb_f = [&](BB *&bb) {
-      std::cerr << "map bb (";
+      // std::cerr << "map bb (";
       bb = map_bb.at(bb);
-      std::cerr << ")" << std::endl;
+      // std::cerr << ")" << std::endl;
     };
     auto map_mem_f = [&](MemObject *&mm) {
       if (!mm->global) {
-        std::cerr << "map mem (";
+        // std::cerr << "map mem (";
         mm = map_mm.at(mm);
-        std::cerr << ")" << std::endl;
+        // std::cerr << ")" << std::endl;
       }
     };
 
     son_func->for_each([&](BB *bb) {
       // copy all BBs
-      std::cerr << "bb->name : " << bb->name << std::endl;
+      // std::cerr << "bb->name : " << bb->name << std::endl;
       BB *bb1 = map_bb.at(bb);
-      std::cerr << "start" << std::endl;
+      // std::cerr << "start" << std::endl;
       bb->for_each([&](Instr *instr) {
         // instr->print(std::cerr);
         Instr *instr1 = nullptr;
         Case(LocalVarDef, local_val_def, instr) {
-          assert(0);
           if (local_val_def->data->arg)
             return;
         }
@@ -134,8 +133,8 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
         else Case(ReturnInstr, return_instr, instr) {
           UnaryOpInstr *uo_instr =
               new UnaryOpInstr(call->d1, return_instr->s1, UnaryOp::ID);
-          std::cerr << "call->d1 = " << call->d1 << "\nReturn Instr"
-                    << std::endl;
+          // std::cerr << "call->d1 = " << call->d1 << "\nReturn Instr"
+                    // << std::endl;
           map_reg_f(uo_instr->s1);
           bb1->push(uo_instr);
           instr1 = new JumpInstr(nxt);
@@ -157,26 +156,24 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
 }
 
 void search_call_instr(IR::NormalFunc *func) {
+  // std::cerr << "start search call instr" << std::endl;
   std::vector<IR::BB *> bbs;
   func->for_each([&](IR::BB *bb) { bbs.push_back(bb); });
   for (auto bb : bbs) {
-    std::cerr << "func foreach" << std::endl;
-    std::cerr << (long)bb << std::endl;
-    std::cerr << bb->name << std::endl;
-    bb->for_each([&](IR::Instr *instr) {
-      std::cerr << "bb foreach" << std::endl;
-      instr->print(std::cerr);
-      Case(IR::CallInstr, call, instr) {
+    // std::cerr << "auto bb : bbs" << std::endl;
+    for(auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
+      Case(IR::CallInstr, call, it->get()) {
         Case(IR::NormalFunc, func_t, call->f) {
           if (func_t != func) {
-            std::cerr << "Start move func" << std::endl;
+            std::cerr << func->name << " -> " << func_t->name << std::endl;
+            // std::cerr << "start move func" << std::endl;
             move_func(func, call, bb);
-            return;
+            // std::cerr << "end move func" << std::endl;
+            break;
           }
         }
       }
-    });
-    std::cerr << "next" << std::endl;
+    }
   }
 }
 
@@ -199,8 +196,6 @@ void func_inline(IR::CompileUnit *ir) {
     });
   });
 
-  std::cerr << "Start Find Call" << std::endl;
-
   /* 1.
      拓扑排序，所有非循环函数进行内联，这样可以保证所有函数都被内联，但是会导致代码过于冗余；
      2. 迭代若干次，根据 call graph
@@ -213,10 +208,12 @@ void func_inline(IR::CompileUnit *ir) {
     }
   }
   while (!order.empty()) {
+    std::cerr << "order size " << order.size() << std::endl;
     IR::NormalFunc *func = order.back();
     order.pop_back();
 
     search_call_instr(func);
+    std::cerr << "end search call instr" << std::endl;
 
     for (auto &in_node : map[func].in_nodes) {
       map[in_node].count--;
@@ -224,5 +221,7 @@ void func_inline(IR::CompileUnit *ir) {
         order.push_back(in_node);
       }
     }
+    std::cerr << "! order size " << order.size() << std::endl;
+    std::cerr << "topo sort end" << std::endl;
   }
 }

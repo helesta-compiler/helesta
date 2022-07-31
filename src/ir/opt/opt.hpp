@@ -11,6 +11,7 @@ inline void optimize_ir(IR::CompileUnit *ir) {
   // ir->print(std::cout);
   func_inline(ir);
   // ir->print(std::cout);
-  // mem2reg(ir);
-  // remove_unused_def(ir);
+  mem2reg(ir);
+  // std::cerr << "end func inline" << std::endl;
+  remove_unused_def(ir);
 }
