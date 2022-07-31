@@ -89,12 +89,17 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
 
     auto map_reg_f = [&](Reg &reg) { reg = map_reg.at(reg); };
     auto map_bb_f = [&](BB *&bb) { bb = map_bb.at(bb); };
-    auto map_mem_f = [&](MemObject *&mm) { mm = map_mm.at(mm); };
+    auto map_mem_f = [&](MemObject *&mm) { 
+      if(!mm->global) {
+        mm = map_mm.at(mm);
+      }
+    };
 
     son_func->for_each([&](BB *bb) {
       // copy all BBs
-      // std::cout << "bb->name : " << bb->name << std::endl;
+      std::cout << "bb->name : " << bb->name << std::endl;
       BB *bb1 = map_bb.at(bb);
+      std::cout << "start" << std::endl;
       bb->for_each([&](Instr *instr) {
         // instr->print(std::cout);
         Instr *instr1 = nullptr;
