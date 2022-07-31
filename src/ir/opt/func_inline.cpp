@@ -126,13 +126,13 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
         }
         Case(LoadArg, load_arg, instr) {
           UnaryOpInstr *uo_instr = new UnaryOpInstr(
-              load_arg->d1, call->args.at(load_arg->id), UnaryOp::ID);
+              load_arg->d1, call->args.at(load_arg->id), UnaryCompute::ID);
           map_reg_f(uo_instr->d1);
           instr1 = uo_instr;
         }
         else Case(ReturnInstr, return_instr, instr) {
           UnaryOpInstr *uo_instr =
-              new UnaryOpInstr(call->d1, return_instr->s1, UnaryOp::ID);
+              new UnaryOpInstr(call->d1, return_instr->s1, UnaryCompute::ID);
           // std::cerr << "call->d1 = " << call->d1 << "\nReturn Instr"
           // << std::endl;
           map_reg_f(uo_instr->s1);
