@@ -69,9 +69,7 @@ struct SimplifyLoadStore {
       auto it0 = it;
       --it;
       Instr *x = it->get();
-      Case(LoadInstr, _, x) {
-        stores.clear();
-      }
+      Case(LoadInstr, _, x) { stores.clear(); }
       else Case(StoreInstr, st, x) {
         if (!stores.insert(st->addr).second) {
           ++dse_cnt;
