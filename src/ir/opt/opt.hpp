@@ -13,6 +13,7 @@ void simplify_load_store(IR::CompileUnit *);
 inline void optimize_ir(IR::CompileUnit *ir) {
   func_inline(ir);
   mem2reg(ir);
+  // std::cerr << "end func inline" << std::endl;
   remove_unused_def(ir);
   if (global_config.disabled_passes.find("gvn") ==
       global_config.disabled_passes.end()) {
