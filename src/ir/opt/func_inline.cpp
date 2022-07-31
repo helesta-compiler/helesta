@@ -99,8 +99,8 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
         // instr->print(std::cout);
         Instr *instr1 = nullptr;
         // Case(LocalVarDef, local_val_def, instr) {
-          // if (local_val_def->data->arg)
-            // return;
+        // if (local_val_def->data->arg)
+        // return;
         // }
         Case(LoadArg, load_arg, instr) {
           UnaryOpInstr *uo_instr = new UnaryOpInstr(
@@ -132,7 +132,7 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
 void search_call_instr(IR::NormalFunc *func) {
   std::vector<IR::BB *> bbs;
   func->for_each([&](IR::BB *bb) { bbs.push_back(bb); });
-  for(auto bb : bbs) {
+  for (auto bb : bbs) {
     std::cout << "func foreach" << std::endl;
     std::cout << (long)bb << std::endl;
     std::cout << bb->name << std::endl;
@@ -143,7 +143,7 @@ void search_call_instr(IR::NormalFunc *func) {
         Case(IR::NormalFunc, func_t, call->f) {
           if (func_t != func) {
             move_func(func, call, bb);
-            return ;
+            return;
           }
         }
       }
