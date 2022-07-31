@@ -17,6 +17,54 @@ std::map<BB *, std::vector<BB *>> build_prev(NormalFunc *func) {
   });
   return f;
 }
+
+struct CallGraph {
+  struct Info {
+    bool visited = 0, pure = 1;
+    std::vector<CallInstr *> calls;
+  };
+  std::map<NormalFunc *, Info> info;
+  bool isPure(NormalFunc *f) {
+    auto &fi = info[f];
+    if (fi.visited)
+      return fi.pure;
+    fi.visited = 1;
+    for (auto call : fi.calls) {
+      Case(NormalFunc, f0, call->f) {
+        if (f0 != f)
+          fi.pure &= call->pure = isPure(f0);
+      }
+      else {
+        fi.pure = 0;
+      }
+    }
+    for (auto call : fi.calls) {
+      Case(NormalFunc, f0, call->f) {
+        if (f0 == f)
+          call->pure = fi.pure;
+      }
+    }
+    // std::cerr << f->name << "  pure?  " << fi.pure << '\n';
+    return fi.pure;
+  }
+  CallGraph(CompileUnit *ir) {
+    ir->for_each([&](NormalFunc *f) {
+      auto &fi = info[f];
+      f->for_each([&](Instr *x) {
+        Case(StoreInstr, st, x) {
+          fi.pure = 0;
+          (void)st;
+        }
+        else Case(CallInstr, call, x) {
+          fi.calls.push_back(call);
+        }
+      });
+    });
+    ir->for_each([&](NormalFunc *f) { isPure(f); });
+  }
+};
+
+void inference_pure_call(CompileUnit *ir) { CallGraph cg(ir); }
 /*
 struct SimplifyLoadStore {
   NormalFunc *func;

@@ -216,6 +216,74 @@ struct DAG_IR {
   }
 };
 
+struct MergePureCall {
+  struct Info {
+    std::map<std::pair<Func *, std::vector<Reg>>, Reg> in, out;
+    bool visited = 0, is_loop_head = 0;
+  };
+  ~MergePureCall() {
+    if (cnt) {
+      ::info << "MergePureCall: " << cnt << '\n';
+    }
+  }
+  std::unordered_map<BB *, Info> info;
+  size_t cnt = 0;
+  void begin(BB *bb, bool is_loop_head) {
+    auto &w = info[bb];
+    w.is_loop_head = is_loop_head;
+    // std::cerr << bb->name << " : " << is_loop_head << '\n';
+  }
+  void end(BB *) {}
+  void visitBB(BB *bb) {
+    // std::cerr << bb->name << " visited" << '\n';
+    auto &w = info[bb];
+    if (w.is_loop_head) {
+      w.out.clear();
+    } else {
+      w.out = w.in;
+    }
+    for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
+      Instr *x = it->get();
+      Case(StoreInstr, _, x) {
+        w.out.clear();
+        (void)_;
+      }
+      else Case(CallInstr, call, x) {
+        if (call->pure) {
+          auto key = std::make_pair(call->f, call->args);
+          if (w.out.count(key)) {
+            *it = std::make_unique<UnaryOpInstr>(call->d1, w.out[key],
+                                                 UnaryCompute::ID);
+            ++cnt;
+            // std::cerr << call->f->name << " merged" << std::endl;
+          } else {
+            w.out[key] = call->d1;
+          }
+        } else {
+          w.out.clear();
+        }
+      }
+    }
+  }
+  void visitEdge(BB *bb1, BB *bb2) {
+    // std::cerr << bb1->name << " -> " << bb2->name << '\n';
+    auto &w1 = info[bb1];
+    auto &w2 = info[bb2];
+    if (!w2.visited) {
+      w2.visited = 1;
+      w2.in = w1.out;
+    } else {
+      decltype(w2.in) tmp;
+      for (auto &[k, v] : w2.in) {
+        auto it = w1.out.find(k);
+        if (it != w1.out.end() && (it->second == v))
+          tmp[k] = v;
+      }
+      w2.in = std::move(tmp);
+    }
+  }
+};
+
 struct LoadToReg {
   struct Info {
     std::map<Reg, Reg> in;
@@ -331,26 +399,17 @@ struct RemoveUnusedStore {
       w.in = w.out;
     }
   }
-  void visitEdge(BB *bb1, BB *bb2) {
-    // std::cerr << bb1->name << " -> " << bb2->name << '\n';
-    auto &w1 = info[bb1];
-    auto &w2 = info[bb2];
-    if (!w1.visited) {
-      w1.visited = 1;
-      w1.out = w2.in;
-    } else {
-      std::set<Reg> tmp;
-      for (auto x : w1.out) {
-        if (w2.in.count(x))
-          tmp.insert(x);
-      }
-      w1.out = std::move(tmp);
-    }
+  void visitEdge(BB *, BB *) {
+    // TODO: fix loop exit edges
   }
 };
 
 void dag_ir_func(NormalFunc *f) {
   DAG_IR dag(f);
+  {
+    MergePureCall w;
+    dag.visit(w);
+  }
   {
     LoadToReg w;
     dag.visit(w);
