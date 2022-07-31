@@ -75,6 +75,10 @@ struct AddExpr : Printable {
     }
   }
   void print(std::ostream &os) const override {
+    if (bad) {
+      os << "[bad]";
+      return;
+    }
     os << c;
     for (auto [x, a] : cs) {
       if (a >= 0)
@@ -107,6 +111,7 @@ struct AddExpr : Printable {
       add_eq(w1, w2.c);
     else
       bad = 1;
+    // std::cerr << w1 << '*' << w2 << '=' << *this << '\n';
   }
   std::list<std::unique_ptr<Instr>> genIR(Reg result, NormalFunc *f) {
     std::map<int32_t, std::vector<std::pair<Reg, int32_t>>> mp;
@@ -231,7 +236,7 @@ struct SimplifyExpr {
         break;
       case BinaryCompute::MUL: {
         auto &w1 = getExpr(bop->s1).add;
-        auto &w2 = getExpr(bop->s1).add;
+        auto &w2 = getExpr(bop->s2).add;
         w.add.set_mul(w1, w2);
         if (!w1.bad && !w2.bad && w.add.bad) {
           set_const();
