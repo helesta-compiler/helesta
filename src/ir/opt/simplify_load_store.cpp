@@ -56,6 +56,7 @@ struct SimplifyLoadStore {
         w.lives[st->addr] = st->s1;
       }
       else Case(CallInstr, _, x) {
+        (void)_;
         w.lives.clear();
       }
     }
@@ -69,7 +70,10 @@ struct SimplifyLoadStore {
       auto it0 = it;
       --it;
       Instr *x = it->get();
-      Case(LoadInstr, _, x) { stores.clear(); }
+      Case(LoadInstr, _, x) {
+        stores.clear();
+        (void)_;
+      }
       else Case(StoreInstr, st, x) {
         if (!stores.insert(st->addr).second) {
           ++dse_cnt;
@@ -79,6 +83,7 @@ struct SimplifyLoadStore {
       }
       else Case(CallInstr, _, x) {
         stores.clear();
+        (void)_;
       }
     }
   }

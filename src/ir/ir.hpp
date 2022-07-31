@@ -595,7 +595,7 @@ struct PhiInstr : RegWriteInstr {
   void print(ostream &os) const override;
 };
 
-#define Case(T, a, b) if ([[maybe_unused]] auto a = dynamic_cast<T *>(b))
+#define Case(T, a, b) if (auto a = dynamic_cast<T *>(b))
 #define CaseNot(T, b)                                                          \
   if (auto _ = dynamic_cast<T *>(b)) {                                         \
   } else
