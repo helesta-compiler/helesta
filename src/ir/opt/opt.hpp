@@ -8,7 +8,6 @@ void remove_unused_def(IR::CompileUnit *);
 void func_inline(IR::CompileUnit *);
 
 inline void optimize_ir(IR::CompileUnit *ir) {
-  // IR::print_all_bb(*ir, std::cout);
   // ir->print(std::cout);
   func_inline(ir);
   // ir->print(std::cout);
