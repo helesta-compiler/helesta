@@ -93,16 +93,15 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
 
     son_func->for_each([&](BB *bb) {
       // copy all BBs
-      std::cout << "bb->name : " << bb->name << std::endl;
+      // std::cout << "bb->name : " << bb->name << std::endl;
       BB *bb1 = map_bb.at(bb);
       bb->for_each([&](Instr *instr) {
-        instr->print(std::cout);
-        std::cout << std::endl;
+        // instr->print(std::cout);
         Instr *instr1 = nullptr;
-        Case(LocalVarDef, local_val_def, instr) {
-          if (local_val_def->data->arg)
-            return;
-        }
+        // Case(LocalVarDef, local_val_def, instr) {
+          // if (local_val_def->data->arg)
+            // return;
+        // }
         Case(LoadArg, load_arg, instr) {
           UnaryOpInstr *uo_instr = new UnaryOpInstr(
               load_arg->d1, call->args.at(load_arg->id), UnaryOp::ID);
@@ -117,7 +116,6 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
           instr1 = new JumpInstr(nxt);
         }
         else {
-          std::cout << "into else" << std::endl;
           instr1 = instr->map(map_reg_f, map_bb_f, map_mem_f);
         }
         bb1->push(instr1);
@@ -132,7 +130,12 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
 }
 
 void search_call_instr(IR::NormalFunc *func) {
-  func->for_each([&](IR::BB *bb) {
+  std::vector<IR::BB *> bbs;
+  func->for_each([&](IR::BB *bb) { bbs.push_back(bb); });
+  for(auto bb : bbs) {
+    std::cout << "func foreach" << std::endl;
+    std::cout << (long)bb << std::endl;
+    std::cout << bb->name << std::endl;
     bb->for_each([&](IR::Instr *instr) {
       std::cout << "bb foreach" << std::endl;
       instr->print(std::cout);
@@ -140,12 +143,13 @@ void search_call_instr(IR::NormalFunc *func) {
         Case(IR::NormalFunc, func_t, call->f) {
           if (func_t != func) {
             move_func(func, call, bb);
-            std::cout << "next" << std::endl;
+            return ;
           }
         }
       }
     });
-  });
+    std::cout << "next" << std::endl;
+  }
 }
 
 void func_inline(IR::CompileUnit *ir) {
