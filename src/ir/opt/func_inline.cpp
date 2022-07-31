@@ -134,7 +134,7 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
           UnaryOpInstr *uo_instr =
               new UnaryOpInstr(call->d1, return_instr->s1, UnaryOp::ID);
           // std::cerr << "call->d1 = " << call->d1 << "\nReturn Instr"
-                    // << std::endl;
+          // << std::endl;
           map_reg_f(uo_instr->s1);
           bb1->push(uo_instr);
           instr1 = new JumpInstr(nxt);
@@ -161,7 +161,7 @@ void search_call_instr(IR::NormalFunc *func) {
   func->for_each([&](IR::BB *bb) { bbs.push_back(bb); });
   for (auto bb : bbs) {
     // std::cerr << "auto bb : bbs" << std::endl;
-    for(auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
+    for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
       Case(IR::CallInstr, call, it->get()) {
         Case(IR::NormalFunc, func_t, call->f) {
           if (func_t != func) {
