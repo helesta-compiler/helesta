@@ -22,7 +22,7 @@ struct SimplifyLoadStore {
   NormalFunc *func;
   std::map<Reg, RegWriteInstr *> defs;
   std::map<BB *, std::vector<BB *>> prev;
-  size_t cnt = 0;
+  size_t cnt = 0, dse_cnt = 0;
 
   struct LoadStoreCache {
     bool visited = 0;
@@ -60,15 +60,44 @@ struct SimplifyLoadStore {
         call = call;
       }
     }
+
     return w;
+  }
+
+  void dse(BB *bb) {
+    std::set<Reg> stores;
+    for (auto it = bb->instrs.end(); it != bb->instrs.begin();) {
+      auto it0 = it;
+      --it;
+      Instr *x = it->get();
+      Case(LoadInstr, ld, x) {
+        stores.clear();
+        ld = ld;
+      }
+      else Case(StoreInstr, st, x) {
+        if (!stores.insert(st->addr).second) {
+          ++dse_cnt;
+          bb->instrs.erase(it);
+          it = it0;
+        }
+      }
+      else Case(CallInstr, call, x) {
+        stores.clear();
+        call = call;
+      }
+    }
   }
 
   SimplifyLoadStore(NormalFunc *_func) : func(_func) {
     defs = build_defs(func);
     prev = build_prev(func);
     func->for_each([&](BB *bb) { getLoadStoreCache(bb); });
+    func->for_each([&](BB *bb) { dse(bb); });
     if (cnt) {
-      debug << "SimplifyLoadStore: " << cnt << " in " << func->name << '\n';
+      info << "SimplifyLoadStore: " << cnt << " in " << func->name << '\n';
+    }
+    if (dse_cnt) {
+      info << "dse: " << dse_cnt << " in " << func->name << '\n';
     }
   }
 };
