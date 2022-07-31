@@ -33,6 +33,9 @@ void remove_unused_def_func(IR::NormalFunc *func) {
       continue;
     used_instrs.insert(i);
     i->map_use([&](IR::Reg &r) {
+      if (def_vec[r.id] == nullptr) {
+        std::cerr << r << std::endl;
+      }
       assert(def_vec[r.id] != nullptr);
       q.push_back(def_vec[r.id]);
     });
