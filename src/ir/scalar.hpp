@@ -57,6 +57,26 @@ inline bool is_useless_compute(UnaryCompute op) {
   return false;
 }
 
+inline bool is_commutable_compute(BinaryCompute op) {
+    if (op == BinaryCompute::ADD)
+        return true;
+    if (op == BinaryCompute::FADD)
+        return true;
+    if (op == BinaryCompute::MUL)
+        return true;
+    if (op == BinaryCompute::FMUL)
+        return true;
+    if (op == BinaryCompute::EQ)
+        return true;
+    if (op == BinaryCompute::FEQ)
+        return true;
+    if (op == BinaryCompute::NEQ)
+        return true;
+    if (op == BinaryCompute::FNEQ)
+        return true;
+    return false;
+}
+
 inline bool is_useless_compute(BinaryCompute op,
                                std::optional<typed_scalar_t> s1,
                                std::optional<typed_scalar_t> s2) {
