@@ -22,6 +22,7 @@ struct SimplifyLoadStore {
   NormalFunc *func;
   std::map<Reg, RegWriteInstr *> defs;
   std::map<BB *, std::vector<BB *>> prev;
+  size_t cnt = 0;
 
   struct LoadStoreCache {
     bool visited = 0;
@@ -45,6 +46,7 @@ struct SimplifyLoadStore {
         if (w.lives.count(ld->addr)) {
           *it = std::make_unique<UnaryOpInstr>(ld->d1, w.lives[ld->addr],
                                                UnaryCompute::ID);
+          ++cnt;
         } else {
           w.lives[ld->addr] = ld->d1;
         }
@@ -65,6 +67,9 @@ struct SimplifyLoadStore {
     defs = build_defs(func);
     prev = build_prev(func);
     func->for_each([&](BB *bb) { getLoadStoreCache(bb); });
+    if (cnt) {
+      debug << "SimplifyLoadStore: " << cnt << " in " << func->name << '\n';
+    }
   }
 };
 

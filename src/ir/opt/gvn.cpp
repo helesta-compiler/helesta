@@ -22,6 +22,7 @@ struct GVNNode : Traversable<GVNNode>, TreeNode<GVNNode> {
   std::vector<std::tuple<IR::BinaryCompute, int, int>> new_binaries;
   std::vector<std::tuple<int, int, int>> new_array_indexs;
   std::vector<int> new_args;
+  std::vector<IR::MemObject *> new_addrs;
   bool visited = false;
 
   GVNNode(DomTreeNode *dom_) : dom(dom_) {}
@@ -47,6 +48,8 @@ struct GVNContext {
   std::map<std::tuple<int, int, int>, int> array_index_values;
   // <scalar> -> <reg>
   std::map<int, int> arg_values;
+  // <IR::MemObject*> -> <reg>
+  std::map<IR::MemObject *, int> addr_values;
   GVNNode *entry;
   std::vector<std::vector<GVNInstr *>> uses;
   IR::NormalFunc *func;
@@ -231,6 +234,16 @@ struct GVNContext {
           arg_values[key] = la->d1.id;
           node->new_args.push_back(key);
         }
+      } else if (auto la = dynamic_cast<IR::LoadAddr *>(i->i)) {
+        auto key = la->offset;
+        if (addr_values.count(key)) {
+          i->removed = true;
+          assert(addr_values[key] != 0);
+          replace_same_value(la->d1.id, addr_values[key]);
+        } else {
+          addr_values[key] = la->d1.id;
+          node->new_addrs.push_back(key);
+        }
       }
     }
     for (auto out : outs) {
@@ -253,6 +266,9 @@ struct GVNContext {
     }
     for (auto new_arg : node->new_args) {
       assert(arg_values.erase(new_arg) == 1);
+    }
+    for (auto new_addr : node->new_addrs) {
+      assert(addr_values.erase(new_addr) == 1);
     }
   }
 
