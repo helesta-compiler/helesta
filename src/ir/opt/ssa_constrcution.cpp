@@ -131,7 +131,7 @@ void varaible_renaming(IR::NormalFunc *func, DomTreeContext *ctx,
 
 void ssa_construction(IR::NormalFunc *func,
                       const std::unordered_set<IR::Reg> &checking_regs) {
-  auto dom_ctx = dominator_tree(func);
+  auto dom_ctx = construct_dom_tree(func);
   std::unordered_set<IR::PhiInstr *> phis;
   // phase 0: construct defs
   auto reg_with_defs = construct_defs(dom_ctx.get(), checking_regs);

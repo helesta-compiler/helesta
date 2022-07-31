@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "common/common.hpp"
+#include "ir/scalar.hpp"
 
 namespace IR {
 using std::function;
@@ -336,33 +337,12 @@ private:
   }
 };
 
-struct scalar_t {
-  union {
-    int32_t i;
-    float f;
-  } data;
-  scalar_t() {}
-  scalar_t(int32_t i) { data.i = i; }
-  scalar_t(float f) { data.f = f; }
-  int32_t &int_value() { return data.i; }
-  float &float_value() { return data.f; }
-  int32_t int_value() const { return data.i; }
-  float float_value() const { return data.f; }
-};
-
 struct UnaryOp : Printable {
-  enum Type {
-    LNOT = 0,
-    NEG = 1,
-    ID = 2,
-    FNEG = 3,
-    F2I = 4,
-    I2F = 5,
-    F2D0 = 6,
-    F2D1 = 7,
-  } type;
-  scalar_t compute(scalar_t x);
-  UnaryOp(ScalarType _type, Type x) : type(x) {
+  UnaryCompute type;
+  typeless_scalar_t compute(typeless_scalar_t x) {
+    return IR::compute(type, x);
+  }
+  UnaryOp(ScalarType _type, UnaryCompute x) : type(x) {
     assert(input_type() == ScalarType::Int);
     assert(ret_type() == ScalarType::Int);
     switch (_type) {
@@ -370,11 +350,11 @@ struct UnaryOp : Printable {
       break;
     case ScalarType::Float:
       switch (type) {
-      case LNOT:
+      case UnaryCompute::LNOT:
         assert(0);
         break;
-      case NEG:
-        type = FNEG;
+      case UnaryCompute::NEG:
+        type = UnaryCompute::FNEG;
         break;
       default:
         assert(0);
@@ -384,14 +364,16 @@ struct UnaryOp : Printable {
       assert(0);
     }
   }
-  UnaryOp(Type x) : type(x) {}
+  UnaryOp(UnaryCompute x) : type(x) {}
   ScalarType input_type() {
-    return type == FNEG || type == F2I || type == F2D0 || type == F2D1
+    return type == UnaryCompute::FNEG || type == UnaryCompute::F2I ||
+                   type == UnaryCompute::F2D0 || type == UnaryCompute::F2D1
                ? ScalarType::Float
                : ScalarType::Int;
   }
   ScalarType ret_type() {
-    return type == FNEG || type == I2F || type == F2D0 || type == F2D1
+    return type == UnaryCompute::FNEG || type == UnaryCompute::I2F ||
+                   type == UnaryCompute::F2D0 || type == UnaryCompute::F2D1
                ? ScalarType::Float
                : ScalarType::Int;
   }
@@ -404,55 +386,37 @@ struct UnaryOp : Printable {
 };
 
 struct BinaryOp : Printable {
-  enum Type {
-    ADD = 0,
-    SUB = 1,
-    MUL = 2,
-    DIV = 3,
-    LESS = 4,
-    LEQ = 5,
-    EQ = 6,
-    NEQ = 7,
-    MOD = 8,
-    FADD = 9,
-    FSUB = 10,
-    FMUL = 11,
-    FDIV = 12,
-    FLESS = 13,
-    FLEQ = 14,
-    FEQ = 15,
-    FNEQ = 16,
-  } type;
-  BinaryOp(ScalarType _type, Type x) : type(x) {
+  BinaryCompute type;
+  BinaryOp(ScalarType _type, BinaryCompute x) : type(x) {
     assert(ret_type() == ScalarType::Int);
     switch (_type) {
     case ScalarType::Int:
       break;
     case ScalarType::Float:
       switch (type) {
-      case ADD:
-        type = FADD;
+      case BinaryCompute::ADD:
+        type = BinaryCompute::FADD;
         break;
-      case SUB:
-        type = FSUB;
+      case BinaryCompute::SUB:
+        type = BinaryCompute::FSUB;
         break;
-      case MUL:
-        type = FMUL;
+      case BinaryCompute::MUL:
+        type = BinaryCompute::FMUL;
         break;
-      case DIV:
-        type = FDIV;
+      case BinaryCompute::DIV:
+        type = BinaryCompute::FDIV;
         break;
-      case LESS:
-        type = FLESS;
+      case BinaryCompute::LESS:
+        type = BinaryCompute::FLESS;
         break;
-      case LEQ:
-        type = FLEQ;
+      case BinaryCompute::LEQ:
+        type = BinaryCompute::FLEQ;
         break;
-      case EQ:
-        type = FEQ;
+      case BinaryCompute::EQ:
+        type = BinaryCompute::FEQ;
         break;
-      case NEQ:
-        type = FNEQ;
+      case BinaryCompute::NEQ:
+        type = BinaryCompute::FNEQ;
         break;
       default:
         assert(0);
@@ -462,20 +426,26 @@ struct BinaryOp : Printable {
       assert(0);
     }
   }
-  BinaryOp(Type x) : type(x) {}
-  scalar_t compute(scalar_t x, scalar_t y);
+  BinaryOp(BinaryCompute x) : type(x) {}
+  typeless_scalar_t compute(typeless_scalar_t x, typeless_scalar_t y) {
+    return IR::compute(type, x, y);
+  }
+
   ScalarType input_type() {
-    return type == FLESS || type == FLEQ || type == FEQ || type == FNEQ
+    return type == BinaryCompute::FLESS || type == BinaryCompute::FLEQ ||
+                   type == BinaryCompute::FEQ || type == BinaryCompute::FNEQ
                ? ScalarType::Int
                : ret_type();
   }
   ScalarType ret_type() {
-    return type == FADD || type == FSUB || type == FMUL || type == FDIV
+    return type == BinaryCompute::FADD || type == BinaryCompute::FSUB ||
+                   type == BinaryCompute::FMUL || type == BinaryCompute::FDIV
                ? ScalarType::Float
                : ScalarType::Int;
   }
   bool comm() {
-    return type == ADD || type == MUL || type == EQ || type == NEQ;
+    return type == BinaryCompute::ADD || type == BinaryCompute::MUL ||
+           type == BinaryCompute::EQ || type == BinaryCompute::NEQ;
   }
   const char *get_name() const {
     static const char *names[] = {"+",      "-",     "*",     "/",     "<",
@@ -526,7 +496,7 @@ struct UnaryOpInstr : RegWriteInstr {
       : RegWriteInstr(d1), s1(s1), op(op) {}
   Reg s1;
   UnaryOp op;
-  scalar_t compute(scalar_t x);
+  typeless_scalar_t compute(typeless_scalar_t x);
   void print(ostream &os) const override;
 };
 
@@ -536,7 +506,7 @@ struct BinaryOpInstr : RegWriteInstr {
       : RegWriteInstr(d1), s1(s1), s2(s2), op(op) {}
   Reg s1, s2;
   BinaryOp op;
-  scalar_t compute(scalar_t x, scalar_t y);
+  typeless_scalar_t compute(typeless_scalar_t x, typeless_scalar_t y);
   void print(ostream &os) const override;
 };
 

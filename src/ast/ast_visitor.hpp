@@ -219,6 +219,24 @@ public:
   virtual antlrcpp::Any
   visitPrimaryExp2(SysYParser::PrimaryExp2Context *ctx) override;
 
+  template <typename Scalar>
+  antlrcpp::Any visitPrimaryExp3Generic(antlrcpp::Any literal_value) {
+    if (mode == compile_time) {
+      return CompileTimeValueAny(literal_value.as<Scalar>());
+    } else {
+      IR::Reg value = new_reg();
+      cur_bb->push(new IR::LoadConst(value, literal_value.as<Scalar>()));
+      auto scalar_type = ScalarType::Int;
+      if constexpr (std::is_same<Scalar, float>::value) {
+        scalar_type = ScalarType::Float;
+      }
+      IRValue ret(scalar_type);
+      ret.is_left_value = false;
+      ret.reg = value;
+      return ret;
+    }
+  }
+
   virtual antlrcpp::Any
   visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) override;
 

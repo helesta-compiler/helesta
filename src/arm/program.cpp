@@ -1,6 +1,7 @@
 #include "arm/program.hpp"
 
 #include <bitset>
+#include <cstring>
 #include <functional>
 #include <map>
 #include <memory>
@@ -50,8 +51,14 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Reg dst = info->from_ir_reg(loadconst->d1);
       func->constant_reg[dst] = loadconst->value;
       push_back(load_imm(dst, loadconst->value));
-    } else if (dynamic_cast<IR::LoadConst<float> *>(cur)) {
-      assert(0); // LoadConst<float> should be translate to load global variable
+    } else if (auto loadconst = dynamic_cast<IR::LoadConst<float> *>(cur)) {
+      int as_int;
+      memcpy(&as_int, &loadconst->value, sizeof(float));
+      auto tmp = info->new_reg();
+      Reg dst = info->from_ir_reg(loadconst->d1);
+      func->constant_reg[tmp] = as_int;
+      push_back(load_imm(tmp, as_int));
+      push_back(std::make_unique<MoveReg>(dst, tmp));
     } else if (auto loadarg = dynamic_cast<IR::LoadArg *>(cur)) {
       push_back(make_unique<MoveReg>(info->from_ir_reg(loadarg->d1),
                                      func->arg_reg[loadarg->id]));
@@ -59,26 +66,26 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Reg dst = info->from_ir_reg(unary->d1),
           src = info->from_ir_reg(unary->s1);
       switch (unary->op.type) {
-      case IR::UnaryOp::LNOT:
+      case IR::UnaryCompute::LNOT:
         push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
         push_back(make_unique<RegImmCmp>(RegImmCmp::Cmp, src, 0));
         push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1), Eq));
         // TODO: this can be done better with "rsbs dst, src, #0; adc dst,
         // src, dst" or "clz dst, src; lsr dst, dst, #5"
         break;
-      case IR::UnaryOp::NEG:
+      case IR::UnaryCompute::NEG:
         push_back(make_unique<RegImmInst>(RegImmInst::RevSub, dst, src, 0));
         break;
-      case IR::UnaryOp::FNEG:
+      case IR::UnaryCompute::FNEG:
         info->set_float(dst);
         info->set_float(src);
         push_back(make_unique<FRegInst>(FRegInst::Neg, dst, src));
         break;
-      case IR::UnaryOp::ID:
+      case IR::UnaryCompute::ID:
         info->set_maybe_float_assign(dst, src);
         push_back(make_unique<MoveReg>(dst, src));
         break;
-      case IR::UnaryOp::I2F: {
+      case IR::UnaryCompute::I2F: {
         Reg tmp = info->new_reg();
         info->set_float(dst);
         info->set_float(tmp);
@@ -86,7 +93,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(make_unique<FRegInst>(FRegInst::I2F, dst, tmp));
         break;
       }
-      case IR::UnaryOp::F2I: {
+      case IR::UnaryCompute::F2I: {
         Reg tmp = info->new_reg();
         info->set_float(src);
         info->set_float(tmp);
@@ -94,12 +101,12 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(make_unique<MoveReg>(dst, tmp));
         break;
       }
-      case IR::UnaryOp::F2D0:
+      case IR::UnaryCompute::F2D0:
         info->set_float(dst);
         info->set_float(src);
         push_back(make_unique<FRegInst>(FRegInst::F2D0, dst, src));
         break;
-      case IR::UnaryOp::F2D1:
+      case IR::UnaryCompute::F2D1:
         info->set_float(dst);
         info->set_float(src);
         push_back(make_unique<FRegInst>(FRegInst::F2D1, dst, src));
@@ -111,25 +118,25 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Reg dst = info->from_ir_reg(binary->d1),
           s1 = info->from_ir_reg(binary->s1),
           s2 = info->from_ir_reg(binary->s2);
-      if (binary->op.type == IR::BinaryOp::ADD ||
-          binary->op.type == IR::BinaryOp::SUB ||
-          binary->op.type == IR::BinaryOp::MUL ||
-          binary->op.type == IR::BinaryOp::DIV) {
+      if (binary->op.type == IR::BinaryCompute::ADD ||
+          binary->op.type == IR::BinaryCompute::SUB ||
+          binary->op.type == IR::BinaryCompute::MUL ||
+          binary->op.type == IR::BinaryCompute::DIV) {
         push_back(make_unique<RegRegInst>(
             RegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
-      } else if (binary->op.type == IR::BinaryOp::FADD ||
-                 binary->op.type == IR::BinaryOp::FSUB ||
-                 binary->op.type == IR::BinaryOp::FMUL ||
-                 binary->op.type == IR::BinaryOp::FDIV) {
+      } else if (binary->op.type == IR::BinaryCompute::FADD ||
+                 binary->op.type == IR::BinaryCompute::FSUB ||
+                 binary->op.type == IR::BinaryCompute::FMUL ||
+                 binary->op.type == IR::BinaryCompute::FDIV) {
         info->set_float(dst);
         info->set_float(s1);
         info->set_float(s2);
         push_back(make_unique<FRegRegInst>(
             FRegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
-      } else if (binary->op.type == IR::BinaryOp::LESS ||
-                 binary->op.type == IR::BinaryOp::LEQ ||
-                 binary->op.type == IR::BinaryOp::EQ ||
-                 binary->op.type == IR::BinaryOp::NEQ) {
+      } else if (binary->op.type == IR::BinaryCompute::LESS ||
+                 binary->op.type == IR::BinaryCompute::LEQ ||
+                 binary->op.type == IR::BinaryCompute::EQ ||
+                 binary->op.type == IR::BinaryCompute::NEQ) {
         push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
         push_back(make_unique<RegRegCmp>(RegRegCmp::Cmp, s1, s2));
         push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1),
@@ -138,10 +145,10 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         cmp_info[dst].lhs = s1;
         cmp_info[dst].rhs = s2;
         cmp_info[dst].is_float = 0;
-      } else if (binary->op.type == IR::BinaryOp::FLESS ||
-                 binary->op.type == IR::BinaryOp::FLEQ ||
-                 binary->op.type == IR::BinaryOp::FEQ ||
-                 binary->op.type == IR::BinaryOp::FNEQ) {
+      } else if (binary->op.type == IR::BinaryCompute::FLESS ||
+                 binary->op.type == IR::BinaryCompute::FLEQ ||
+                 binary->op.type == IR::BinaryCompute::FEQ ||
+                 binary->op.type == IR::BinaryCompute::FNEQ) {
         info->set_float(s1);
         info->set_float(s2);
         push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
@@ -152,7 +159,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         cmp_info[dst].lhs = s1;
         cmp_info[dst].rhs = s2;
         cmp_info[dst].is_float = 1;
-      } else if (binary->op.type == IR::BinaryOp::MOD) {
+      } else if (binary->op.type == IR::BinaryCompute::MOD) {
         Reg k = info->new_reg();
         push_back(make_unique<RegRegInst>(RegRegInst::Div, k, s1, s2));
         push_back(make_unique<ML>(ML::Mls, dst, s2, k, s1));
@@ -255,9 +262,22 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
           s1 = info->from_ir_reg(array_index->s1),
           s2 = info->from_ir_reg(array_index->s2);
       // TODO: optimize when size=2^k
-      Reg step = info->new_reg();
-      push_back(load_imm(step, array_index->size));
-      push_back(make_unique<ML>(ML::Mla, dst, s2, step, s1));
+      if (func->constant_reg.count(s2)) {
+        int32_t v2 = func->constant_reg[s2] * array_index->size;
+        if (is_legal_immediate(v2)) {
+          push_back(make_unique<RegImmInst>(RegImmInst::Add, dst, s1, v2));
+          continue;
+        }
+      }
+
+      if (array_index->size == 4) {
+        push_back(make_unique<RegRegInst>(RegRegInst::Add, dst, s1, s2,
+                                          Shift(Shift::LSL, 2)));
+      } else {
+        Reg step = info->new_reg();
+        push_back(load_imm(step, array_index->size));
+        push_back(make_unique<ML>(ML::Mla, dst, s2, step, s1));
+      }
     } else if (dynamic_cast<IR::PhiInstr *>(cur)) {
       // do nothing
     } else
@@ -420,6 +440,207 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
           r->is_float = float_regs.count(*r);
       }
     }
+  }
+  merge_inst();
+  dce();
+}
+
+std::pair<int64_t, int> div_opt(int32_t A0) {
+  int ex = __builtin_ctz(A0);
+  int32_t A = A0 >> ex;
+  int64_t L = 1ll << 32;
+  int log2L = 32;
+  while (L / (A - L % A) < (1ll << 31))
+    L <<= 1, ++log2L;
+  int64_t B = L / A + 1;
+  int s = ex + log2L - 32;
+  assert(0 <= B && B < (1ll << 32));
+  // std::cerr << ">>> div_any: " << A0 << ' ' << B << ' ' << s << std::endl;
+  return {B, s};
+}
+
+void Func::merge_inst() {
+  for (auto &block : blocks) {
+    auto &insts = block->insts;
+    for (auto it = insts.begin(); it != insts.end(); ++it) {
+      visit(insts, it);
+      Inst *inst = it->get();
+      if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
+        if (bop->shift.w)
+          continue;
+        if (!constant_reg.count(bop->rhs))
+          continue;
+        int32_t v = constant_reg[bop->rhs];
+        switch (bop->op) {
+        case RegRegInst::Add:
+        case RegRegInst::Sub: {
+          auto op =
+              bop->op == RegRegInst::Add ? RegImmInst::Add : RegImmInst::Sub;
+          if (is_legal_immediate(v)) {
+            RegImm(op, bop->dst, bop->lhs, v);
+            Del();
+          }
+          break;
+        }
+        case RegRegInst::Mul: {
+          if (v <= 1)
+            break;
+          int32_t log2v = __builtin_ctz(v);
+          int32_t v0 = 1 << log2v;
+          if (v == v0) {
+            RegImm(RegImmInst::Lsl, bop->dst, bop->lhs, log2v);
+            Del();
+          } else if (__builtin_popcount(v - v0) == 1) {
+            int32_t s = __builtin_ctz(v - v0);
+            RegReg(RegRegInst::Add, bop->dst, bop->lhs, bop->lhs,
+                   Shift(Shift::LSL, s - log2v));
+            if (log2v)
+              RegImm(RegImmInst::Lsl, bop->dst, bop->dst, log2v);
+            Del();
+          } else if (__builtin_popcount(v + v0) == 1) {
+            int32_t s = __builtin_ctz(v + v0);
+            RegReg(RegRegInst::RevSub, bop->dst, bop->lhs, bop->lhs,
+                   Shift(Shift::LSL, s - log2v));
+            if (log2v)
+              RegImm(RegImmInst::Lsl, bop->dst, bop->dst, log2v);
+            Del();
+          }
+          break;
+        }
+        case RegRegInst::Div:
+          if (v > 1 && v == (v & -v)) {
+            int32_t log2v = __builtin_ctz(v);
+            assert(v == (1 << log2v));
+            auto r0 = bop->lhs;
+            auto r1 = bop->dst;
+            auto r2 = bop->dst;
+            if (v == 2) {
+              RegReg(RegRegInst::Add, r2, r0, r0, Shift(Shift::LSR, 31));
+            } else {
+              RegImm(RegImmInst::Asr, r1, r0, 31);
+              RegReg(RegRegInst::Add, r2, r0, r1,
+                     Shift(Shift::LSR, 32 - log2v));
+            }
+            RegImm(RegImmInst::Asr, bop->dst, r2, log2v);
+            Del();
+          } else if (v > 1) {
+            auto [B, s] = div_opt(v);
+            Reg lo = Reg{r4};
+            Reg hi = Reg{r5};
+            int32_t B0 = B & 0x7fffffff;
+            Reg x = bop->lhs;
+            Ins(load_imm(lo, B0));
+            Ins(new SMulL(lo, hi, x, lo));
+            if (B & (1ll << 31)) {
+              RegReg(RegRegInst::Add, hi, hi, x, Shift(Shift::ASR, 1));
+              RegReg(RegRegInst::And, lo, x, lo, Shift(Shift::LSR, 31));
+              RegReg(RegRegInst::Add, hi, hi, lo);
+            }
+            RegImm(RegImmInst::Asr, bop->dst, hi, s);
+            RegReg(RegRegInst::Add, bop->dst, bop->dst, hi,
+                   Shift(Shift::LSR, 31));
+            Del();
+          }
+          break;
+        case RegRegInst::Mod:
+          if (v > 1 && v == (v & -v)) {
+            int32_t log2v = __builtin_ctz(v);
+            assert(v == (1 << log2v));
+            auto r0 = bop->lhs;
+            auto r1 = bop->dst;
+            auto r2 = bop->dst;
+            auto r3 = bop->dst;
+            if (v == 2) {
+              RegReg(RegRegInst::Add, r2, r0, r0, Shift(Shift::LSR, 31));
+            } else {
+              RegImm(RegImmInst::Asr, r1, r0, 31);
+              RegReg(RegRegInst::Add, r2, r0, r1,
+                     Shift(Shift::LSR, 32 - log2v));
+            }
+            if (is_legal_immediate(v - 1)) {
+              RegImm(RegImmInst::Bic, r3, r2, v - 1);
+              RegReg(RegRegInst::Sub, bop->dst, r0, r3);
+            } else {
+              RegImm(RegImmInst::Lsr, r3, r2, log2v);
+              RegReg(RegRegInst::Sub, bop->dst, r0, r3,
+                     Shift(Shift::LSL, log2v));
+            }
+            Del();
+          } else if (v > 1) {
+            auto [B, s] = div_opt(v);
+            Reg lo = Reg{r4};
+            Reg hi = Reg{r5};
+            int32_t B0 = B & 0x7fffffff;
+            Reg x = bop->lhs;
+            Ins(load_imm(lo, B0));
+            Ins(new SMulL(lo, hi, x, lo));
+            if (B & (1ll << 31)) {
+              RegReg(RegRegInst::Add, hi, hi, x, Shift(Shift::ASR, 1));
+              RegReg(RegRegInst::And, lo, x, lo, Shift(Shift::LSR, 31));
+              RegReg(RegRegInst::Add, hi, hi, lo);
+            }
+            RegImm(RegImmInst::Asr, bop->dst, hi, s);
+            RegReg(RegRegInst::Add, bop->dst, bop->dst, hi,
+                   Shift(Shift::LSR, 31));
+            Ins(load_imm(lo, v));
+            RegReg(RegRegInst::Mul, bop->dst, bop->dst, lo);
+            RegReg(RegRegInst::Sub, bop->dst, x, bop->dst);
+            Del();
+          }
+          break;
+        default:
+          break;
+        }
+      }
+    }
+  }
+  for (auto &block : blocks) {
+    auto &insts = block->insts;
+    for (auto it = insts.begin(); it != insts.end(); ++it) {
+      Inst *inst = it->get();
+      if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
+        if (bop->op == RegRegInst::Mod) {
+          auto dst = bop->dst;
+          auto s1 = bop->lhs;
+          auto s2 = bop->rhs;
+          insts.insert(it,
+                       make_unique<RegRegInst>(RegRegInst::Div, dst, s1, s2));
+          *it = make_unique<ML>(ML::Mls, dst, s2, dst, s1);
+        }
+      }
+    }
+  }
+}
+
+template <class T, class F>
+void reverse_for_each_del(std::list<T> &ls, const F &f) {
+  for (auto it = ls.end(); it != ls.begin();) {
+    auto it0 = it;
+    if (f(*--it)) {
+      ls.erase(it);
+      it = it0;
+    }
+  }
+}
+
+void Func::dce() {
+  calc_live();
+  for (auto &block : blocks) {
+    auto live = block->live_out;
+    bool use_cpsr = false;
+    reverse_for_each_del(block->insts, [&](std::unique_ptr<Inst> &cur) -> bool {
+      bool used = cur->side_effect();
+      used |= (cur->change_cpsr() && use_cpsr);
+      for (Reg r : cur->def_reg())
+        if ((r.is_machine() && !allocable(r.id)) || live.count(r))
+          used = true;
+      if (!used)
+        return 1;
+      use_cpsr &= !cur->change_cpsr();
+      use_cpsr |= cur->use_cpsr();
+      cur->update_live(live);
+      return 0;
+    });
   }
 }
 

@@ -2,6 +2,7 @@
 
 #include "arm/program.hpp"
 #include "common/common.hpp"
+#include "ir/scalar.hpp"
 
 using std::list;
 using std::make_unique;
@@ -94,19 +95,19 @@ ostream &operator<<(ostream &os, const InstCond &cond) {
   return os;
 }
 
-InstCond from_ir_binary_op(IR::BinaryOp::Type op) {
+InstCond from_ir_binary_op(IR::BinaryCompute op) {
   switch (op) {
-  case IR::BinaryOp::LEQ:
-  case IR::BinaryOp::FLEQ:
+  case IR::BinaryCompute::LEQ:
+  case IR::BinaryCompute::FLEQ:
     return Le;
-  case IR::BinaryOp::LESS:
-  case IR::BinaryOp::FLESS:
+  case IR::BinaryCompute::LESS:
+  case IR::BinaryCompute::FLESS:
     return Lt;
-  case IR::BinaryOp::EQ:
-  case IR::BinaryOp::FEQ:
+  case IR::BinaryCompute::EQ:
+  case IR::BinaryCompute::FEQ:
     return Eq;
-  case IR::BinaryOp::NEQ:
-  case IR::BinaryOp::FNEQ:
+  case IR::BinaryCompute::NEQ:
+  case IR::BinaryCompute::FNEQ:
     return Ne;
   default:
     unreachable();
@@ -181,6 +182,9 @@ void RegRegInst::gen_asm(ostream &out, AsmContext *) {
   case RevSub:
     out << "rsb";
     break;
+  case And:
+    out << "and";
+    break;
   default:
     unreachable();
   }
@@ -222,8 +226,20 @@ void ML::gen_asm(ostream &out, AsmContext *) {
     out << "mls";
   else
     unreachable();
-  // TODO:check reg type
+  assert(!dst.is_float);
+  assert(!s1.is_float);
+  assert(!s2.is_float);
+  assert(!s3.is_float);
   out << cond << ' ' << dst << ',' << s1 << ',' << s2 << ',' << s3 << '\n';
+}
+
+void SMulL::gen_asm(ostream &out, AsmContext *) {
+  assert(!d1.is_float);
+  assert(!d2.is_float);
+  assert(!s1.is_float);
+  assert(!s2.is_float);
+  out << "smull" << cond << ' ' << d1 << ',' << d2 << ',' << s1 << ',' << s2
+      << '\n';
 }
 
 void RegImmInst::gen_asm(ostream &out, AsmContext *) {
@@ -236,6 +252,18 @@ void RegImmInst::gen_asm(ostream &out, AsmContext *) {
     break;
   case RevSub:
     out << "rsb";
+    break;
+  case Lsl:
+    out << "lsl";
+    break;
+  case Lsr:
+    out << "lsr";
+    break;
+  case Asr:
+    out << "asr";
+    break;
+  case Bic:
+    out << "bic";
     break;
   default:
     unreachable();

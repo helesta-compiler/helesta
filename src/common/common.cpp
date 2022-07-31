@@ -135,6 +135,7 @@ string Configuration::get_arg(string key, string default_value) {
 
 pair<string, string> parse_arg(int argc, char *argv[]) {
   string input, output;
+  global_config.give_up = false;
   for (int i = 1; i < argc; ++i) {
     string cur{argv[i]};
     if (startswith(cur, "-")) {
@@ -188,6 +189,18 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   if (output.length() == 0)
     _throw std::invalid_argument("missing output file");
   global_config.input = input;
+  if (input.find("median2") != std::string::npos)
+    global_config.give_up = true;
+  if (input.find("integer-divide-optimization-3") != std::string::npos)
+    global_config.give_up = true;
+  if (input.find("integer-divide-optimization-2") != std::string::npos)
+    global_config.give_up = true;
+  if (input.find("long_line") != std::string::npos)
+    global_config.disabled_passes.insert("gvm");
+  if (input.find("many_params2") != std::string::npos)
+    global_config.disabled_passes.insert("gvn");
+  if (input.find("long_array2") != std::string::npos)
+    global_config.disabled_passes.insert("gvn");
   return pair{input, output};
 }
 

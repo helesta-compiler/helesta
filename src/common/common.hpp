@@ -42,6 +42,7 @@ struct Configuration {
   std::string input;
   std::set<std::string> disabled_passes;
   std::map<std::string, std::string> args;
+  bool give_up;
 
   Configuration(); // for default setting
   std::string get_arg(std::string key, std::string default_value);
