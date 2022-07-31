@@ -9,6 +9,13 @@ struct GVNInstr {
   IR::Instr *i;
   GVNNode *node;
   bool removed = false;
+  void setLoadConst(IR::Reg d1, IR::typed_scalar_t computed) {
+    if (std::holds_alternative<int32_t>(computed)) {
+      i = new IR::LoadConst<int32_t>(d1, std::get<int32_t>(computed));
+    } else if (std::holds_alternative<float>(computed)) {
+      i = new IR::LoadConst<float>(d1, std::get<float>(computed));
+    }
+  }
 };
 
 struct GVNNode : Traversable<GVNNode>, TreeNode<GVNNode> {
@@ -137,6 +144,7 @@ struct GVNContext {
             assert(unary->d1.id != 0);
             scalar_reg_by_value[computed] = unary->d1.id;
             scalar_value_by_reg[unary->d1.id] = computed;
+            i->setLoadConst(unary->d1, computed);
             node->new_scalars.push_back(computed);
             node->new_const_regs.push_back(unary->d1.id);
           }
@@ -171,6 +179,7 @@ struct GVNContext {
             assert(binary->d1.id != 0);
             scalar_reg_by_value[computed] = binary->d1.id;
             scalar_value_by_reg[binary->d1.id] = computed;
+            i->setLoadConst(binary->d1, computed);
             node->new_scalars.push_back(computed);
             node->new_const_regs.push_back(binary->d1.id);
           }
