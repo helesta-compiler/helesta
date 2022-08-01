@@ -28,7 +28,9 @@ jobs:
         username: pi
         insecure_password: ${{ secrets.PASSWORD }}
         port: 2004
-        source: "testcases,scripts/test_all.py"
+        source: |
+          testcases
+          scripts/test_all.py
         target: "github-action"
         proxy_host: ${{ secrets.HOST }}
         insecure_proxy_password: ${{ secrets.PASSWORD }}
