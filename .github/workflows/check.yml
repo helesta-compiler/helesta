@@ -26,12 +26,12 @@ jobs:
         direction: upload
         host: localhost
         username: pi
-        password: ${{ secrets.PASSWORD }}
+        insecure_password: ${{ secrets.PASSWORD }}
         port: 2004
         source: "testcases,scripts/test_all.py"
         target: "github-action"
         proxy_host: ${{ secrets.HOST }}
-        proxy_password: ${{ secrets.PASSWORD }}
+        insecure_proxy_password: ${{ secrets.PASSWORD }}
         proxy_username: helesta 
       
     - name: Run Testcases
@@ -56,12 +56,12 @@ jobs:
         direction: download
         host: localhost
         username: pi
-        password: ${{ secrets.PASSWORD }}
+        insecure_password: ${{ secrets.PASSWORD }}
         port: 2004
         source: "/home/pi/github-action/summary.md"
         target: "summary.md"
         proxy_host: ${{ secrets.HOST }}
-        proxy_password: ${{ secrets.PASSWORD }}
+        insecure_proxy_password: ${{ secrets.PASSWORD }}
         proxy_username: helesta 
 
     - name: Post Summary
