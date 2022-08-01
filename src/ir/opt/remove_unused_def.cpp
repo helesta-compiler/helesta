@@ -51,6 +51,7 @@ void remove_unused_bb(IR::NormalFunc *func) {
   queue.push_back(func->entry);
   while (!queue.empty()) {
     auto b = queue.front();
+    queue.pop_front();
     std::vector<IR::BB *> out_nodes = b->getOutNodes();
     for (auto target : out_nodes) {
       if (used_bb.find(target) != used_bb.end()) {
