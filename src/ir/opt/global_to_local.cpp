@@ -16,6 +16,8 @@ void global_to_local(IR::CompileUnit *ir) {
     if (do_not_opt.find(mem.get()) != do_not_opt.end()) {
       continue;
     }
+    if (!mem->is_single_var())
+      continue;
     auto raw = mem.release();
     raw->global = false;
     main->scope.add(raw);
