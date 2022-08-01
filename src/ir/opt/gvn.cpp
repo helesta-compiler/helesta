@@ -254,6 +254,16 @@ struct GVNContext {
           addr_values[key] = la->d1.id;
           node->new_addrs.push_back(key);
         }
+      } else if (auto phi = dynamic_cast<IR::PhiInstr *>(i->i)) {
+        bool useless = 1;
+        for (auto &u : phi->uses) {
+          useless &= (u.first == phi->uses[0].first);
+        }
+        if (useless) {
+          i->removed = true;
+          assert(!phi->uses.empty());
+          replace_same_value(phi->d1.id, phi->uses[0].first.id);
+        }
       }
     }
     for (auto out : outs) {
