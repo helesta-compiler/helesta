@@ -52,13 +52,27 @@ void remove_unused_bb(IR::NormalFunc *func) {
   while (!queue.empty()) {
     auto b = queue.front();
     queue.pop_front();
-    std::vector<IR::BB *> out_nodes = b->getOutNodes();
-    for (auto target : out_nodes) {
-      if (used_bb.find(target) != used_bb.end()) {
-        continue;
+    if (auto last_inst = dynamic_cast<IR::ControlInstr*>(b->back())) {
+      std::vector<IR::BB *> out_nodes = b->getOutNodes();
+      for (auto target : out_nodes) {
+        if (used_bb.find(target) != used_bb.end()) {
+          continue;
+        }
+        used_bb.insert(target);
+        queue.push_back(target);
       }
-      used_bb.insert(target);
-      queue.push_back(target);
+    } else {
+      int next_id = b->id + 1;
+      for(auto it = func->bbs.begin(); it!= func->bbs.end(); ++it) {
+        IR::BB* tmp_bb = (*it).get();
+        if(tmp_bb->id == next_id) {
+          if(used_bb.find(tmp_bb)==used_bb.end()) {
+            used_bb.insert(tmp_bb);
+            queue.push_back(tmp_bb);
+          }
+          break;
+        }
+      }
     }
   }
   for (auto it = func->bbs.begin(); it != func->bbs.end();) {
