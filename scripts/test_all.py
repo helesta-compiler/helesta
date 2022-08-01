@@ -1,7 +1,7 @@
 import os
 import subprocess
 import argparse
-import resource
+import time
 import markdowngenerator
 
 def parse_args():
@@ -15,14 +15,14 @@ def parse_args():
 
 def run(exe_path, in_path):
     child = None
-    start = resource.getrusage(resource.RUSAGE_CHILDREN)
+    start = time.time()
     if os.path.exists(in_path):
         with open(in_file) as f:
             child = subprocess.Popen(exe_path.split(), stdout=subprocess.PIPE, stdin=f)
     else:
         child = subprocess.Popen(exe_path.split(), stdout=subprocess.PIPE)
     out, _ = child.communicate()
-    end = resource.getrusage(resource.RUSAGE_CHILDREN)
+    end = time.time()
     out = out.decode("utf-8")
     out = out.strip("\n\r")
     out += "\n" + str(child.returncode)
@@ -46,6 +46,8 @@ if __name__ == '__main__':
     for mod in os.listdir(args.testcase_path):
         mod_path = os.path.join(args.testcase_path, mod)
         if args.benchmark and mod != "performance":
+            continue
+        if not args.benchmark and mod == "performance":
             continue
         for testcase in os.listdir(mod_path):
             if not testcase.endswith(".sy"):
