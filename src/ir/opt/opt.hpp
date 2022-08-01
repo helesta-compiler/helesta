@@ -11,8 +11,9 @@ void global_value_numbering(IR::CompileUnit *);
 void simplify_load_store(IR::CompileUnit *);
 
 inline void optimize_ir(IR::CompileUnit *ir) {
-  if (global_config.disabled_passes.find("func-inline") == gloabl_config.disabled_passes.end()){
-  func_inline(ir);
+  if (global_config.disabled_passes.find("func-inline") ==
+      global_config.disabled_passes.end()) {
+    func_inline(ir);
   }
   mem2reg(ir);
   // std::cerr << "end func inline" << std::endl;
