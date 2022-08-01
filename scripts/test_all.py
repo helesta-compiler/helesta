@@ -33,7 +33,7 @@ def run_with(compiler, src_path, in_path, lib_path, include_path):
     print("benchmark {} with {}".format(src_file, compiler))
     obj_path = "/tmp/tmp.o"
     exe_path = "/tmp/exe"
-    compile_cmd = "{} -x c {} -include {} -c -o {} -O2".format(compiler, src_file, include_path, obj_path)
+    compile_cmd = "{} -x c++ {} -include {} -c -o {} -O2".format(compiler, src_file, include_path, obj_path)
     child = subprocess.Popen(compile_cmd.split(), stdout=subprocess.PIPE)
     child.communicate()
     link_cmd = "{} {} {} -o {}".format(compiler, obj_path, lib_path, exe_path)
@@ -59,33 +59,38 @@ if __name__ == '__main__':
             src_file = os.path.join(mod_path, testcase + ".sy")
             out_file = os.path.join(mod_path, testcase + ".out")
             exe_file = os.path.join(mod_path, testcase)
-            link_cmd = "g++ {} {} -o {}".format(asm_file, args.lib_path, exe_file)
-            run_cmd = "{}".format(exe_file)
-            print(link_cmd)
-            child = subprocess.Popen(link_cmd.split(), stdout=subprocess.PIPE)
-            child.communicate()
-            print(run_cmd)
-            out, elapsed = run(run_cmd, in_file)
-            os.remove(asm_file)
-            out = out.strip()
             std = None
-            with open(out_file) as stdout:
-                std = stdout.read()
-                std = std.strip()
-            if out != std:
-                print("my output: \n{}\nstd output: \n{}".format(out, std))
+            out = None
+            if os.path.exists(asm_file):
+                link_cmd = "g++ {} {} -o {}".format(asm_file, args.lib_path, exe_file)
+                run_cmd = "{}".format(exe_file)
+                print(link_cmd)
+                child = subprocess.Popen(link_cmd.split(), stdout=subprocess.PIPE)
+                child.communicate()
+                print(run_cmd)
+                out, elapsed = run(run_cmd, in_file)
+                os.remove(asm_file)
+                out = out.strip()
+                with open(out_file) as stdout:
+                    std = stdout.read()
+                    std = std.strip()
+                if out != std:
+                    print("my output: \n{}\nstd output: \n{}".format(out, std))
+                    if not args.benchmark:
+                        exit(1)
+                else:
+                    print("[{}] passed".format(testcase))
+            else:
                 if not args.benchmark:
                     exit(1)
-            else:
-                print("[{}] passed".format(testcase))
             if args.benchmark:
                 result = {}
                 result['testcase'] = testcase
-                result['passed'] = out == std
+                result['passed'] = (out is not None) and (out == std)
                 result['helesta elapsed'] = elapsed
-                _, elapsed = run_with('gcc', src_file, in_file, args.lib_path, args.include_path)
+                _, elapsed = run_with('g++', src_file, in_file, args.lib_path, args.include_path)
                 result['gcc elapsed'] = elapsed
-                _, elapsed = run_with('clang', src_file, in_file, args.lib_path, args.include_path)
+                _, elapsed = run_with('clang++', src_file, in_file, args.lib_path, args.include_path)
                 result['clang elapsed'] = elapsed
                 results.append(result)
     if not args.benchmark:
