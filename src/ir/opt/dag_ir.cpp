@@ -2,29 +2,6 @@
 #include "ir/opt/opt.hpp"
 using namespace IR;
 
-template <class T> struct reverse_view {
-  T &x;
-  reverse_view(T &_x) : x(_x) {}
-  auto begin() { return x.rbegin(); }
-  auto end() { return x.rend(); }
-};
-template <class T> struct enumerate {
-  T &x;
-  enumerate(T &_x) : x(_x) {}
-  struct iterator {
-    typename T::iterator x;
-    size_t y;
-    bool operator!=(const iterator &it) const { return x != it.x; }
-    std::pair<decltype(*x), size_t> operator*() const { return {*x, y}; }
-    void operator++() {
-      ++x;
-      ++y;
-    }
-  };
-  auto begin() { return iterator{x.begin(), 0}; }
-  auto end() { return iterator{x.end(), x.size()}; }
-};
-
 struct DAG_IR {
   NormalFunc *func;
   std::unique_ptr<DomTreeContext> dom;

@@ -22,6 +22,8 @@ struct CallGraph {
   struct Info {
     bool visited = 0, no_store = 1, no_load = 1;
     std::vector<CallInstr *> calls;
+    std::vector<std::pair<NormalFunc *, CallInstr *>> called;
+    std::map<Reg, RegWriteInstr *> defs;
   };
   std::map<NormalFunc *, Info> info;
   std::pair<bool, bool> isPure(NormalFunc *f) {
@@ -53,7 +55,8 @@ struct CallGraph {
     // std::cerr << f->name << "  pure?  " << fi.no_store << fi.no_load << '\n';
     return {fi.no_store, fi.no_load};
   }
-  CallGraph(CompileUnit *ir) {
+  CompileUnit *ir;
+  CallGraph(CompileUnit *_ir) : ir(_ir) {
     ir->for_each([&](NormalFunc *f) {
       auto &fi = info[f];
       f->for_each([&](Instr *x) {
@@ -71,101 +74,75 @@ struct CallGraph {
         }
       });
     });
+    ir->for_each([&](NormalFunc *f) {
+      auto &fi = info[f];
+      fi.defs = build_defs(f);
+      for (auto call : fi.calls) {
+        Case(NormalFunc, f0, call->f) { info[f0].called.emplace_back(f, call); }
+      }
+    });
+  }
+  void buildPure() {
     ir->for_each([&](NormalFunc *f) { isPure(f); });
   }
-};
-
-void inference_pure_call(CompileUnit *ir) { CallGraph cg(ir); }
-/*
-struct SimplifyLoadStore {
-  NormalFunc *func;
-  std::map<Reg, RegWriteInstr *> defs;
-  std::map<BB *, std::vector<BB *>> prev;
-  size_t cnt = 0, dse_cnt = 0;
-
-  struct LoadStoreCache {
-    bool visited = 0;
-    std::map<Reg, Reg> lives;
-  };
-  std::map<BB *, LoadStoreCache> bb_cache;
-
-  LoadStoreCache &getLoadStoreCache(BB *bb) {
-    auto &w = bb_cache[bb];
-    if (w.visited)
-      return w;
-    w.visited = 1;
-    if (prev[bb].size() == 1) {
-      BB *fa = prev[bb][0];
-      auto &w0 = getLoadStoreCache(fa);
-      w.lives = w0.lives;
-    }
-    for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
-      Instr *x = it->get();
-      Case(LoadInstr, ld, x) {
-        if (w.lives.count(ld->addr)) {
-          *it = std::make_unique<UnaryOpInstr>(ld->d1, w.lives[ld->addr],
-                                               UnaryCompute::ID);
-          ++cnt;
-        } else {
-          w.lives[ld->addr] = ld->d1;
+  void constProp() {
+    size_t cnt = 0;
+    ir->for_each([&](NormalFunc *f) {
+      auto &fi = info[f];
+      if (fi.called.size() == 1) {
+        auto [f0, call] = fi.called[0];
+        auto &defs = info[f0].defs;
+        std::vector<std::pair<int32_t, int>> args(call->args.size(), {0, 0});
+        std::map<Reg, int> same_arg;
+        size_t used_arg = 0;
+        bool flag = 0;
+        for (auto [r, id] : enumerate(call->args)) {
+          auto rw = defs.at(r);
+          Case(LoadConst<int32_t>, lc, rw) {
+            flag = 1;
+            args[id] = {lc->value, 1};
+          }
+          else if (same_arg.count(r)) {
+            flag = 1;
+            args[id] = {same_arg[r], 2};
+          }
+          else {
+            same_arg[r] = id;
+            args[id] = {id, 0};
+            used_arg = id + 1;
+          }
         }
+        if (!flag)
+          return;
+        call->args.resize(used_arg);
+        f->for_each([&](BB *bb) {
+          for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
+            auto x = it->get();
+            Case(LoadArg, la, x) {
+              auto [v, type] = args.at(la->id);
+              if (type == 2) {
+                la->id = v;
+                ++cnt;
+              } else if (type == 1) {
+                Reg d1 = la->d1;
+                auto lc = new LoadConst<int32_t>(d1, v);
+                *it = std::unique_ptr<Instr>(lc);
+                info[f].defs.at(d1) = lc;
+                ++cnt;
+              }
+            }
+          }
+        });
       }
-      else Case(StoreInstr, st, x) {
-        w.lives.clear();
-        w.lives[st->addr] = st->s1;
-      }
-      else Case(CallInstr, _, x) {
-        (void)_;
-        w.lives.clear();
-      }
-    }
-
-    return w;
-  }
-
-  void dse(BB *bb) {
-    std::set<Reg> stores;
-    for (auto it = bb->instrs.end(); it != bb->instrs.begin();) {
-      auto it0 = it;
-      --it;
-      Instr *x = it->get();
-      Case(LoadInstr, _, x) {
-        stores.clear();
-        (void)_;
-      }
-      else Case(StoreInstr, st, x) {
-        if (!stores.insert(st->addr).second) {
-          ++dse_cnt;
-          bb->instrs.erase(it);
-          it = it0;
-        }
-      }
-      else Case(CallInstr, _, x) {
-        stores.clear();
-        (void)_;
-      }
-    }
-  }
-
-  SimplifyLoadStore(NormalFunc *_func) : func(_func) {
-    if (global_config.disabled_passes.count("sls"))
-      return;
-    defs = build_defs(func);
-    prev = build_prev(func);
-    func->for_each([&](BB *bb) { getLoadStoreCache(bb); });
-    func->for_each([&](BB *bb) { dse(bb); });
+    });
     if (cnt) {
-      info << "SimplifyLoadStore: " << cnt << " in " << func->name << '\n';
-    }
-    if (dse_cnt) {
-      info << "dse: " << dse_cnt << " in " << func->name << '\n';
+      ::info << "CallGraph.constProp: " << cnt << '\n';
     }
   }
 };
 
-void simplify_load_store_func(NormalFunc *func) { SimplifyLoadStore _(func); }
-
-void simplify_load_store(CompileUnit *ir) {
-  ir->for_each(simplify_load_store_func);
+void call_graph(CompileUnit *ir) {
+  CallGraph cg(ir);
+  cg.constProp();
+  cg.buildPure();
 }
-*/

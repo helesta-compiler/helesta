@@ -118,3 +118,26 @@ struct __or_t {
 };
 extern __or_t __or;
 #define unreachable() ___assert(__LINE__, 0, "unreachable", __FILE__)
+
+template <class T> struct reverse_view {
+  T &x;
+  reverse_view(T &_x) : x(_x) {}
+  auto begin() { return x.rbegin(); }
+  auto end() { return x.rend(); }
+};
+template <class T> struct enumerate {
+  T &x;
+  enumerate(T &_x) : x(_x) {}
+  struct iterator {
+    typename T::iterator x;
+    size_t y;
+    bool operator!=(const iterator &it) const { return x != it.x; }
+    std::pair<decltype(*x), size_t> operator*() const { return {*x, y}; }
+    void operator++() {
+      ++x;
+      ++y;
+    }
+  };
+  auto begin() { return iterator{x.begin(), 0}; }
+  auto end() { return iterator{x.end(), x.size()}; }
+};

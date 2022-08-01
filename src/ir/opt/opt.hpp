@@ -12,8 +12,7 @@ void remove_unused_def(IR::CompileUnit *);
 void global_code_motion(IR::CompileUnit *);
 void global_value_numbering(IR::CompileUnit *);
 void simplify_expr(IR::CompileUnit *ir);
-void inference_pure_call(IR::CompileUnit *);
-// void func_inline(IR::CompileUnit &);
+void call_graph(IR::CompileUnit *);
 
 inline void gvn(IR::CompileUnit *ir) {
   if (!global_config.disabled_passes.count("gvn")) {
@@ -32,12 +31,11 @@ inline void gcm(IR::CompileUnit *ir) {
 inline void optimize_ir(IR::CompileUnit *ir) {
   mem2reg(ir);
   remove_unused_def(ir);
-  inference_pure_call(ir);
-  // func_inline(*ir);
   gvn(ir);
   gcm(ir);
-  // simplify_load_store(ir);
+  call_graph(ir);
   dag_ir(ir);
   gvn(ir);
+  call_graph(ir);
   gvn(ir);
 }
