@@ -29,11 +29,11 @@ def run(exe_path, in_path):
     out += "\n" + str(child.returncode)
     return out, end - start
 
-def run_with(compiler, src_path, in_path, lib_path):
+def run_with(compiler, src_path, in_path, lib_path, include_path):
     print("benchmark {} with {}".format(src_file, compiler))
     obj_path = "/tmp/tmp.o"
     exe_path = "/tmp/exe"
-    compile_cmd = "{} -x c {} -c -o {} -O2".format(compiler, src_file, obj_path)
+    compile_cmd = "{} -x c {} -include {} -c -o {} -O2".format(compiler, src_file, include_path, obj_path)
     child = subprocess.Popen(compile_cmd.split(), stdout=subprocess.PIPE)
     child.communicate()
     link_cmd = "{} {} {} -o {}".format(compiler, obj_path, lib_path, exe_path)
@@ -83,9 +83,9 @@ if __name__ == '__main__':
                 result['testcase'] = testcase
                 result['passed'] = out == std
                 result['helesta elapsed'] = elapsed
-                _, elapsed = run_with('gcc', src_file, in_file, args.lib_path)
+                _, elapsed = run_with('gcc', src_file, in_file, args.include_path, args.lib_path)
                 result['gcc elapsed'] = elapsed
-                _, elapsed = run_with('clang', src_file, in_file, args.lib_path)
+                _, elapsed = run_with('clang', src_file, in_file, args.include_path, args.lib_path)
                 result['clang elapsed'] = elapsed
                 results.append(result)
     if not args.benchmark:
