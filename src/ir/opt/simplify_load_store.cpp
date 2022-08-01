@@ -175,11 +175,85 @@ struct CallGraph {
       ::info << "CallGraph.remove_unused_ret: " << cnt << '\n';
     }
   }
+  void tail_rec_to_loop(NormalFunc *f) {
+    BB *bb = nullptr;
+    f->for_each([&](BB *bb0) {
+      Case(ReturnInstr, _, bb->back()) {
+        (void)_;
+        bb = bb0;
+      }
+    });
+    if (bb->instrs.size() != 2)
+      return;
+    Case(PhiInstr, phi, bb->back1()) {
+      auto prev = build_prev(f);
+      if (phi->uses.size() != prev[bb].size())
+        return;
+      std::set<BB *> tail_rec;
+      for (auto &[r, bb0] : phi->uses) {
+        if (bb0->instrs.size() < 2)
+          continue;
+        Case(JumpInstr, jmp, bb0->back()) {
+          assert(jmp->target == bb);
+          Case(CallInstr, call, bb0->back1()) {
+            if (call->f == f && call->d1 == r) {
+              tail_rec.insert(bb0);
+            }
+          }
+        }
+      }
+      if (tail_rec.size()) {
+        std::unordered_map<Reg, Reg> mp;
+        std::map<int, std::pair<Reg, Reg>> args;
+        f->for_each([&](Instr *x) {
+          Case(LoadArg, la, x) {
+            if (!args.count(la->id)) {
+              Reg r1 = f->new_Reg();
+              Reg r2 = f->new_Reg();
+              args[la->id] = {r1, r2};
+            }
+            mp[la->d1] = args[la->id].first;
+          }
+        });
+        auto new_entry = f->new_BB();
+        auto old_entry = f->entry;
+        f->entry = new_entry;
+        for (auto &[id, rs] : args) {
+          new_entry->push(new LoadArg(rs.first, id));
+        }
+        new_entry->push(new JumpInstr(old_entry));
+        for (auto &[id, rs] : args) {
+          auto phi = new PhiInstr(rs.second);
+          old_entry->push_front(phi);
+          phi->add_use(rs.first, new_entry);
+          for (BB *bb0 : tail_rec) {
+            Case(CallInstr, call, bb0->back1()) {
+              phi->add_use(call->args.at(id), bb0);
+            }
+            else assert(0);
+          }
+        }
+        for (BB *bb0 : tail_rec) {
+          bb0->pop();
+          bb0->pop();
+          bb0->push(new JumpInstr(old_entry));
+        }
+        f->for_each([&](Instr *x) { x->map_use(partial_map(mp)); });
+        remove_if_vec(phi->uses, [&](const std::pair<Reg, BB *> &w) {
+          return tail_rec.count(w.second);
+        });
+      }
+    }
+  }
+  void tail_rec_to_loop() {
+    ir->for_each([&](NormalFunc *f) { tail_rec_to_loop(f); });
+  }
 };
 
 void call_graph(CompileUnit *ir) {
   CallGraph cg(ir);
   cg.const_prop();
   cg.build_pure();
+  // cg.tail_rec_to_loop();
   cg.remove_unused_ret();
 }

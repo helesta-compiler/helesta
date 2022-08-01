@@ -220,6 +220,7 @@ struct BB : Printable, Traversable<BB> {
   void push1(Instr *x) { instrs.insert(--instrs.end(), unique_ptr<Instr>(x)); }
   void pop() { instrs.pop_back(); }
   Instr *back() const { return instrs.back().get(); }
+  Instr *back1() const { return std::prev(instrs.end(), 2)->get(); }
   void map_BB(std::function<void(BB *&)> f) {
     for (auto &x : instrs)
       x->map_BB(f);
@@ -663,3 +664,16 @@ struct SetPrintContext {
   ~SetPrintContext() { print_ctx.f = f0; }
 };
 } // namespace IR
+
+template <class T, class F> void remove_if(T &ls, F f) {
+  for (auto it = ls.end(); it != ls.begin();) {
+    auto it0 = it;
+    if (f(*--it)) {
+      ls.erase(it);
+      it = it0;
+    }
+  }
+}
+template <class T, class F> void remove_if_vec(T &ls, F f) {
+  ls.resize(std::remove_if(ls.begin(), ls.end(), f) - ls.begin());
+}

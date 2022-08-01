@@ -228,19 +228,6 @@ struct DAG_IR {
   }
 };
 
-template <class T, class F> void remove_if(T &ls, F f) {
-  for (auto it = ls.end(); it != ls.begin();) {
-    auto it0 = it;
-    if (f(*--it)) {
-      ls.erase(it);
-      it = it0;
-    }
-  }
-}
-template <class T, class F> void remove_if_vec(T &ls, F f) {
-  ls.resize(std::remove_if(ls.begin(), ls.end(), f) - ls.begin());
-}
-
 template <class T> struct ForwardLoopVisitor {
   typedef T map_t;
   struct Info {
@@ -728,7 +715,7 @@ struct DAG_IR_ALL {
     if (type == REMOVE_UNUSED_BB)
       return;
     if (type == BEFORE_BACKEND) {
-      remove_trivial_BB();
+      // remove_trivial_BB();
       ir->for_each([&](NormalFunc *f) {
         DAG_IR dag(f);
         CodeReorder w;
