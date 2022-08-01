@@ -176,9 +176,10 @@ struct CallGraph {
     }
   }
   void tail_rec_to_loop(NormalFunc *f) {
+    size_t cnt = 0;
     BB *bb = nullptr;
     f->for_each([&](BB *bb0) {
-      Case(ReturnInstr, _, bb->back()) {
+      Case(ReturnInstr, _, bb0->back()) {
         (void)_;
         bb = bb0;
       }
@@ -203,6 +204,7 @@ struct CallGraph {
         }
       }
       if (tail_rec.size()) {
+        ++cnt;
         std::unordered_map<Reg, Reg> mp;
         std::map<int, std::pair<Reg, Reg>> args;
         f->for_each([&](Instr *x) {
@@ -244,6 +246,9 @@ struct CallGraph {
         });
       }
     }
+    if (cnt) {
+      ::info << "CallGraph.tail_rec_to_loop: " << cnt << '\n';
+    }
   }
   void tail_rec_to_loop() {
     ir->for_each([&](NormalFunc *f) { tail_rec_to_loop(f); });
@@ -254,6 +259,6 @@ void call_graph(CompileUnit *ir) {
   CallGraph cg(ir);
   cg.const_prop();
   cg.build_pure();
-  // cg.tail_rec_to_loop();
   cg.remove_unused_ret();
+  cg.tail_rec_to_loop();
 }
