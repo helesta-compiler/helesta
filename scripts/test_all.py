@@ -89,9 +89,9 @@ if __name__ == '__main__':
                 result['gcc elapsed'] = elapsed
                 _, elapsed = run_with('clang++', src_file, in_file, args.lib_src_path, args.include_path)
                 result['clang elapsed'] = elapsed
-                results.append(dictionary_list=result)
+                results.append(result)
     if not args.benchmark:
         exit(0)
     with MarkdownGenerator(filename=args.benchmark_summary_path, enable_write=False) as doc:
         doc.addHeader(1, "Benchmark Summary")
-        doc.addTable(results)
+        doc.addTable(dictionary_list=results)
