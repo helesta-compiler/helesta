@@ -2,7 +2,7 @@ import os
 import subprocess
 import argparse
 import time
-import markdowngenerator
+from markdowngenerator import MarkdownGenerator
 
 def parse_args():
     parser = argparse.ArgumentParser()
