@@ -66,4 +66,4 @@ jobs:
         proxy_username: helesta 
 
     - name: Post Summary
-      run: echo summary.md >> $GITHUB_STEP_SUMMARY
+      run: cat summary.md >> $GITHUB_STEP_SUMMARY

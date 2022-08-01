@@ -41,6 +41,9 @@ def run_with(compiler, src_path, in_path, lib_src_path, include_path):
 if __name__ == '__main__':
     args = parse_args()
     results = []
+    helesta_sum = 0.0
+    gcc_sum = 0.0
+    clang_sum = 0.0
     for mod in os.listdir(args.testcase_path):
         mod_path = os.path.join(args.testcase_path, mod)
         if args.benchmark and mod != "performance":
@@ -85,9 +88,12 @@ if __name__ == '__main__':
                 result['testcase'] = testcase
                 result['passed'] = (out is not None) and (out == std)
                 result['helesta elapsed'] = elapsed
+                helesta_sum += elapsed
                 _, elapsed = run_with('g++', src_file, in_file, args.lib_src_path, args.include_path)
+                gcc_sum += elapsed
                 result['gcc elapsed'] = elapsed
                 _, elapsed = run_with('clang++', src_file, in_file, args.lib_src_path, args.include_path)
+                clang_sum += elapsed
                 result['clang elapsed'] = elapsed
                 results.append(result)
     if not args.benchmark:
@@ -95,3 +101,4 @@ if __name__ == '__main__':
     with MarkdownGenerator(filename=args.benchmark_summary_path, enable_write=False) as doc:
         doc.addHeader(1, "Benchmark Summary")
         doc.addTable(dictionary_list=results)
+        doc.addTable(dictionary_list=[{"helesta": helesta_sum, "gcc": gcc_sum, "clang": clang_sum}])
