@@ -437,7 +437,7 @@ struct SideEffect {
         ins(w.may_write, *ptr_base.info.at(st->addr).maybe);
       }
       else Case(CallInstr, call, x) {
-        Case(NormalFunc, f, call) {
+        Case(NormalFunc, f, call->f) {
           if (f == func) {
             w.may_read.insert(nullptr);
             w.may_write.insert(nullptr);
