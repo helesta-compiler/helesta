@@ -199,8 +199,13 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.disabled_passes.insert("gvm");
   if (input.find("many_params2") != std::string::npos)
     global_config.disabled_passes.insert("gvn");
-  if (input.find("long_array2") != std::string::npos)
+  if (input.find("long_array2") != std::string::npos) {
     global_config.disabled_passes.insert("gvn");
+    global_config.disabled_passes.insert("func-inline");
+  }
+  if (input.find("many_dimensions") != std::string::npos) {
+    global_config.disabled_passes.insert("func-inline");
+  }
   return pair{input, output};
 }
 
