@@ -120,10 +120,6 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
       bb->for_each([&](Instr *instr) {
         // instr->print(std::cerr);
         Instr *instr1 = nullptr;
-        Case(LocalVarDef, local_val_def, instr) {
-          if (local_val_def->data->arg)
-            return;
-        }
         Case(LoadArg, load_arg, instr) {
           UnaryOpInstr *uo_instr = new UnaryOpInstr(
               load_arg->d1, call->args.at(load_arg->id), UnaryCompute::ID);

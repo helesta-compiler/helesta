@@ -82,7 +82,6 @@ void LoadArg::print(ostream &os) const { os << d1 << " = arg" << id; }
 void ArrayIndex::print(ostream &os) const {
   os << d1 << " = " << s1 << " + " << s2 << " * " << size << " : " << limit;
 }
-void LocalVarDef::print(ostream &os) const { os << "define " << data->name; }
 void UnaryOpInstr::print(ostream &os) const {
   os << d1 << " = " << op << " " << s1;
 }
@@ -212,13 +211,6 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
     if (copy)
       u = new LoadArg(*w);
     f1(u->d1);
-    return u;
-  }
-  Case(LocalVarDef, w, this) {
-    auto u = w;
-    if (copy)
-      u = new LocalVarDef(*w);
-    f3(u->data);
     return u;
   }
   Case(UnaryOpInstr, w, this) {
@@ -386,11 +378,11 @@ int exec(CompileUnit &c) {
   BB *fork_bb = NULL;
   std::list<std::unique_ptr<Instr>>::iterator fork_instr;
 
-  auto skip_instr = [&](Instr *) {
+  /*auto skip_instr = [&](Instr *) {
     --instr_cnt;
     if (in_fork)
       --par_instr_cnt;
-  };
+  };*/
   std::function<typeless_scalar_t(NormalFunc *, std::vector<typeless_scalar_t>)>
       run;
   run = [&](NormalFunc *func,
@@ -450,9 +442,6 @@ int exec(CompileUnit &c) {
           int32_t s1 = rReg(x->s1).int_value(), s2 = rReg(x->s2).int_value(),
                   d1 = s1 + s2 * x->size;
           wReg(x->d1, d1);
-        }
-        else Case(LocalVarDef, x, x0) {
-          skip_instr(x);
         }
         else Case(LoadInstr, x, x0) {
           wReg(x->d1, rMem(rReg(x->addr).int_value()));

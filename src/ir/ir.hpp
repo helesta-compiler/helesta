@@ -574,15 +574,6 @@ struct CallInstr : RegWriteInstr {
   void print(ostream &os) const override;
 };
 
-struct LocalVarDef : Instr {
-  // define variable as uninitialized array of bytes
-  MemObject *data;
-  // array from arg: data->global=0 data->size=0 data->arg=1
-  // local variable: data->global=0
-  LocalVarDef(MemObject *data) : data(data) { assert(!data->global); }
-  void print(ostream &os) const override;
-};
-
 struct ArrayIndex : RegWriteInstr {
   // d1 = s1+s2*size, 0 <= s2 < limit
   Reg s1, s2;

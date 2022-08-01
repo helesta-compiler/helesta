@@ -23,8 +23,6 @@ void remove_unused_def_func(IR::NormalFunc *func) {
       q.push_back(i);
     else if (dynamic_cast<IR::StoreInstr *>(i))
       q.push_back(i);
-    else if (dynamic_cast<IR::LocalVarDef *>(i))
-      q.push_back(i);
   });
   while (!q.empty()) {
     auto i = q.front();

@@ -255,8 +255,6 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         debug << "thread_id: " << call->d1 << " -> "
               << info->from_ir_reg(call->d1) << " is forbidden to be spilled\n";
       }
-    } else if (dynamic_cast<IR::LocalVarDef *>(cur)) {
-      // do nothing
     } else if (auto array_index = dynamic_cast<IR::ArrayIndex *>(cur)) {
       Reg dst = info->from_ir_reg(array_index->d1),
           s1 = info->from_ir_reg(array_index->s1),
