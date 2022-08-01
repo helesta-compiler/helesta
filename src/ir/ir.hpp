@@ -632,6 +632,8 @@ std::function<void(T &)> partial_map(std::unordered_map<T, T> &mp) {
 
 int exec(CompileUnit &c);
 
+void print_all_bb(CompileUnit &c, std::ostream &os);
+
 } // namespace IR
 
 namespace std {

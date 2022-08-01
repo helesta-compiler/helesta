@@ -627,4 +627,9 @@ int exec(CompileUnit &c) {
   return ret;
 }
 
+void print_all_bb(CompileUnit &c, std::ostream &os) {
+  c.for_each([&](IR::NormalFunc *func) {
+    func->for_each([&](IR::BB *bb) { bb->print(os); });
+  });
+}
 } // namespace IR
