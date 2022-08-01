@@ -307,6 +307,7 @@ struct CompileUnit : Printable {
   // the whole program
   MemScope scope; // global arrays
   std::map<string, unique_ptr<NormalFunc>> funcs;
+  std::vector<NormalFunc *> _funcs;
   // functions defined in .sy file
   std::map<string, unique_ptr<LibFunc>> lib_funcs;
   // functions defined in library
@@ -314,18 +315,19 @@ struct CompileUnit : Printable {
   NormalFunc *new_NormalFunc(string _name) {
     NormalFunc *f = new NormalFunc(_name);
     funcs[_name] = unique_ptr<NormalFunc>(f);
+    _funcs.push_back(f);
     return f;
   }
   void print(ostream &os) const override;
   void map(function<void(CompileUnit &)> f) { f(*this); }
   void for_each(function<void(NormalFunc *)> f) {
-    for (auto &kv : funcs)
-      f(kv.second.get());
+    for (auto &x : _funcs)
+      f(x);
   }
   void for_each(function<void(MemScope &)> f) {
     f(scope);
-    for (auto &kv : funcs)
-      f(kv.second->scope);
+    for (auto &x : _funcs)
+      f(x->scope);
   }
 
 private:
@@ -560,7 +562,7 @@ struct CallInstr : RegWriteInstr {
   // d1 = f(args[0],args[1],...)
   vector<Reg> args;
   Func *f;
-  bool ignore_return_value, pure = 0;
+  bool ignore_return_value, no_store = 0, no_load = 0;
   CallInstr(Reg d1, Func *f, vector<Reg> args, bool ignore_return_value)
       : RegWriteInstr(d1), args(args), f(f),
         ignore_return_value(ignore_return_value) {}

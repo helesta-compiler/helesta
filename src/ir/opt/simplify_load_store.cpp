@@ -20,39 +20,50 @@ std::map<BB *, std::vector<BB *>> build_prev(NormalFunc *func) {
 
 struct CallGraph {
   struct Info {
-    bool visited = 0, pure = 1;
+    bool visited = 0, no_store = 1, no_load = 1;
     std::vector<CallInstr *> calls;
   };
   std::map<NormalFunc *, Info> info;
-  bool isPure(NormalFunc *f) {
+  std::pair<bool, bool> isPure(NormalFunc *f) {
     auto &fi = info[f];
     if (fi.visited)
-      return fi.pure;
+      return {fi.no_store, fi.no_load};
     fi.visited = 1;
     for (auto call : fi.calls) {
       Case(NormalFunc, f0, call->f) {
-        if (f0 != f)
-          fi.pure &= call->pure = isPure(f0);
+        if (f0 != f) {
+          auto [p1, p2] = isPure(f0);
+          fi.no_store &= call->no_store = p1;
+          fi.no_load &= call->no_load = p2;
+        }
       }
       else {
-        fi.pure = 0;
+        fi.no_store = 0;
+        fi.no_load = 0;
       }
     }
     for (auto call : fi.calls) {
       Case(NormalFunc, f0, call->f) {
-        if (f0 == f)
-          call->pure = fi.pure;
+        if (f0 == f) {
+          call->no_store = fi.no_store;
+          call->no_load = fi.no_load;
+        }
       }
     }
-    // std::cerr << f->name << "  pure?  " << fi.pure << '\n';
-    return fi.pure;
+    // std::cerr << f->name << "  pure?  " << fi.no_store << fi.no_load << '\n';
+    return {fi.no_store, fi.no_load};
   }
   CallGraph(CompileUnit *ir) {
     ir->for_each([&](NormalFunc *f) {
       auto &fi = info[f];
       f->for_each([&](Instr *x) {
-        Case(StoreInstr, st, x) {
-          fi.pure = 0;
+        Case(LoadInstr, ld, x) {
+          // std::cerr << f->name << "  load:  " << *ld << '\n';
+          fi.no_load = 0;
+          (void)ld;
+        }
+        else Case(StoreInstr, st, x) {
+          fi.no_store = 0;
           (void)st;
         }
         else Case(CallInstr, call, x) {

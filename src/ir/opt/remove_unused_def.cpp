@@ -17,7 +17,7 @@ void remove_unused_def_func(IR::NormalFunc *func) {
   std::deque<IR::Instr *> q;
   func->for_each([&](IR::Instr *i) {
     if (auto call_instr = dynamic_cast<IR::CallInstr *>(i)) {
-      if (!call_instr->pure)
+      if (!call_instr->no_store)
         q.push_back(i);
     } else if (dynamic_cast<IR::ControlInstr *>(i))
       q.push_back(i);
