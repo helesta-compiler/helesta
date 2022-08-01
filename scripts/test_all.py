@@ -8,6 +8,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--testcase_path", default="testcases")
     parser.add_argument("--lib_path", default="/home/pi/github-action/libsysy.a")
+    parser.add_argument("--lib_src_path", default="/home/pi/github-action/sylib.c")
     parser.add_argument("--include_path", default="/home/pi/github-action/sylib.h")
     parser.add_argument("--benchmark", action='store_true')
     parser.add_argument("--benchmark_summary_path", default='/home/pi/github-action/summary.md')
@@ -29,15 +30,11 @@ def run(exe_path, in_path):
     out += "\n" + str(child.returncode)
     return out, end - start
 
-def run_with(compiler, src_path, in_path, lib_path, include_path):
+def run_with(compiler, src_path, in_path, lib_src_path, include_path):
     print("benchmark {} with {}".format(src_file, compiler))
-    obj_path = "/tmp/tmp.o"
     exe_path = "/tmp/exe"
-    compile_cmd = "{} -x c++ {} -include {} -c -o {} -O2".format(compiler, src_file, include_path, obj_path)
+    compile_cmd = "{} -x c++ {} {} -include {} -o {} -O2".format(compiler, src_file, lib_src_path, include_path, exe_path)
     child = subprocess.Popen(compile_cmd.split(), stdout=subprocess.PIPE)
-    child.communicate()
-    link_cmd = "{} {} {} -o {}".format(compiler, obj_path, lib_path, exe_path)
-    child = subprocess.Popen(link_cmd.split(), stdout=subprocess.PIPE)
     child.communicate()
     return run(exe_path, in_path)
 
@@ -88,9 +85,9 @@ if __name__ == '__main__':
                 result['testcase'] = testcase
                 result['passed'] = (out is not None) and (out == std)
                 result['helesta elapsed'] = elapsed
-                _, elapsed = run_with('g++', src_file, in_file, args.lib_path, args.include_path)
+                _, elapsed = run_with('g++', src_file, in_file, args.lib_src_path, args.include_path)
                 result['gcc elapsed'] = elapsed
-                _, elapsed = run_with('clang++', src_file, in_file, args.lib_path, args.include_path)
+                _, elapsed = run_with('clang++', src_file, in_file, args.lib_src_path, args.include_path)
                 result['clang elapsed'] = elapsed
                 results.append(result)
     if not args.benchmark:
