@@ -100,7 +100,7 @@ if __name__ == '__main__':
         exit(0)
     with open(args.benchmark_summary_path, 'w') as f:
         f.write("## Overall")
-        f.write(pd.DataFrame([{"helesta": helesta_sum, "gcc": gcc_sum, "clang": clang_sum}]))
+        f.write(pd.DataFrame([{"helesta": helesta_sum, "gcc": gcc_sum, "clang": clang_sum}]).to_markdown())
         f.write("")
         f.write("## Cases")
         f.write(pd.DataFrame(results).to_markdown())
