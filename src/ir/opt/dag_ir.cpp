@@ -652,8 +652,26 @@ struct DAG_IR_ALL {
       });
     });
   }
+  void remove_unused_BB() {
+    ir->for_each([&](NormalFunc *f) {
+      DAG_IR dag(f);
+      f->for_each([&](BB *bb) {
+        bb->for_each([&](Instr *x) {
+          Case(PhiInstr, phi, x) {
+            remove_if_vec(phi->uses, [&](const std::pair<Reg, BB *> &w) {
+              return !dag.loop_tree[w.second].reachable;
+            });
+          }
+        });
+      });
+      remove_if_vec(f->bbs, [&](const std::unique_ptr<BB> &bb) {
+        return !dag.loop_tree[bb.get()].reachable;
+      });
+    });
+  }
   DAG_IR_ALL(CompileUnit *_ir) : ir(_ir) {
     remove_unused_memobj();
+    remove_unused_BB();
     ir->for_each([&](MemScope &ms) {
       ms.for_each([&](MemObject *mem) { memobjs[mem] = {mem}; });
     });

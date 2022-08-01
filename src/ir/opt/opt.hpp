@@ -39,10 +39,11 @@ inline void optimize_ir(IR::CompileUnit *ir) {
   gvn(ir);
   call_graph(ir);
   gvn(ir);
-  PassEnabled("func-inline") {
-    func_inline(ir);
-    dag_ir(ir);
-    gvn(ir);
-  }
+  if (0)
+    PassEnabled("func-inline") {
+      func_inline(ir);
+      dag_ir(ir);
+      gvn(ir);
+    }
   gcm(ir);
 }

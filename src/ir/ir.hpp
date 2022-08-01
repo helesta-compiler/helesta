@@ -201,10 +201,14 @@ struct BB : Printable, Traversable<BB> {
   // list of instructions in this basic block
   // the last one is ControlInstr, others are RegWriteInstr or StoreInstr
   void print(ostream &os) const override;
+
+  decltype(instrs)::iterator _it;
   void for_each(function<void(Instr *)> f) {
-    for (auto &x : instrs)
-      f(x.get());
+    for (_it = instrs.begin(); _it != instrs.end(); ++_it) {
+      f(_it->get());
+    }
   }
+  void replace(Instr *x) { *_it = unique_ptr<Instr>(x); }
   bool for_each_until(function<bool(Instr *)> f) {
     for (auto &x : instrs)
       if (f(x.get()))
