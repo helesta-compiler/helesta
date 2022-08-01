@@ -32,6 +32,8 @@ jobs:
         target: "github-action"
         proxy_host: ${{ secrets.HOST }}
         insecure_proxy_password: ${{ secrets.PASSWORD }}
+        insecure_proxy_ignore_fingeprint: true
+        insecure_ignore_fingerprint: true
         proxy_username: helesta 
       
     - name: Run Testcases
@@ -62,6 +64,8 @@ jobs:
         target: "summary.md"
         proxy_host: ${{ secrets.HOST }}
         insecure_proxy_password: ${{ secrets.PASSWORD }}
+        insecure_proxy_ignore_fingeprint: true
+        insecure_ignore_fingerprint: true
         proxy_username: helesta 
 
     - name: Post Summary
