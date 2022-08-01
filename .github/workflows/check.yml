@@ -32,7 +32,7 @@ jobs:
         target: "github-action"
         proxy_host: ${{ secrets.HOST }}
         insecure_proxy_password: ${{ secrets.PASSWORD }}
-        insecure_proxy_ignore_fingeprint: true
+        insecure_proxy_ignore_fingerprint: true
         insecure_ignore_fingerprint: true
         proxy_username: helesta 
       
