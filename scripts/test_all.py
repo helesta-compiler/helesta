@@ -85,7 +85,7 @@ if __name__ == '__main__':
                 result['clang elapsed'] = elapsed
                 results.append(result)
     if not args.benchmark:
-        return
+        exit(0)
     with Markdowngenerator(filename=args.benchmark_summary_path, enable_write=False) as doc:
         doc.addHeader(1, "Benchmark Summary")
         doc.addTable(results)
