@@ -316,6 +316,7 @@ struct CompileUnit : Printable {
   std::map<string, unique_ptr<LibFunc>> lib_funcs;
   // functions defined in library
   CompileUnit();
+  NormalFunc *main() { return funcs.at("main").get(); }
   NormalFunc *new_NormalFunc(string _name) {
     NormalFunc *f = new NormalFunc(_name);
     funcs[_name] = unique_ptr<NormalFunc>(f);

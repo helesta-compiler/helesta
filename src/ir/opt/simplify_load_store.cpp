@@ -20,7 +20,7 @@ std::map<BB *, std::vector<BB *>> build_prev(NormalFunc *func) {
 
 struct CallGraph {
   struct Info {
-    bool visited = 0, no_store = 1, no_load = 1;
+    bool visited = 0, no_store = 1, no_load = 1, ret_used = 0;
     std::vector<CallInstr *> calls;
     std::vector<std::pair<NormalFunc *, CallInstr *>> called;
     std::map<Reg, RegWriteInstr *> defs;
@@ -82,10 +82,10 @@ struct CallGraph {
       }
     });
   }
-  void buildPure() {
+  void build_pure() {
     ir->for_each([&](NormalFunc *f) { isPure(f); });
   }
-  void constProp() {
+  void const_prop() {
     size_t cnt = 0;
     ir->for_each([&](NormalFunc *f) {
       auto &fi = info[f];
@@ -116,8 +116,7 @@ struct CallGraph {
           return;
         call->args.resize(used_arg);
         f->for_each([&](BB *bb) {
-          for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
-            auto x = it->get();
+          bb->for_each([&](Instr *x) {
             Case(LoadArg, la, x) {
               auto [v, type] = args.at(la->id);
               if (type == 2) {
@@ -126,12 +125,12 @@ struct CallGraph {
               } else if (type == 1) {
                 Reg d1 = la->d1;
                 auto lc = new LoadConst<int32_t>(d1, v);
-                *it = std::unique_ptr<Instr>(lc);
+                bb->replace(lc);
                 info[f].defs.at(d1) = lc;
                 ++cnt;
               }
             }
-          }
+          });
         });
       }
     });
@@ -139,10 +138,48 @@ struct CallGraph {
       ::info << "CallGraph.constProp: " << cnt << '\n';
     }
   }
+  void remove_unused_ret() {
+    size_t cnt = 0;
+    info[ir->main()].ret_used = 1;
+    for (auto f : reverse_view(ir->_funcs)) {
+      auto use = build_use_count(f);
+      auto &fi = info[f];
+      for (auto call : fi.calls) {
+        Case(NormalFunc, f0, call->f) {
+          if (use[call->d1])
+            info[f0].ret_used = 1;
+        }
+      }
+      if (!fi.ret_used) {
+        bool flag = 0;
+        f->for_each([&](BB *bb) {
+          Case(ReturnInstr, ret, bb->back()) {
+            Case(LoadConst<int32_t>, _, fi.defs.at(ret->s1)) {
+              (void)_;
+              return;
+            }
+            Reg r = ret->s1 = f->new_Reg();
+            auto lc = new LoadConst(r, 0);
+            bb->push1(lc);
+            fi.defs[r] = lc;
+            flag = 1;
+          }
+        });
+        if (flag) {
+          remove_unused_def_func(f);
+          ++cnt;
+        }
+      }
+    }
+    if (cnt) {
+      ::info << "CallGraph.remove_unused_ret: " << cnt << '\n';
+    }
+  }
 };
 
 void call_graph(CompileUnit *ir) {
   CallGraph cg(ir);
-  cg.constProp();
-  cg.buildPure();
+  cg.const_prop();
+  cg.build_pure();
+  cg.remove_unused_ret();
 }

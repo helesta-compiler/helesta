@@ -2,6 +2,7 @@
 
 #include "ir/ir.hpp"
 
+std::map<IR::Reg, int> build_use_count(IR::NormalFunc *func);
 std::map<IR::Reg, IR::RegWriteInstr *> build_defs(IR::NormalFunc *func);
 std::map<IR::BB *, std::vector<IR::BB *>> build_prev(IR::NormalFunc *func);
 void dag_ir(IR::CompileUnit *ir);
@@ -9,6 +10,7 @@ void dag_ir(IR::CompileUnit *ir);
 void mem2reg(IR::CompileUnit *);
 void ssa_construction(IR::NormalFunc *, const std::unordered_set<IR::Reg> &);
 void remove_unused_def(IR::CompileUnit *);
+void remove_unused_def_func(IR::NormalFunc *);
 void func_inline(IR::CompileUnit *);
 void global_code_motion(IR::CompileUnit *);
 void global_value_numbering(IR::CompileUnit *);

@@ -613,7 +613,7 @@ int exec(CompileUnit &c) {
     assert(last_in_fork == in_fork);
     return _ret;
   };
-  int ret = run(c.funcs["main"].get(), {}).int_value();
+  int ret = run(c.main(), {}).int_value();
   dbg_pr();
   delete[] mem;
   if (!eol)
