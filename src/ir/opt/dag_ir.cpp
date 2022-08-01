@@ -237,6 +237,9 @@ template <class T, class F> void remove_if(T &ls, F f) {
     }
   }
 }
+template <class T, class F> void remove_if_vec(T &ls, F f) {
+  ls.resize(std::remove_if(ls.begin(), ls.end(), f) - ls.begin());
+}
 
 template <class T> struct ForwardLoopVisitor {
   typedef T map_t;
@@ -636,7 +639,21 @@ struct DAG_IR_ALL {
       std::cerr << f->name << " W: " << effect.at(f)->may_write(f) << '\n';
     });
   }
+  void remove_unused_memobj() {
+    std::set<MemObject *> used;
+    ir->for_each([&](NormalFunc *f) {
+      f->for_each([&](Instr *x) {
+        Case(LoadAddr, la, x) { used.insert(la->offset); }
+      });
+    });
+    ir->for_each([&](MemScope &ms) {
+      remove_if_vec(ms.objects, [&](const std::unique_ptr<MemObject> &mem) {
+        return !used.count(mem.get());
+      });
+    });
+  }
   DAG_IR_ALL(CompileUnit *_ir) : ir(_ir) {
+    remove_unused_memobj();
     ir->for_each([&](MemScope &ms) {
       ms.for_each([&](MemObject *mem) { memobjs[mem] = {mem}; });
     });
