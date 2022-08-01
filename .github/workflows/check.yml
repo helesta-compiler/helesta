@@ -20,7 +20,7 @@ jobs:
     - name: Compile Testcases
       run: python3 ./scripts/run_all.py
 
-    - name: Send Results to Raspberry Pi
+    - name: Push Intermediates to Raspberry Pi
       uses: appleboy/scp-action@master
       with:
         host: localhost
@@ -40,3 +40,30 @@ jobs:
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
         command: python3 /home/pi/github-action/scripts/test_all.py --testcase_path /home/pi/github-action/testcases
+
+    - name: Benchmark
+      uses: fifsky/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        user: ${{ secrets.USERNAME }}
+        pass: ${{ secrets.PASSWORD }}
+        command: python3 /home/pi/github-action/scripts/test_all.py --testcase_path /home/pi/github-action/testcases --benchmark
+
+    - name: Pull Benchmark Summary From Raspberry Pi
+      uses: nicklasfrahm/scp-action@main
+      with:
+        direction: download
+        host: localhost
+        username: pi
+        insecure_password: ${{ secrets.PASSWORD }}
+        port: 2004
+        source: "/home/pi/github-action/summary.md"
+        target: "summary.md"
+        proxy_host: ${{ secrets.HOST }}
+        insecure_proxy_password: ${{ secrets.PASSWORD }}
+        insecure_proxy_ignore_fingerprint: true
+        insecure_ignore_fingerprint: true
+        proxy_username: helesta 
+
+    - name: Post Summary
+      run: cat summary.md >> $GITHUB_STEP_SUMMARY
