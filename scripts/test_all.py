@@ -8,7 +8,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--testcase_path", default="testcases")
     parser.add_argument("--lib_path", default="/home/pi/github-action/libsysy.a")
-    parser.add_argument("--benchmark", action='store_ture')
+    parser.add_argument("--benchmark", action='store_true')
     parser.add_argument("--benchmark_summary_path", default='/home/pi/github-action/summary.md')
     args = parser.parse_args()
     return args
