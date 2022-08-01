@@ -304,6 +304,16 @@ struct DefaultLoopVisitor {
   void visitEdge(BB *, BB *) {}
 };
 
+struct CodeReorder : DefaultLoopVisitor {
+  std::vector<std::unique_ptr<BB>> bbs;
+  void visitBB(BB *bb) { bbs.emplace_back(bb); }
+  void apply(NormalFunc *f) {
+    for (auto &x : f->bbs)
+      x.release();
+    f->bbs = std::move(bbs);
+  }
+};
+
 struct InstrVisitor : DefaultLoopVisitor {
   virtual void visit(Instr *) = 0;
   void visitBB(BB *bb) {
@@ -587,6 +597,8 @@ struct RemoveUnusedStore {
   }
 };
 
+enum PassType { NORMAL, REMOVE_UNUSED_BB, BEFORE_BACKEND };
+
 struct DAG_IR_ALL {
   CompileUnit *ir;
   std::map<NormalFunc *, std::unique_ptr<DAG_IR>> dags;
@@ -652,28 +664,61 @@ struct DAG_IR_ALL {
       });
     });
   }
-  void remove_unused_BB() {
-    ir->for_each([&](NormalFunc *f) {
-      DAG_IR dag(f);
-      f->for_each([&](BB *bb) {
-        bb->for_each([&](Instr *x) {
-          Case(PhiInstr, phi, x) {
-            remove_if_vec(phi->uses, [&](const std::pair<Reg, BB *> &w) {
-              return !dag.loop_tree[w.second].reachable;
-            });
-          }
-        });
-      });
-      remove_if_vec(f->bbs, [&](const std::unique_ptr<BB> &bb) {
-        return !dag.loop_tree[bb.get()].reachable;
-      });
+  void remove_trivial_BB(NormalFunc *f) {
+    std::unordered_map<BB *, BB *> mp;
+    auto get = [&](BB *bb) {
+      while (bb != mp[bb])
+        bb = mp[bb] = mp[mp[bb]];
+      return bb;
+    };
+    f->for_each([&](BB *bb) { mp[bb] = bb; });
+    f->for_each([&](BB *bb) {
+      if (bb->instrs.size() == 1) {
+        Case(JumpInstr, jmp, bb->instrs.back().get()) {
+          mp[get(bb)] = get(jmp->target);
+        }
+      }
+    });
+    f->for_each([&](BB *bb) {
+      bb->for_each([&](Instr *x) { x->map_BB([&](BB *&w) { w = get(w); }); });
     });
   }
-  DAG_IR_ALL(CompileUnit *_ir, bool only_remove_unused = 0) : ir(_ir) {
+  void remove_unused_BB(NormalFunc *f) {
+    DAG_IR dag(f);
+    f->for_each([&](BB *bb) {
+      bb->for_each([&](Instr *x) {
+        Case(PhiInstr, phi, x) {
+          remove_if_vec(phi->uses, [&](const std::pair<Reg, BB *> &w) {
+            return !dag.loop_tree[w.second].reachable;
+          });
+        }
+      });
+    });
+    remove_if_vec(f->bbs, [&](const std::unique_ptr<BB> &bb) {
+      return !dag.loop_tree[bb.get()].reachable;
+    });
+  }
+  void remove_unused_BB() {
+    ir->for_each([&](NormalFunc *f) { remove_unused_BB(f); });
+  }
+  void remove_trivial_BB() {
+    ir->for_each([&](NormalFunc *f) { remove_trivial_BB(f); });
+  }
+  DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
     remove_unused_memobj();
     remove_unused_BB();
-	if (only_remove_unused)
+    if (type == REMOVE_UNUSED_BB)
       return;
+    if (type == BEFORE_BACKEND) {
+      remove_trivial_BB();
+      ir->for_each([&](NormalFunc *f) {
+        DAG_IR dag(f);
+        CodeReorder w;
+        dag.visit(w);
+        w.apply(f);
+      });
+      return;
+    }
     ir->for_each([&](MemScope &ms) {
       ms.for_each([&](MemObject *mem) { memobjs[mem] = {mem}; });
     });
@@ -703,5 +748,6 @@ struct DAG_IR_ALL {
   }
 };
 
-void dag_ir(CompileUnit *ir) { DAG_IR_ALL _(ir); }
-void remove_unused_BB(CompileUnit *ir) { DAG_IR_ALL _(ir, 1); }
+void dag_ir(CompileUnit *ir) { DAG_IR_ALL _(ir, NORMAL); }
+void remove_unused_BB(CompileUnit *ir) { DAG_IR_ALL _(ir, REMOVE_UNUSED_BB); }
+void before_backend(CompileUnit *ir) { DAG_IR_ALL _(ir, BEFORE_BACKEND); }

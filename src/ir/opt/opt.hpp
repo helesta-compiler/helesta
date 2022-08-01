@@ -15,6 +15,7 @@ void global_value_numbering(IR::CompileUnit *);
 void simplify_expr(IR::CompileUnit *ir);
 void call_graph(IR::CompileUnit *);
 void remove_unused_BB(IR::CompileUnit *ir);
+void before_backend(IR::CompileUnit *ir);
 
 #define PassEnabled(name) if (!global_config.disabled_passes.count(name))
 
@@ -48,4 +49,5 @@ inline void optimize_ir(IR::CompileUnit *ir) {
       gvn(ir);
     }
   gcm(ir);
+  before_backend(ir);
 }
