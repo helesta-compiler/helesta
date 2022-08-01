@@ -669,14 +669,32 @@ struct DAG_IR_ALL {
       mp1.add(bb);
       mp2.add(bb);
     });
+    auto cplx = [&](BB *bb) {
+      return !(prev[bb].size() == 1 && bb->instrs.size() == 1);
+    };
+    std::unordered_set<BB *> cplxs;
     f->for_each([&](BB *bb) {
-      if (prev[bb].size() == 1 && bb->instrs.size() == 1) {
+      auto out = bb->getOutNodes();
+      if (out.size() == 2) {
+        remove_if_vec(out, cplx);
+        if (out.size() == 2) {
+          cplxs.insert(out[0]);
+        }
+      }
+    });
+    f->for_each([&](BB *bb) {
+      if (!cplx(bb) && !cplxs.count(bb)) {
         Case(JumpInstr, jmp, bb->instrs.back().get()) {
           mp1.merge(bb, jmp->target);
           mp2.merge(bb, prev[bb][0]);
         }
       }
     });
+    /*    f->for_each([&](BB *bb) {
+          if (mp1[bb] != bb)
+            std::cerr << bb->name << "  ::::  " << mp1[bb]->name << "  "
+                      << mp2[bb]->name << '\n';
+        });*/
     f->for_each([&](BB *bb) {
       bb->for_each([&](Instr *x) {
         Case(PhiInstr, p, x) {
@@ -687,6 +705,18 @@ struct DAG_IR_ALL {
         }
       });
     });
+
+    /*    prev = build_prev(f);
+        f->for_each([&](BB *bb) {
+          bb->for_each([&](Instr *x) {
+            Case(PhiInstr, p, x) {
+              p->map_BB([&](BB *&w) {
+                assert(std::find(prev[bb].begin(), prev[bb].end(), w) !=
+                       prev[bb].end());
+              });
+            }
+          });
+        });*/
   }
   void remove_unused_BB(NormalFunc *f) {
     DAG_IR dag(f);
@@ -715,7 +745,7 @@ struct DAG_IR_ALL {
     if (type == REMOVE_UNUSED_BB)
       return;
     if (type == BEFORE_BACKEND) {
-      // remove_trivial_BB();
+      PassEnabled("rtb") remove_trivial_BB();
       ir->for_each([&](NormalFunc *f) {
         DAG_IR dag(f);
         CodeReorder w;
