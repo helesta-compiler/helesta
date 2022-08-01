@@ -63,6 +63,7 @@ if __name__ == '__main__':
             child.communicate()
             print(run_cmd)
             out, elapsed = run(run_cmd, in_file)
+            os.remove(asm_file)
             out = out.strip()
             std = None
             with open(out_file) as stdout:
