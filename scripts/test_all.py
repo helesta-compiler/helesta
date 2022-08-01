@@ -83,9 +83,9 @@ if __name__ == '__main__':
                 result['testcase'] = testcase
                 result['passed'] = out == std
                 result['helesta elapsed'] = elapsed
-                _, elapsed = run_with('gcc', src_file, in_file, args.include_path, args.lib_path)
+                _, elapsed = run_with('gcc', src_file, in_file, args.lib_path, args.include_path)
                 result['gcc elapsed'] = elapsed
-                _, elapsed = run_with('clang', src_file, in_file, args.include_path, args.lib_path)
+                _, elapsed = run_with('clang', src_file, in_file, args.lib_path, args.include_path)
                 result['clang elapsed'] = elapsed
                 results.append(result)
     if not args.benchmark:
