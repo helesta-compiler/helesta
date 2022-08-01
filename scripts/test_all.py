@@ -1,25 +1,59 @@
 import os
 import subprocess
 import argparse
+import resource
+import markdowngenerator
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--testcase_path", default="testcases")
     parser.add_argument("--lib_path", default="/home/pi/github-action/libsysy.a")
+    parser.add_argument("--benchmark", action='store_ture')
+    parser.add_argument("--benchmark_summary_path", default='/home/pi/github-action/summary.md')
     args = parser.parse_args()
     return args
 
+def run(exe_path, in_path):
+    child = None
+    start = resource.getrusage(resource.RUSAGE_CHILDREN)
+    if os.path.exists(in_path):
+        with open(in_file) as f:
+            child = subprocess.Popen(exe_path.split(), stdout=subprocess.PIPE, stdin=f)
+    else:
+        child = subprocess.Popen(exe_path.split(), stdout=subprocess.PIPE)
+    out, _ = child.communicate()
+    end = resource.getrusage(resource.RUSAGE_CHILDREN)
+    out = out.decode("utf-8")
+    out = out.strip("\n\r")
+    out += "\n" + str(child.returncode)
+    return out, end - start
+
+def run_with(compiler, src_path, in_path, lib_path):
+    print("benchmark {} with {}".format(src_file, compiler))
+    obj_path = "/tmp/tmp.o"
+    exe_path = "/tmp/exe"
+    compile_cmd = "{} -x c {} -c -o {} -O2".format(compiler, src_file, obj_path)
+    child = subprocess.Popen(compile_cmd.split(), stdout=subprocess.PIPE)
+    child.communicate()
+    link_cmd = "{} {} {} -o {}".format(compiler, obj_path, lib_path, exe_path)
+    child = subprocess.Popen(link_cmd.split(), stdout=subprocess.PIPE)
+    child.communicate()
+    return run(exe_path, in_path)
 
 if __name__ == '__main__':
     args = parse_args()
+    results = []
     for mod in os.listdir(args.testcase_path):
         mod_path = os.path.join(args.testcase_path, mod)
+        if args.benchmark and mod != "performance":
+            continue
         for testcase in os.listdir(mod_path):
             if not testcase.endswith(".sy"):
                 continue
             testcase = testcase[:-3]
             asm_file = os.path.join(mod_path, testcase + ".s")
             in_file = os.path.join(mod_path, testcase + ".in")
+            src_file = os.path.join(mod_path, testcase + ".sy")
             out_file = os.path.join(mod_path, testcase + ".out")
             exe_file = os.path.join(mod_path, testcase)
             link_cmd = "g++ {} {} -o {}".format(asm_file, args.lib_path, exe_file)
@@ -28,22 +62,30 @@ if __name__ == '__main__':
             child = subprocess.Popen(link_cmd.split(), stdout=subprocess.PIPE)
             child.communicate()
             print(run_cmd)
-            child = None
-            if os.path.exists(in_file):
-                with open(in_file) as f:
-                    child = subprocess.Popen(run_cmd.split(), stdout=subprocess.PIPE, stdin=f)
-            else:
-                child = subprocess.Popen(run_cmd.split(), stdout=subprocess.PIPE)
-            out, _ = child.communicate()
-            out = out.decode("utf-8")
-            out = out.strip("\n\r")
-            out += "\n" + str(child.returncode)
+            out, elapsed = run(run_cmd, in_file)
+            out = out.strip()
+            std = None
             with open(out_file) as stdout:
                 std = stdout.read()
                 std = std.strip()
-                out = out.strip()
-                if out != std:
-                    print("my output: \n{}\nstd output: \n{}".format(out, std))
+            if out != std:
+                print("my output: \n{}\nstd output: \n{}".format(out, std))
+                if not args.benchmark:
                     exit(1)
-                else:
-                    print("[{}] passed".format(testcase))
+            else:
+                print("[{}] passed".format(testcase))
+            if args.benchmark:
+                result = {}
+                result['testcase'] = testcase
+                result['passed'] = out == std
+                result['helesta elapsed'] = elapsed
+                _, elapsed = run_with('gcc', src_file, in_file, args.lib_path)
+                result['gcc elapsed'] = elapsed
+                _, elapsed = run_with('clang', src_file, in_file, args.lib_path)
+                result['clang elapsed'] = elapsed
+                results.append(result)
+    if not args.benchmark:
+        return
+    with Markdowngenerator(filename=args.benchmark_summary_path, enable_write=False) as doc:
+        doc.addHeader(1, "Benchmark Summary")
+        doc.addTable(results)
