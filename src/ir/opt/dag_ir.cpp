@@ -597,6 +597,17 @@ struct RemoveUnusedStore {
   }
 };
 
+template <class T> struct UnionFind {
+  std::unordered_map<T, T> f;
+  void add(T x) { f[x] = x; }
+  T operator[](T x) {
+    while (x != f[x])
+      x = f[x] = f[f[x]];
+    return x;
+  }
+  void merge(T x, T y) { f[(*this)[x]] = (*this)[y]; }
+};
+
 enum PassType { NORMAL, REMOVE_UNUSED_BB, BEFORE_BACKEND };
 
 struct DAG_IR_ALL {
@@ -665,22 +676,29 @@ struct DAG_IR_ALL {
     });
   }
   void remove_trivial_BB(NormalFunc *f) {
-    std::unordered_map<BB *, BB *> mp;
-    auto get = [&](BB *bb) {
-      while (bb != mp[bb])
-        bb = mp[bb] = mp[mp[bb]];
-      return bb;
-    };
-    f->for_each([&](BB *bb) { mp[bb] = bb; });
+    UnionFind<BB *> mp1, mp2;
+    auto prev = build_prev(f);
     f->for_each([&](BB *bb) {
-      if (bb->instrs.size() == 1) {
+      mp1.add(bb);
+      mp2.add(bb);
+    });
+    f->for_each([&](BB *bb) {
+      if (prev[bb].size() == 1 && bb->instrs.size() == 1) {
         Case(JumpInstr, jmp, bb->instrs.back().get()) {
-          mp[get(bb)] = get(jmp->target);
+          mp1.merge(bb, jmp->target);
+          mp2.merge(bb, prev[bb][0]);
         }
       }
     });
     f->for_each([&](BB *bb) {
-      bb->for_each([&](Instr *x) { x->map_BB([&](BB *&w) { w = get(w); }); });
+      bb->for_each([&](Instr *x) {
+        Case(PhiInstr, p, x) {
+          p->map_BB([&](BB *&w) { w = mp2[w]; });
+        }
+        else {
+          x->map_BB([&](BB *&w) { w = mp1[w]; });
+        }
+      });
     });
   }
   void remove_unused_BB(NormalFunc *f) {
