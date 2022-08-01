@@ -2,7 +2,7 @@ import os
 import subprocess
 import argparse
 import time
-from markdowngenerator import MarkdownGenerator
+import pandas as pd
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -98,7 +98,9 @@ if __name__ == '__main__':
                 results.append(result)
     if not args.benchmark:
         exit(0)
-    with MarkdownGenerator(filename=args.benchmark_summary_path, enable_write=False) as doc:
-        doc.addHeader(1, "Benchmark Summary")
-        doc.addTable(dictionary_list=results)
-        doc.addTable(dictionary_list=[{"helesta": helesta_sum, "gcc": gcc_sum, "clang": clang_sum}])
+    with open(args.benchmark_summary_path, 'w') as f:
+        f.write("## Overall")
+        f.write(pd.DataFrame([{"helesta": helesta_sum, "gcc": gcc_sum, "clang": clang_sum}]))
+        f.write("")
+        f.write("## Cases")
+        f.write(pd.DataFrame(results).to_markdown())
