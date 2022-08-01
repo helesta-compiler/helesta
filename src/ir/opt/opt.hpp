@@ -14,6 +14,7 @@ void global_code_motion(IR::CompileUnit *);
 void global_value_numbering(IR::CompileUnit *);
 void simplify_expr(IR::CompileUnit *ir);
 void call_graph(IR::CompileUnit *);
+void remove_unused_BB(IR::CompileUnit *ir);
 
 #define PassEnabled(name) if (!global_config.disabled_passes.count(name))
 
@@ -32,6 +33,7 @@ inline void gcm(IR::CompileUnit *ir) {
 inline void optimize_ir(IR::CompileUnit *ir) {
   mem2reg(ir);
   remove_unused_def(ir);
+  remove_unused_BB(ir);
   gvn(ir);
   gcm(ir);
   call_graph(ir);

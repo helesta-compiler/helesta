@@ -669,9 +669,11 @@ struct DAG_IR_ALL {
       });
     });
   }
-  DAG_IR_ALL(CompileUnit *_ir) : ir(_ir) {
+  DAG_IR_ALL(CompileUnit *_ir, bool only_remove_unused = 0) : ir(_ir) {
     remove_unused_memobj();
     remove_unused_BB();
+	if (only_remove_unused)
+      return;
     ir->for_each([&](MemScope &ms) {
       ms.for_each([&](MemObject *mem) { memobjs[mem] = {mem}; });
     });
@@ -702,3 +704,4 @@ struct DAG_IR_ALL {
 };
 
 void dag_ir(CompileUnit *ir) { DAG_IR_ALL _(ir); }
+void remove_unused_BB(CompileUnit *ir) { DAG_IR_ALL _(ir, 1); }
