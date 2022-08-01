@@ -44,6 +44,32 @@ void remove_unused_def_func(IR::NormalFunc *func) {
   });
 }
 
+void remove_unused_bb(IR::NormalFunc *func) {
+  std::unordered_set<IR::BB *> used_bb;
+  std::deque<IR::BB *> queue;
+  used_bb.insert(func->entry);
+  queue.push_back(func->entry);
+  while (!queue.empty()) {
+    auto b = queue.front();
+    std::vector<IR::BB *> out_nodes = b->getOutNodes();
+    for (auto target : out_nodes) {
+      if (used_bb.find(target) != used_bb.end()) {
+        continue;
+      }
+      used_bb.insert(target);
+      queue.push_back(target);
+    }
+  }
+  for (auto it = func->bbs.begin(); it != func->bbs.end();) {
+    if (used_bb.find((*it).get()) == used_bb.end()) {
+      it = func->bbs.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
 void remove_unused_def(IR::CompileUnit *ir) {
   ir->for_each(remove_unused_def_func);
+  ir->for_each(remove_unused_bb);
 }
