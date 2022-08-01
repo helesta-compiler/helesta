@@ -29,7 +29,7 @@ jobs:
         port: 2004
         source: "testcases,scripts/test_all.py"
         target: "github-action"
-        proxy_host: 140.143.248.164
+        proxy_host: ${{ secrets.HOST }}
         proxy_password: ${{ secrets.PASSWORD }}
         proxy_username: helesta 
       
@@ -40,3 +40,11 @@ jobs:
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
         command: python3 /home/pi/github-action/scripts/test_all.py --testcase_path /home/pi/github-action/testcases
+
+    - name: Benchmark
+      uses: fifsky/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        user: ${{ secrets.USERNAME }}
+        pass: ${{ secrets.PASSWORD }}
+        command: python3 /home/pi/github-action/scripts/test_all.py --testcase_path /home/pi/github-action/testcases --benchmark
