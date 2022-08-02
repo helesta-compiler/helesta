@@ -33,9 +33,8 @@ void remove_unused_def_func(IR::NormalFunc *func) {
       continue;
     used_instrs.insert(i);
     i->map_use([&](IR::Reg &r) {
-      if (def_vec[r.id] != nullptr) {
-        q.push_back(def_vec[r.id]);
-      }
+      assert(def_vec[r.id] != nullptr);
+      q.push_back(def_vec[r.id]);
     });
   }
   func->for_each([&](IR::BB *bb) {
@@ -55,16 +54,31 @@ void remove_unused_bb(IR::NormalFunc *func) {
     queue.pop_front();
     std::vector<IR::BB *> out_nodes = b->getOutNodes();
     for (auto target : out_nodes) {
-      if (used_bb.find(target) != used_bb.end()) {
+      if (used_bb.count(target)) {
         continue;
       }
       used_bb.insert(target);
       queue.push_back(target);
     }
   }
+  // TODO: a temporary impl
+  std::unordered_set<IR::BB *> phi_use_bb;
+  for (auto it = used_bb.begin(); it != used_bb.end(); ++it) {
+    (*it)->for_each([&](IR::Instr *i) {
+      if (auto phi_instr = dynamic_cast<IR::PhiInstr *>(i)) {
+        for (auto use : phi_instr->uses) {
+          phi_use_bb.insert(use.second);
+        }
+      }
+    });
+  }
   for (auto it = func->bbs.begin(); it != func->bbs.end();) {
-    if (used_bb.find((*it).get()) == used_bb.end()) {
-      it = func->bbs.erase(it);
+    if (!used_bb.count(it->get())) {
+      if (!phi_use_bb.count(it->get())) {
+        it = func->bbs.erase(it);
+      } else {
+        ++it;
+      }
     } else {
       ++it;
     }
