@@ -20,7 +20,7 @@ std::map<BB *, std::vector<BB *>> build_prev(NormalFunc *func) {
 
 struct CallGraph {
   struct Info {
-    bool visited = 0, no_store = 1, no_load = 1, ret_used = 0;
+    bool visited = 0, no_store = 1, no_load = 1, ret_used = 0, used = 0;
     std::vector<CallInstr *> calls;
     std::vector<std::pair<NormalFunc *, CallInstr *>> called;
     std::map<Reg, RegWriteInstr *> defs;
@@ -256,6 +256,22 @@ struct CallGraph {
   void tail_rec_to_loop() {
     ir->for_each([&](NormalFunc *f) { tail_rec_to_loop(f); });
   }
+  void remove_unused_func() {
+    info[ir->main()].used = 1;
+    for (NormalFunc *f : reverse_view(ir->_funcs)) {
+      auto &fi = info[f];
+      if (fi.used) {
+        for (auto call : fi.calls) {
+          Case(NormalFunc, f0, call->f) { info[f0].used = 1; }
+        }
+      }
+    }
+    auto unused = [&](NormalFunc *f) { return !info[f].used; };
+    remove_if_vec(ir->_funcs, unused);
+    remove_if(ir->funcs, [&](const decltype(ir->funcs)::value_type &x) {
+      return unused(x.second.get());
+    });
+  }
 };
 
 void call_graph(CompileUnit *ir) {
@@ -265,4 +281,8 @@ void call_graph(CompileUnit *ir) {
   cg.build_pure();
   cg.remove_unused_ret();
   cg.tail_rec_to_loop();
+}
+void remove_unused_func(CompileUnit *ir) {
+  CallGraph cg(ir);
+  cg.remove_unused_func();
 }

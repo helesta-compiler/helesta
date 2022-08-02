@@ -204,15 +204,30 @@ struct BB : Printable, Traversable<BB> {
 
   decltype(instrs)::iterator _it;
   void for_each(function<void(Instr *)> f) {
-    for (_it = instrs.begin(); _it != instrs.end(); ++_it) {
-      f(_it->get());
-    }
+    for_each_until([&](Instr *x) -> bool {
+      f(x);
+      return 0;
+    });
   }
-  void replace(Instr *x) { *_it = unique_ptr<Instr>(x); }
+  void replace(Instr *x) { *std::prev(_it) = unique_ptr<Instr>(x); }
+  bool _del = 0;
+  void move() {
+    std::prev(_it)->release();
+    del();
+  }
+  void del() { _del = 1; }
   bool for_each_until(function<bool(Instr *)> f) {
-    for (auto &x : instrs)
-      if (f(x.get()))
+    for (_it = instrs.begin(); _it != instrs.end();) {
+      auto it0 = _it;
+      ++_it;
+      _del = 0;
+      bool ret = f(it0->get());
+      if (_del) {
+        instrs.erase(it0);
+      }
+      if (ret)
         return 1;
+    }
     return 0;
   }
   void push_front(Instr *x) { instrs.emplace_front(x); }

@@ -747,9 +747,36 @@ struct DAG_IR_ALL {
       ::info << "simplify_branch: " << cnt << '\n';
     }
   }
+  void code_reorder(NormalFunc *f) {
+    DAG_IR dag(f);
+    CodeReorder w;
+    dag.visit(w);
+    w.apply(f);
+  }
   void remove_trivial_BB(NormalFunc *f) {
-    UnionFind<BB *> mp1, mp2;
     auto prev = build_prev(f);
+    f->for_each([&](BB *bb) {
+      if (prev[bb].size() != 1)
+        return;
+      BB *bb0 = prev[bb][0];
+      Case(JumpInstr, _, bb0->back()) { (void)_; }
+      else return;
+      assert(bb0 != bb);
+      bb->for_each_until([&](Instr *x) -> bool {
+        Case(PhiInstr, _, x) {
+          (void)_;
+          return 1;
+        }
+        Case(ControlInstr, _, x) {
+          (void)_;
+          return 1;
+        }
+        bb0->push1(x);
+        bb->move();
+        return 0;
+      });
+    });
+    UnionFind<BB *> mp1, mp2;
     f->for_each([&](BB *bb) {
       mp1.add(bb);
       mp2.add(bb);
@@ -842,8 +869,11 @@ struct DAG_IR_ALL {
     ir->for_each([&](NormalFunc *f) {
       PassEnabled("sb") simplify_branch(f);
       remove_unused_BB(f);
-      remove_trivial_BB(f);
-      remove_unused_BB(f);
+      PassEnabled("rtb") {
+        code_reorder(f);
+        remove_trivial_BB(f);
+        remove_unused_BB(f);
+      }
     });
   }
   DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
@@ -852,13 +882,7 @@ struct DAG_IR_ALL {
     if (type == REMOVE_UNUSED_BB)
       return;
     if (type == BEFORE_BACKEND) {
-      remove_unused_BB();
-      ir->for_each([&](NormalFunc *f) {
-        DAG_IR dag(f);
-        CodeReorder w;
-        dag.visit(w);
-        w.apply(f);
-      });
+      ir->for_each([&](NormalFunc *f) { code_reorder(f); });
       return;
     }
     PassDisabled("dag") return;
