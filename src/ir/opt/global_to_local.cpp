@@ -27,10 +27,18 @@ void global_to_local(IR::CompileUnit *ir) {
     auto global_addr = main->new_Reg();
     auto global_val = main->new_Reg();
     auto local_addr = main->new_Reg();
-    main->entry->push_front(new IR::StoreInstr(local_addr, global_val));
-    main->entry->push_front(new IR::LoadAddr(local_addr, local));
-    main->entry->push_front(new IR::LoadInstr(global_val, global_addr));
-    main->entry->push_front(new IR::LoadAddr(global_addr, mem.get()));
+    main->entry->instrs.insert(
+        ++main->entry->instrs.begin(),
+        std::make_unique<IR::StoreInstr>(local_addr, global_val));
+    main->entry->instrs.insert(
+        ++main->entry->instrs.begin(),
+        std::make_unique<IR::LoadAddr>(local_addr, local));
+    main->entry->instrs.insert(
+        ++main->entry->instrs.begin(),
+        std::make_unique<IR::LoadInstr>(global_val, global_addr));
+    main->entry->instrs.insert(
+        ++main->entry->instrs.begin(),
+        std::make_unique<IR::LoadAddr>(global_addr, mem.get()));
   }
   main->for_each([&](IR::Instr *i) {
     if (auto load_addr = dynamic_cast<IR::LoadAddr *>(i)) {
