@@ -46,10 +46,17 @@ def run_with(args):
 if __name__ == '__main__':
     args = parse_args()
     run_with(args)
-    shutil.rmtree("./src")
-    shutil.rmtree("./testcases")
-    shutil.rmtree("./build")
-    shutil.rmtree("./third_party")
-    shutil.rmtree("./scripts")
-    shutil.rmtree('./cache')
-    os.remove(".gitignore")
+    if os.path.exists("./src"):
+        shutil.rmtree("./src")
+    if os.path.exists("./testcases"):
+        shutil.rmtree("./testcases")
+    if os.path.exists("./build"):
+        shutil.rmtree("./build")
+    if os.path.exists("./third_party"):
+        shutil.rmtree("./third_party")
+    if os.path.exists("./scripts"):
+        shutil.rmtree("./scripts")
+    if os.path.exists("./cache"):
+        shutil.rmtree('./cache')
+    if os.path.exsist(".gitignore"):
+        os.remove(".gitignore")
