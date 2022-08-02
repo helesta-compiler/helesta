@@ -11,11 +11,20 @@ struct DAG_IR {
     std::vector<BB *> in, out;
     std::vector<BB *> loop_ch, loop_exit, back_edge, may_exit;
     BB *loop_head = nullptr;
-    bool reachable = 0, is_loop_head = 0, visited = 0, dfn_visited = 0;
+    bool reachable = 0, returnable = 0, is_loop_head = 0, visited = 0,
+         dfn_visited = 0;
     std::vector<BB *> dfn;
   };
   std::unordered_map<BB *, LoopTreeNode> loop_tree;
   size_t reach_cnt = 0;
+  void rev_traverse(BB *w) {
+    auto &wi = loop_tree[w];
+    if (!wi.reachable || wi.returnable)
+      return;
+    wi.returnable = 1;
+    for (auto u : wi.in)
+      rev_traverse(u);
+  }
   void traverse(BB *w) {
     auto &wi = loop_tree[w];
     if (wi.reachable)
@@ -201,6 +210,12 @@ struct DAG_IR {
         loop_tree[y].in.push_back(x);
       }
     }
+    func->for_each([&](BB *bb) {
+      Case(ReturnInstr, _, bb->back()) {
+        (void)_;
+        rev_traverse(bb);
+      }
+    });
 
     size_t loop_cnt = 0;
     for (auto dom_x : reverse_view(dom->dfn)) {
@@ -567,7 +582,6 @@ struct CondProp : ForwardLoopVisitor<std::map<std::pair<Reg, BB *>, int32_t>> {
     Case(BranchInstr, br, bb->back()) {
       if (w.out.count({br->cond, nullptr})) {
         auto v = w.out[{br->cond, nullptr}];
-        std::cerr << v << " :::: " << *br << '\n';
         auto target = (v ? br->target1 : br->target0);
         bb->pop();
         bb->push(new JumpInstr(target));
@@ -717,6 +731,7 @@ struct DAG_IR_ALL {
     CondProp cp;
     dag.visit(cp);
 
+    size_t cnt = 0;
     auto defs = build_defs(f);
     f->for_each([&](BB *bb) {
       Case(BranchInstr, br, bb->back()) {
@@ -724,10 +739,13 @@ struct DAG_IR_ALL {
           auto target = lc->value ? br->target1 : br->target0;
           bb->pop();
           bb->push(new JumpInstr(target));
-          ::info << ">>> simplify_branch\n";
+          ++cnt;
         }
       }
     });
+    if (cnt) {
+      ::info << "simplify_branch: " << cnt << '\n';
+    }
   }
   void remove_trivial_BB(NormalFunc *f) {
     UnionFind<BB *> mp1, mp2;
@@ -785,18 +803,39 @@ struct DAG_IR_ALL {
   }
   void remove_unused_BB(NormalFunc *f) {
     DAG_IR dag(f);
+    auto used = [&](BB *bb) {
+      auto &w = dag.loop_tree[bb];
+      return w.returnable;
+    };
     f->for_each([&](BB *bb) {
       bb->for_each([&](Instr *x) {
         Case(PhiInstr, phi, x) {
           remove_if_vec(phi->uses, [&](const std::pair<Reg, BB *> &w) {
-            return !dag.loop_tree[w.second].reachable;
+            return !used(w.second);
           });
         }
       });
+      Case(BranchInstr, br, bb->back()) {
+        std::optional<BB *> target;
+        if (!used(br->target1)) {
+          target = br->target0;
+        } else if (!used(br->target0)) {
+          target = br->target1;
+        }
+        if (target) {
+          bb->pop();
+          bb->push(new JumpInstr(*target));
+        }
+      }
     });
-    remove_if_vec(f->bbs, [&](const std::unique_ptr<BB> &bb) {
-      return !dag.loop_tree[bb.get()].reachable;
-    });
+    remove_if_vec(
+        f->bbs, [&](const std::unique_ptr<BB> &bb) { return !used(bb.get()); });
+    if (f->bbs.empty()) {
+      Reg r = f->new_Reg();
+      BB *bb = f->entry = f->new_BB();
+      bb->push(new LoadConst<int32_t>(r, 0));
+      bb->push(new ReturnInstr(r, 1));
+    }
   }
   void remove_unused_BB() {
     PassDisabled("rub") return;
