@@ -79,7 +79,11 @@ if __name__ == '__main__':
                 out = out.strip('\n\r ')
                 with open(out_file) as stdout:
                     std = stdout.read()
-                    std = std.strip('\n\r ')
+                    lines = std.split('\n')
+                    if len(lines) > 1:
+                        lines[-1].strip('\n\r ')
+                        lines[-2].strip('\n\r ')
+                        std = lines.join('\n')
                 if out != std:
                     print("my output: \n{}\nstd output: \n{}".format(out, std))
                     if not args.benchmark:
