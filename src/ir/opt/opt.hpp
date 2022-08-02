@@ -20,12 +20,13 @@ void remove_unused_BB(IR::CompileUnit *ir);
 void before_backend(IR::CompileUnit *ir);
 
 #define PassEnabled(name) if (!global_config.disabled_passes.count(name))
+#define PassDisabled(name) if (global_config.disabled_passes.count(name))
 
 inline void gvn(IR::CompileUnit *ir) {
   PassEnabled("gvn") {
     global_value_numbering(ir);
     remove_unused_def(ir);
-    simplify_expr(ir);
+    PassEnabled("se") simplify_expr(ir);
   }
 }
 
@@ -34,13 +35,14 @@ inline void gcm(IR::CompileUnit *ir) {
 }
 
 inline void optimize_ir(IR::CompileUnit *ir) {
-  mem2reg(ir);
+  PassDisabled("opt") return;
+  PassEnabled("mem2reg") mem2reg(ir);
   remove_unused_def(ir);
   remove_unused_BB(ir);
   gvn(ir);
   gcm(ir);
   call_graph(ir);
-  dag_ir(ir);
+  PassEnabled("dag") dag_ir(ir);
   gvn(ir);
   call_graph(ir);
   gvn(ir);

@@ -662,6 +662,19 @@ struct DAG_IR_ALL {
       });
     });
   }
+  void simplify_branch(NormalFunc *f) {
+    auto defs = build_defs(f);
+    f->for_each([&](BB *bb) {
+      Case(BranchInstr, br, bb->back()) {
+        Case(LoadConst<int32_t>, lc, defs.at(br->cond)) {
+          auto target = lc->value ? br->target1 : br->target0;
+          bb->pop();
+          bb->push(new JumpInstr(target));
+          ::info << ">>> simplify_branch\n";
+        }
+      }
+    });
+  }
   void remove_trivial_BB(NormalFunc *f) {
     UnionFind<BB *> mp1, mp2;
     auto prev = build_prev(f);
@@ -672,29 +685,33 @@ struct DAG_IR_ALL {
     auto cplx = [&](BB *bb) {
       return !(prev[bb].size() == 1 && bb->instrs.size() == 1);
     };
-    std::unordered_set<BB *> cplxs;
+    std::unordered_set<BB *> n1, n2;
+
     f->for_each([&](BB *bb) {
-      auto out = bb->getOutNodes();
-      if (out.size() == 2) {
-        remove_if_vec(out, cplx);
-        if (out.size() == 2) {
-          cplxs.insert(out[0]);
+      Case(BranchInstr, br, bb->back()) {
+        bool t1 = !cplx(br->target1);
+        bool t0 = !cplx(br->target0);
+        if (t1) {
+          if (t0) {
+            n1.insert(br->target1);
+          } else {
+            n2.insert(br->target0);
+          }
+        } else if (t0) {
+          n2.insert(br->target1);
         }
       }
     });
     f->for_each([&](BB *bb) {
-      if (!cplx(bb) && !cplxs.count(bb)) {
+      if (!cplx(bb) && !n1.count(bb)) {
         Case(JumpInstr, jmp, bb->instrs.back().get()) {
-          mp1.merge(bb, jmp->target);
-          mp2.merge(bb, prev[bb][0]);
+          if (!n2.count(jmp->target)) {
+            mp1.merge(bb, jmp->target);
+            mp2.merge(bb, prev[bb][0]);
+          }
         }
       }
     });
-    /*    f->for_each([&](BB *bb) {
-          if (mp1[bb] != bb)
-            std::cerr << bb->name << "  ::::  " << mp1[bb]->name << "  "
-                      << mp2[bb]->name << '\n';
-        });*/
     f->for_each([&](BB *bb) {
       bb->for_each([&](Instr *x) {
         Case(PhiInstr, p, x) {
@@ -705,18 +722,12 @@ struct DAG_IR_ALL {
         }
       });
     });
-
-    /*    prev = build_prev(f);
-        f->for_each([&](BB *bb) {
-          bb->for_each([&](Instr *x) {
-            Case(PhiInstr, p, x) {
-              p->map_BB([&](BB *&w) {
-                assert(std::find(prev[bb].begin(), prev[bb].end(), w) !=
-                       prev[bb].end());
-              });
-            }
-          });
-        });*/
+    remove_if_vec(f->bbs, [&](const std::unique_ptr<BB> &bb) {
+      return mp1[bb.get()] != bb.get();
+    });
+    f->for_each([&](BB *bb) {
+      Case(BranchInstr, br, bb->back()) { assert(br->target1 != br->target0); }
+    });
   }
   void remove_unused_BB(NormalFunc *f) {
     DAG_IR dag(f);
@@ -733,11 +744,18 @@ struct DAG_IR_ALL {
       return !dag.loop_tree[bb.get()].reachable;
     });
   }
-  void remove_unused_BB() {
-    ir->for_each([&](NormalFunc *f) { remove_unused_BB(f); });
-  }
   void remove_trivial_BB() {
-    ir->for_each([&](NormalFunc *f) { remove_trivial_BB(f); });
+    ir->for_each(
+        [&](NormalFunc *f) { PassEnabled("rtb") remove_trivial_BB(f); });
+  }
+  void remove_unused_BB() {
+    PassDisabled("rub") return;
+    ir->for_each([&](NormalFunc *f) {
+      PassEnabled("sb") simplify_branch(f);
+      remove_unused_BB(f);
+      remove_trivial_BB(f);
+      remove_unused_BB(f);
+    });
   }
   DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
     remove_unused_memobj();
@@ -745,7 +763,8 @@ struct DAG_IR_ALL {
     if (type == REMOVE_UNUSED_BB)
       return;
     if (type == BEFORE_BACKEND) {
-      PassEnabled("rtb") remove_trivial_BB();
+      // remove_trivial_BB();
+      remove_unused_BB();
       ir->for_each([&](NormalFunc *f) {
         DAG_IR dag(f);
         CodeReorder w;

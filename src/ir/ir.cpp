@@ -390,7 +390,7 @@ int exec(CompileUnit &c) {
     BB *last_bb = NULL;
     BB *cur = func->entry;
     int sz = func->scope.size;
-    std::unordered_map<int, typeless_scalar_t> regs;
+    std::unordered_map<int, typeless_scalar_t> regs, tmps;
     auto wReg = [&](Reg x, typeless_scalar_t v) {
       assert(func->thread_local_regs.count(x) == in_fork);
       assert(1 <= x.id && x.id <= func->max_reg_id);
@@ -407,16 +407,21 @@ int exec(CompileUnit &c) {
     bool last_in_fork = in_fork;
     while (cur) {
       // printf("BB: %s\n",cur->name.data());
+      tmps.clear();
+      for (auto it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
+        Instr *x0 = it->get();
+        Case(PhiInstr, x, x0) {
+          for (auto &kv : x->uses)
+            if (last_bb == kv.second)
+              tmps[x->d1.id] = rReg(kv.first);
+        }
+      }
       for (auto it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
         Instr *x0 = it->get();
         ++instr_cnt;
         if (in_fork)
           ++par_instr_cnt;
-        Case(PhiInstr, x, x0) {
-          for (auto &kv : x->uses)
-            if (last_bb == kv.second)
-              wReg(x->d1, rReg(kv.first));
-        }
+        Case(PhiInstr, x, x0) { wReg(x->d1, tmps.at(x->d1.id)); }
         else Case(LoadAddr, x, x0) {
           wReg(x->d1, (x->offset->global ? 0 : sp) + x->offset->offset);
         }

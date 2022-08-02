@@ -181,9 +181,11 @@ struct CallGraph {
     f->for_each([&](BB *bb0) {
       Case(ReturnInstr, _, bb0->back()) {
         (void)_;
+        assert(!bb);
         bb = bb0;
       }
     });
+    assert(bb);
     if (bb->instrs.size() != 2)
       return;
     Case(PhiInstr, phi, bb->back1()) {
@@ -214,7 +216,7 @@ struct CallGraph {
               Reg r2 = f->new_Reg();
               args[la->id] = {r1, r2};
             }
-            mp[la->d1] = args[la->id].first;
+            mp[la->d1] = args[la->id].second;
           }
         });
         auto new_entry = f->new_BB();
@@ -244,6 +246,7 @@ struct CallGraph {
         remove_if_vec(phi->uses, [&](const std::pair<Reg, BB *> &w) {
           return tail_rec.count(w.second);
         });
+        map_use(f, mp);
       }
     }
     if (cnt) {
@@ -256,6 +259,7 @@ struct CallGraph {
 };
 
 void call_graph(CompileUnit *ir) {
+  PassDisabled("cg") return;
   CallGraph cg(ir);
   cg.const_prop();
   cg.build_pure();
