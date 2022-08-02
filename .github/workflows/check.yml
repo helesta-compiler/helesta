@@ -20,6 +20,10 @@ jobs:
     - name: Compile Testcases
       run: python3 ./scripts/run_all.py
 
+    - name: Set Run Token
+      id: generate-uuid
+      uses: filipstefansson/uuid-action@v1
+
     - name: Push Intermediates to Raspberry Pi
       uses: appleboy/scp-action@master
       with:
@@ -28,7 +32,7 @@ jobs:
         password: ${{ secrets.PASSWORD }}
         port: 2004
         source: "testcases,scripts/test_all.py"
-        target: "github-action"
+        target: github-action/${{ steps.generate-uuid.outputs.uuid }}
         proxy_host: 140.143.248.164
         proxy_password: ${{ secrets.PASSWORD }}
         proxy_username: helesta 
@@ -39,7 +43,7 @@ jobs:
         host: ${{ secrets.HOST }}
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
-        command: python3 /home/pi/github-action/scripts/test_all.py --testcase_path /home/pi/github-action/testcases
+        command: python3 /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/testcases
 
     - name: Benchmark
       uses: fifsky/ssh-action@master
@@ -47,7 +51,7 @@ jobs:
         host: ${{ secrets.HOST }}
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
-        command: python3 /home/pi/github-action/scripts/test_all.py --testcase_path /home/pi/github-action/testcases --benchmark
+        command: python3 /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/testcases --benchmark
 
     - name: Pull Benchmark Summary From Raspberry Pi
       uses: nicklasfrahm/scp-action@main
@@ -57,7 +61,7 @@ jobs:
         username: pi
         insecure_password: ${{ secrets.PASSWORD }}
         port: 2004
-        source: "/home/pi/github-action/summary.md"
+        source: /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/summary.md
         target: "summary.md"
         proxy_host: ${{ secrets.HOST }}
         insecure_proxy_password: ${{ secrets.PASSWORD }}

@@ -32,7 +32,7 @@ def run(exe_path, in_path):
 
 def run_with(compiler, src_path, in_path, lib_src_path, include_path):
     print("benchmark {} with {}".format(src_file, compiler))
-    exe_path = "/tmp/exe"
+    exe_path = "exe"
     compile_cmd = "{} -x c++ {} {} -include {} -o {} -O2".format(compiler, src_file, lib_src_path, include_path, exe_path)
     child = subprocess.Popen(compile_cmd.split(), stdout=subprocess.PIPE)
     child.communicate()
@@ -41,7 +41,7 @@ def run_with(compiler, src_path, in_path, lib_src_path, include_path):
 if __name__ == '__main__':
     args = parse_args()
     results = []
-    helesta_sum = 0.0
+    hele_sum = 0.0
     gcc_sum = 0.0
     clang_sum = 0.0
     for mod in os.listdir(args.testcase_path):
@@ -87,8 +87,8 @@ if __name__ == '__main__':
                 result = {}
                 result['testcase'] = testcase
                 result['passed'] = (out is not None) and (out == std)
-                result['helesta elapsed'] = elapsed
-                helesta_sum += elapsed
+                result['hele elapsed'] = elapsed
+                hele_sum += elapsed
                 _, elapsed = run_with('g++', src_file, in_file, args.lib_src_path, args.include_path)
                 gcc_sum += elapsed
                 result['gcc elapsed'] = elapsed
@@ -100,6 +100,6 @@ if __name__ == '__main__':
         exit(0)
     with open(args.benchmark_summary_path, 'w') as f:
         f.write("## Overall\n\n")
-        f.write(pd.DataFrame([{"helesta": helesta_sum, "gcc": gcc_sum, "clang": clang_sum}]).to_markdown() + "\n\n")
+        f.write(pd.DataFrame([{"hele": hele_sum, "gcc": gcc_sum, "clang": clang_sum}]).to_markdown() + "\n\n")
         f.write("## Cases\n\n")
         f.write(pd.DataFrame(results).to_markdown() + "\n\n")
