@@ -46,14 +46,16 @@ jobs:
         command: python3 /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/testcases
 
     - name: Benchmark
+      if: ${{ contains(github.event.head_commit.message, '$bench') }}  
       uses: fifsky/ssh-action@master
       with:
         host: ${{ secrets.HOST }}
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
-        command: python3 /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/testcases --benchmark
+        command: python3 /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/testcases --benchmark --benchmark_summary_path /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/summary.md
 
     - name: Pull Benchmark Summary From Raspberry Pi
+      if: ${{ contains(github.event.head_commit.message, '$bench') }}  
       uses: nicklasfrahm/scp-action@main
       with:
         direction: download
@@ -70,4 +72,5 @@ jobs:
         proxy_username: helesta 
 
     - name: Post Summary
+      if: ${{ contains(github.event.head_commit.message, '$bench') }}  
       run: cat summary.md >> $GITHUB_STEP_SUMMARY
