@@ -63,15 +63,15 @@ int convn(int kernelid, int input[], int output[], int n, int m, int c){
     int i = 0;
     int j = 0;
     int x, y, curr;
-    const int true = 1;
-    while (true == true){
+    const int True = 1;
+    while (True == True){
         j = 0;
-        while (true == true){
+        while (True == True){
             curr = 0;
             x = i - c / 2;
-            while (true == true){
+            while (True == True){
                 y = j - c / 2;
-                while (true == true){
+                while (True == True){
                     curr = reduce(kernelid, curr, getvalue(input, n, m, x, y));
                     y = y + 1;
                     if (y >= j + c / 2) break;
