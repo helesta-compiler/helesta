@@ -75,8 +75,11 @@ void CompileUnit::print(ostream &os) const {
 }
 
 void LoadAddr::print(ostream &os) const { os << d1 << " = " << *offset; }
-template <typename Scalar> void LoadConst<Scalar>::print(ostream &os) const {
+template <> void LoadConst<int32_t>::print(ostream &os) const {
   os << d1 << " = " << value;
+}
+template <> void LoadConst<float>::print(ostream &os) const {
+  os << d1 << " = " << value << 'f';
 }
 void LoadArg::print(ostream &os) const { os << d1 << " = arg" << id; }
 void ArrayIndex::print(ostream &os) const {

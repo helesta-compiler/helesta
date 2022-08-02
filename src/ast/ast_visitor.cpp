@@ -100,7 +100,22 @@ CondJumpList ASTVisitor::to_CondJumpList(antlrcpp::Any value) {
     return value.as<CondJumpList>();
   assert(value.is<IRValue>());
   IRValue irv = value;
-  IR::Reg reg = _get_value(irv);
+  IR::Reg reg1 = _get_value(irv), reg0 = new_reg(), reg;
+  switch (irv.type.scalar_type) {
+  case ScalarType::Int: {
+    reg = reg1;
+    break;
+  }
+  case ScalarType::Float: {
+    reg = new_reg();
+    cur_bb->push(new IR::LoadConst<float>(reg0, 0));
+    cur_bb->push(
+        new IR::BinaryOpInstr(reg, reg1, reg0, IR::BinaryCompute::FNEQ));
+    break;
+  }
+  default:
+    assert(0);
+  }
   IR::BranchInstr *inst = new IR::BranchInstr(reg, nullptr, nullptr);
   cur_bb->push(inst);
   cur_bb = nullptr;

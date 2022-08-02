@@ -309,7 +309,7 @@ struct SimplifyExpr {
       }
     });
     if (del_cnt) {
-      std::cerr << "SimplifyExpr: " << ins_cnt << "/" << del_cnt << std::endl;
+      ::info << "SimplifyExpr: " << ins_cnt << "/" << del_cnt << '\n';
     }
     /*
 func->for_each([&](Instr *x) {

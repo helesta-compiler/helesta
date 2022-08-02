@@ -349,6 +349,109 @@ std::ostream &operator<<(std::ostream &os, const mem_set_t &ms) {
   return os;
 }
 
+struct TypeCheck : InstrVisitor {
+  enum Type {
+    Int,
+    Float,
+    Addr,
+  };
+  typedef std::variant<Type, Reg> node_t;
+  friend std::ostream &operator<<(std::ostream &os, node_t x) {
+    if (std::holds_alternative<Type>(x)) {
+      switch (std::get<Type>(x)) {
+      case Int:
+        os << "int";
+        break;
+      case Float:
+        os << "float";
+        break;
+      case Addr:
+        os << "addr";
+        break;
+      }
+    } else {
+      os << std::get<Reg>(x);
+    }
+    return os;
+  }
+  UnionFind<node_t> mp;
+  NormalFunc *f;
+  TypeCheck(NormalFunc *_f) : f(_f) {}
+  Type type(ScalarType x) {
+    if (x == ScalarType::Int)
+      return Int;
+    if (x == ScalarType::Float)
+      return Float;
+    assert(0);
+    return Int;
+  }
+  void visit(Instr *w0) override {
+    // ::info << *w0 << '\n';
+    auto merge = [&](node_t x, node_t y) {
+      // ::info << x << " merge " << y << '\n';
+      mp.merge(x, y);
+      if (mp[Int] == mp[Float] || mp[Int] == mp[Addr] ||
+          mp[Float] == mp[Addr]) {
+        ::info << "bad type: " << *w0 << '\n';
+        ::debug << '\n' << *f << '\n';
+        assert(0);
+      }
+    };
+    Case(LoadAddr, w, w0) { merge(w->d1, Addr); }
+    else Case(LoadConst<int32_t>, w, w0) {
+      merge(w->d1, Int);
+    }
+    else Case(LoadConst<float>, w, w0) {
+      merge(w->d1, Float);
+    }
+    else Case(LoadArg, w, w0) {
+      (void)w;
+    }
+    else Case(UnaryOpInstr, w, w0) {
+      if (w->op.type == UnaryCompute::ID) {
+        merge(w->d1, w->s1);
+      } else {
+        merge(w->d1, type(w->op.ret_type()));
+        merge(w->s1, type(w->op.input_type()));
+      }
+    }
+    else Case(BinaryOpInstr, w, w0) {
+      merge(w->d1, type(w->op.ret_type()));
+      merge(w->s1, type(w->op.input_type()));
+      merge(w->s2, type(w->op.input_type()));
+    }
+    else Case(ArrayIndex, w, w0) {
+      merge(w->d1, Addr);
+      merge(w->s1, Addr);
+      merge(w->s2, Int);
+    }
+    else Case(LoadInstr, w, w0) {
+      merge(w->addr, Addr);
+    }
+    else Case(StoreInstr, w, w0) {
+      merge(w->addr, Addr);
+    }
+    else Case(JumpInstr, w, w0) {
+      (void)w;
+    }
+    else Case(BranchInstr, w, w0) {
+      merge(w->cond, Int);
+    }
+    else Case(ReturnInstr, w, w0) {
+      (void)w;
+    }
+    else Case(CallInstr, w, w0) {
+      (void)w;
+    }
+    else Case(PhiInstr, w, w0) {
+      for (auto &kv : w->uses) {
+        merge(w->d1, kv.first);
+      }
+    }
+    else assert(0);
+  }
+};
+
 struct PointerBase : InstrVisitor {
   struct Info {
     mem_name_t base;
@@ -648,17 +751,6 @@ struct RemoveUnusedStore {
   }
 };
 
-template <class T> struct UnionFind {
-  std::unordered_map<T, T> f;
-  void add(T x) { f[x] = x; }
-  T operator[](T x) {
-    while (x != f[x])
-      x = f[x] = f[f[x]];
-    return x;
-  }
-  void merge(T x, T y) { f[(*this)[x]] = (*this)[y]; }
-};
-
 enum PassType { NORMAL, REMOVE_UNUSED_BB, BEFORE_BACKEND };
 
 struct DAG_IR_ALL {
@@ -746,6 +838,11 @@ struct DAG_IR_ALL {
     if (cnt) {
       ::info << "simplify_branch: " << cnt << '\n';
     }
+  }
+  void type_check(NormalFunc *f) {
+    DAG_IR dag(f);
+    TypeCheck w(f);
+    dag.visit(w);
   }
   void code_reorder(NormalFunc *f) {
     DAG_IR dag(f);
@@ -874,6 +971,7 @@ struct DAG_IR_ALL {
         remove_trivial_BB(f);
         remove_unused_BB(f);
       }
+      type_check(f);
     });
   }
   DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {

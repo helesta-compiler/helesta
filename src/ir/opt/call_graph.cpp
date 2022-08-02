@@ -277,12 +277,13 @@ struct CallGraph {
 void call_graph(CompileUnit *ir) {
   PassDisabled("cg") return;
   CallGraph cg(ir);
-  cg.const_prop();
-  cg.build_pure();
-  cg.remove_unused_ret();
-  cg.tail_rec_to_loop();
+  PassEnabled("cgcp") cg.const_prop();
+  PassEnabled("pure") cg.build_pure();
+  PassEnabled("rur") cg.remove_unused_ret();
+  PassEnabled("trtl") cg.tail_rec_to_loop();
 }
 void remove_unused_func(CompileUnit *ir) {
+  PassDisabled("ruf") return;
   CallGraph cg(ir);
   cg.remove_unused_func();
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -141,3 +142,33 @@ template <class T> struct enumerate {
   auto begin() { return iterator{x.begin(), 0}; }
   auto end() { return iterator{x.end(), x.size()}; }
 };
+
+template <class T> struct UnionFind {
+  std::unordered_map<T, T> _f;
+  T &f(T x) {
+    if (_f.count(x))
+      return _f[x];
+    _f[x] = x;
+    return _f[x];
+  }
+  void add(T x) { _f[x] = x; }
+  T operator[](T x) {
+    while (x != f(x))
+      x = f(x) = f(f(x));
+    return x;
+  }
+  void merge(T x, T y) { f((*this)[x]) = (*this)[y]; }
+};
+
+template <class T, class F> void remove_if(T &ls, F f) {
+  for (auto it = ls.end(); it != ls.begin();) {
+    auto it0 = it;
+    if (f(*--it)) {
+      ls.erase(it);
+      it = it0;
+    }
+  }
+}
+template <class T, class F> void remove_if_vec(T &ls, F f) {
+  ls.resize(std::remove_if(ls.begin(), ls.end(), f) - ls.begin());
+}

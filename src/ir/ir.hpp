@@ -58,6 +58,7 @@ struct Reg : Printable {
   // id is unique in a NormalFunc
   void print(ostream &os) const override;
   bool operator==(const Reg &r) const { return id == r.id; }
+  bool operator!=(const Reg &r) const { return id != r.id; }
   bool operator<(const Reg &r) const { return id < r.id; }
 };
 
@@ -457,7 +458,7 @@ struct BinaryOp : Printable {
   ScalarType input_type() {
     return type == BinaryCompute::FLESS || type == BinaryCompute::FLEQ ||
                    type == BinaryCompute::FEQ || type == BinaryCompute::FNEQ
-               ? ScalarType::Int
+               ? ScalarType::Float
                : ret_type();
   }
   ScalarType ret_type() {
@@ -679,16 +680,3 @@ struct SetPrintContext {
   ~SetPrintContext() { print_ctx.f = f0; }
 };
 } // namespace IR
-
-template <class T, class F> void remove_if(T &ls, F f) {
-  for (auto it = ls.end(); it != ls.begin();) {
-    auto it0 = it;
-    if (f(*--it)) {
-      ls.erase(it);
-      it = it0;
-    }
-  }
-}
-template <class T, class F> void remove_if_vec(T &ls, F f) {
-  ls.resize(std::remove_if(ls.begin(), ls.end(), f) - ls.begin());
-}
