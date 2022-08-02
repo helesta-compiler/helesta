@@ -58,5 +58,5 @@ if __name__ == '__main__':
         shutil.rmtree("./scripts")
     if os.path.exists("./cache"):
         shutil.rmtree('./cache')
-    if os.path.exsist(".gitignore"):
+    if os.path.exists(".gitignore"):
         os.remove(".gitignore")
