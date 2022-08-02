@@ -385,13 +385,15 @@ struct TypeCheck : InstrVisitor {
     assert(0);
     return Int;
   }
+  bool success() {
+    return mp[Int] != mp[Float] && mp[Int] != mp[Addr] && mp[Float] != mp[Addr];
+  }
   void visit(Instr *w0) override {
     // ::info << *w0 << '\n';
     auto merge = [&](node_t x, node_t y) {
       // ::info << x << " merge " << y << '\n';
       mp.merge(x, y);
-      if (mp[Int] == mp[Float] || mp[Int] == mp[Addr] ||
-          mp[Float] == mp[Addr]) {
+      if (mp[Int] == mp[Float] || mp[Addr] == mp[Float]) {
         ::info << "bad type: " << *w0 << '\n';
         ::debug << '\n' << *f << '\n';
         assert(0);
@@ -839,10 +841,11 @@ struct DAG_IR_ALL {
       ::info << "simplify_branch: " << cnt << '\n';
     }
   }
-  void type_check(NormalFunc *f) {
+  bool type_check(NormalFunc *f) {
     DAG_IR dag(f);
     TypeCheck w(f);
     dag.visit(w);
+    return w.success();
   }
   void code_reorder(NormalFunc *f) {
     DAG_IR dag(f);
@@ -985,6 +988,7 @@ struct DAG_IR_ALL {
       bb->push(new ReturnInstr(r, 1));
     }
   }
+  bool typed = 1;
   void remove_unused_BB() {
     PassDisabled("rub") return;
     ir->for_each([&](NormalFunc *f) {
@@ -995,7 +999,7 @@ struct DAG_IR_ALL {
         remove_trivial_BB(f);
         remove_unused_BB(f);
       }
-      type_check(f);
+      typed &= type_check(f);
     });
   }
   DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
@@ -1008,6 +1012,10 @@ struct DAG_IR_ALL {
         code_reorder(f);
         remove_phi(f);
       });
+      return;
+    }
+    if (!typed) {
+      std::cerr << "type check failed\n";
       return;
     }
     PassDisabled("dag") return;
