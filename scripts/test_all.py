@@ -79,7 +79,8 @@ if __name__ == '__main__':
                 out = out.strip('\n\r ')
                 with open(out_file) as stdout:
                     std = stdout.read()
-                    lines = std.strip('\n\r ').split('\n')
+                    std = std.strip('\n\r ')
+                    lines = std.split('\n')
                     if len(lines) > 1:
                         lines[-2].strip('\n\r ')
                         std = '\n'.join(lines)
