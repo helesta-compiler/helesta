@@ -33,8 +33,9 @@ void remove_unused_def_func(IR::NormalFunc *func) {
       continue;
     used_instrs.insert(i);
     i->map_use([&](IR::Reg &r) {
-      assert(def_vec[r.id] != nullptr);
-      q.push_back(def_vec[r.id]);
+      if (def_vec[r.id] != nullptr) {
+        q.push_back(def_vec[r.id]);
+      }
     });
   }
   func->for_each([&](IR::BB *bb) {
@@ -52,27 +53,13 @@ void remove_unused_bb(IR::NormalFunc *func) {
   while (!queue.empty()) {
     auto b = queue.front();
     queue.pop_front();
-    if (dynamic_cast<IR::ControlInstr *>(b->back())) {
-      std::vector<IR::BB *> out_nodes = b->getOutNodes();
-      for (auto target : out_nodes) {
-        if (used_bb.find(target) != used_bb.end()) {
-          continue;
-        }
-        used_bb.insert(target);
-        queue.push_back(target);
+    std::vector<IR::BB *> out_nodes = b->getOutNodes();
+    for (auto target : out_nodes) {
+      if (used_bb.find(target) != used_bb.end()) {
+        continue;
       }
-    } else {
-      int next_id = b->id + 1;
-      for (auto it = func->bbs.begin(); it != func->bbs.end(); ++it) {
-        IR::BB *tmp_bb = (*it).get();
-        if (tmp_bb->id == next_id) {
-          if (used_bb.find(tmp_bb) == used_bb.end()) {
-            used_bb.insert(tmp_bb);
-            queue.push_back(tmp_bb);
-          }
-          break;
-        }
-      }
+      used_bb.insert(target);
+      queue.push_back(target);
     }
   }
   for (auto it = func->bbs.begin(); it != func->bbs.end();) {
