@@ -28,7 +28,7 @@ def run(exe_path, in_path):
     out, _ = child.communicate()
     end = time.time()
     out = out.decode("utf-8")
-    out = out.strip("\n\r")
+    out = out.strip("\n\r ")
     out += "\n" + str(child.returncode)
     return out, end - start
 
@@ -76,10 +76,10 @@ if __name__ == '__main__':
                 print(run_cmd)
                 out, elapsed = run(run_cmd, in_file)
                 os.remove(asm_file)
-                out = out.strip()
+                out = out.strip('\n\r ')
                 with open(out_file) as stdout:
                     std = stdout.read()
-                    std = std.strip()
+                    std = std.strip('\n\r ')
                 if out != std:
                     print("my output: \n{}\nstd output: \n{}".format(out, std))
                     if not args.benchmark:
