@@ -83,7 +83,7 @@ if __name__ == '__main__':
                     if len(lines) > 1:
                         lines[-1].strip('\n\r ')
                         lines[-2].strip('\n\r ')
-                        std = lines.join('\n')
+                        std = '\n'.join(lines)
                 if out != std:
                     print("my output: \n{}\nstd output: \n{}".format(out, std))
                     if not args.benchmark:
