@@ -234,7 +234,7 @@ template <class T> struct ForwardLoopVisitor {
     map_t in, out, loop_out;
     bool visited = 0, is_loop_head = 0, in_loop = 0;
     bool loop_visited = 0;
-    const map_t &get_out() { return is_loop_head && !in_loop ? loop_out : out; }
+    map_t &get_out() { return is_loop_head && !in_loop ? loop_out : out; }
   };
   std::unordered_map<BB *, Info> info;
   void begin(BB *bb, bool is_loop_head) {
@@ -531,6 +531,39 @@ struct LoadToReg : ForwardLoopVisitor<std::map<Reg, Reg>> {
   }
 };
 
+struct CondProp : ForwardLoopVisitor<std::map<std::pair<Reg, BB *>, int32_t>> {
+  using ForwardLoopVisitor::map_t;
+  CondProp() {}
+  ~CondProp() {
+    if (cnt) {
+      ::info << "CondProp: " << cnt << '\n';
+    }
+  }
+  size_t cnt = 0;
+  void visitBB(BB *bb) {
+    auto &w = info[bb];
+    w.out.clear();
+    for (auto [k, v] : w.in) {
+      if (k.second == nullptr || k.second == bb) {
+        w.out[{k.first, nullptr}] = v;
+      }
+    }
+    Case(BranchInstr, br, bb->back()) {
+      if (w.out.count({br->cond, nullptr})) {
+        auto v = w.out[{br->cond, nullptr}];
+        std::cerr << v << " :::: " << *br << '\n';
+        auto target = (v ? br->target1 : br->target0);
+        bb->pop();
+        bb->push(new JumpInstr(target));
+        ++cnt;
+      } else {
+        w.out[{br->cond, br->target1}] = 1;
+        w.out[{br->cond, br->target0}] = 0;
+      }
+    }
+  }
+};
+
 struct RemoveUnusedStore {
   struct Info {
     std::set<Reg> in;
@@ -664,6 +697,10 @@ struct DAG_IR_ALL {
     });
   }
   void simplify_branch(NormalFunc *f) {
+    DAG_IR dag(f);
+    CondProp cp;
+    dag.visit(cp);
+
     auto defs = build_defs(f);
     f->for_each([&](BB *bb) {
       Case(BranchInstr, br, bb->back()) {
