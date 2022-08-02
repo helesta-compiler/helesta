@@ -925,6 +925,30 @@ struct DAG_IR_ALL {
       Case(BranchInstr, br, bb->back()) { assert(br->target1 != br->target0); }
     });
   }
+  void remove_phi(NormalFunc *f) {
+    std::vector<std::pair<BB *, Instr *>> movs1, movs2;
+    f->for_each([&](BB *bb) {
+      std::unordered_map<Reg, Reg> mp;
+      bb->for_each([&](Instr *x) {
+        Case(PhiInstr, phi, x) {
+          Reg tmp = mp[phi->d1] = f->new_Reg();
+          for (auto &[r, bb0] : phi->uses) {
+            movs2.emplace_back(bb0, new UnaryOpInstr(tmp, r, UnaryCompute::ID));
+          }
+          bb->del();
+          movs1.emplace_back(bb,
+                             new UnaryOpInstr(phi->d1, tmp, UnaryCompute::ID));
+        }
+        else x->map_use(partial_map(mp));
+      });
+    });
+    for (auto [bb, x] : movs1) {
+      bb->push1(x);
+    }
+    for (auto [bb, x] : movs2) {
+      bb->push1(x);
+    }
+  }
   void remove_unused_BB(NormalFunc *f) {
     DAG_IR dag(f);
     auto used = [&](BB *bb) {
@@ -980,7 +1004,10 @@ struct DAG_IR_ALL {
     if (type == REMOVE_UNUSED_BB)
       return;
     if (type == BEFORE_BACKEND) {
-      ir->for_each([&](NormalFunc *f) { code_reorder(f); });
+      ir->for_each([&](NormalFunc *f) {
+        code_reorder(f);
+        remove_phi(f);
+      });
       return;
     }
     PassDisabled("dag") return;
