@@ -12,6 +12,7 @@ def parse_args():
     parser.add_argument("--include_path", default="/home/pi/github-action/sylib.h")
     parser.add_argument("--benchmark", action='store_true')
     parser.add_argument("--benchmark_summary_path", default='/home/pi/github-action/summary.md')
+    parser.add_argument("--benchmark_data_path", default='/home/pi/data/performance/')
     args = parser.parse_args()
     return args
 
@@ -56,6 +57,8 @@ if __name__ == '__main__':
             testcase = testcase[:-3]
             asm_file = os.path.join(mod_path, testcase + ".s")
             in_file = os.path.join(mod_path, testcase + ".in")
+            if args.benchmark:
+                in_file = os.path.join(args.benchmark_data_path, testcase + ".in")
             src_file = os.path.join(mod_path, testcase + ".sy")
             out_file = os.path.join(mod_path, testcase + ".out")
             exe_file = os.path.join(mod_path, testcase)
