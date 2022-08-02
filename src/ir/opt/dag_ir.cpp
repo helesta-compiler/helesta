@@ -530,6 +530,7 @@ struct LoadToReg : ForwardLoopVisitor<std::map<Reg, Reg>> {
     }
   }
 };
+
 struct RemoveUnusedStore {
   struct Info {
     std::set<Reg> in;
@@ -744,10 +745,6 @@ struct DAG_IR_ALL {
       return !dag.loop_tree[bb.get()].reachable;
     });
   }
-  void remove_trivial_BB() {
-    ir->for_each(
-        [&](NormalFunc *f) { PassEnabled("rtb") remove_trivial_BB(f); });
-  }
   void remove_unused_BB() {
     PassDisabled("rub") return;
     ir->for_each([&](NormalFunc *f) {
@@ -763,7 +760,6 @@ struct DAG_IR_ALL {
     if (type == REMOVE_UNUSED_BB)
       return;
     if (type == BEFORE_BACKEND) {
-      // remove_trivial_BB();
       remove_unused_BB();
       ir->for_each([&](NormalFunc *f) {
         DAG_IR dag(f);
@@ -773,6 +769,7 @@ struct DAG_IR_ALL {
       });
       return;
     }
+    PassDisabled("dag") return;
     ir->for_each([&](MemScope &ms) {
       ms.for_each([&](MemObject *mem) { memobjs[mem] = {mem}; });
     });
