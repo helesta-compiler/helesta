@@ -1,9 +1,10 @@
+#include "ir/ir.hpp"
 #include "ir/opt/opt.hpp"
 
 void global_to_local(IR::CompileUnit *ir) {
   std::unordered_set<IR::MemObject *> do_not_opt;
   ir->for_each([&](IR::NormalFunc *func) {
-    if (func->name == "main")
+    if (func->name == "main" || func->name == ".init")
       return;
     func->for_each([&](IR::Instr *i) {
       if (auto load_addr = dynamic_cast<IR::LoadAddr *>(i)) {
@@ -12,18 +13,28 @@ void global_to_local(IR::CompileUnit *ir) {
     });
   });
   auto main = ir->funcs["main"].get();
+  std::unordered_map<IR::MemObject *, IR::MemObject *> global2local;
   for (auto &mem : ir->scope.objects) {
     if (do_not_opt.find(mem.get()) != do_not_opt.end()) {
       continue;
     }
     if (!mem->is_single_var())
       continue;
-    auto raw = mem.release();
-    raw->global = false;
-    main->scope.add(raw);
+    auto local = main->scope.new_MemObject(mem->name);
+    global2local[mem.get()] = local;
+    auto global_addr = main->new_Reg();
+    auto global_val = main->new_Reg();
+    auto local_addr = main->new_Reg();
+    main->entry->push_front(new IR::StoreInstr(local_addr, global_val));
+    main->entry->push_front(new IR::LoadAddr(local_addr, local));
+    main->entry->push_front(new IR::LoadInstr(global_val, global_addr));
+    main->entry->push_front(new IR::LoadAddr(global_addr, mem.get()));
   }
-  ir->scope.objects.erase(
-      std::remove_if(ir->scope.objects.begin(), ir->scope.objects.end(),
-                     [&](auto &mem) { return mem == nullptr; }),
-      ir->scope.objects.end());
+  main->for_each([&](IR::Instr *i) {
+    if (auto load_addr = dynamic_cast<IR::LoadAddr *>(i)) {
+      if (global2local.find(load_addr->offset) != global2local.end()) {
+        load_addr->offset = global2local[load_addr->offset];
+      }
+    }
+  });
 }
