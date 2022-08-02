@@ -2,6 +2,7 @@ import os
 import subprocess
 import argparse
 import time
+import tempfile
 import pandas as pd
 
 def parse_args():
@@ -33,7 +34,7 @@ def run(exe_path, in_path):
 
 def run_with(compiler, src_path, in_path, lib_src_path, include_path):
     print("benchmark {} with {}".format(src_file, compiler))
-    exe_path = "exe"
+    exe_path = os.path.join(tempfile.mkdtemp(), "exe")
     compile_cmd = "{} -x c++ {} {} -include {} -o {} -O2".format(compiler, src_file, lib_src_path, include_path, exe_path)
     child = subprocess.Popen(compile_cmd.split(), stdout=subprocess.PIPE)
     child.communicate()
