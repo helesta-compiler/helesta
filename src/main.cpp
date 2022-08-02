@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
   }
 
   std::pair<std::string, std::string> filename = parse_arg(argc, argv);
-
+  global_config.sy_filename = filename.first;
   if (global_config.give_up) {
     exit(255);
   }

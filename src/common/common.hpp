@@ -40,6 +40,7 @@ struct Configuration {
   int log_level;
   bool simulate_exec = 0, output_ir = 0;
   std::string input;
+  std::string sy_filename;
   std::set<std::string> disabled_passes;
   std::map<std::string, std::string> args;
   bool give_up;

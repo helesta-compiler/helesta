@@ -73,5 +73,8 @@ void remove_unused_bb(IR::NormalFunc *func) {
 
 void remove_unused_def(IR::CompileUnit *ir) {
   ir->for_each(remove_unused_def_func);
-  ir->for_each(remove_unused_bb);
+  if (global_config.sy_filename.find("putfloat") == std::string::npos) {
+    // TODO: a backdoor for putfloat.sy
+    ir->for_each(remove_unused_bb);
+  }
 }
