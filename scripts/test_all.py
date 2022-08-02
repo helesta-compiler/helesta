@@ -61,6 +61,8 @@ if __name__ == '__main__':
                 in_file = os.path.join(args.benchmark_data_path, testcase + ".in")
             src_file = os.path.join(mod_path, testcase + ".sy")
             out_file = os.path.join(mod_path, testcase + ".out")
+            if args.benchmark:
+                out_file = os.path.join(args.benchmark_data_path, testcase + ".out")
             exe_file = os.path.join(mod_path, testcase)
             std = None
             out = None
