@@ -20,7 +20,9 @@ void global_to_local(IR::CompileUnit *ir) {
     }
     if (!mem->is_single_var())
       continue;
-    auto local = main->scope.new_MemObject(mem->name);
+    auto local = main->scope.new_MemObject(mem->name + "::to_local");
+    local->size = 4;
+    local->scalar_type = mem->scalar_type;
     global2local[mem.get()] = local;
     auto global_addr = main->new_Reg();
     auto global_val = main->new_Reg();
@@ -37,4 +39,19 @@ void global_to_local(IR::CompileUnit *ir) {
       }
     }
   });
+  for (auto &mem : ir->scope.objects) {
+    if (do_not_opt.find(mem.get()) != do_not_opt.end()) {
+      continue;
+    }
+    if (!mem->is_single_var())
+      continue;
+    auto local = global2local[mem.get()];
+    auto global_addr = main->new_Reg();
+    auto global_val = main->new_Reg();
+    auto local_addr = main->new_Reg();
+    main->entry->push_front(new IR::StoreInstr(local_addr, global_val));
+    main->entry->push_front(new IR::LoadAddr(local_addr, local));
+    main->entry->push_front(new IR::LoadInstr(global_val, global_addr));
+    main->entry->push_front(new IR::LoadAddr(global_addr, mem.get()));
+  }
 }
