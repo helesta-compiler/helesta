@@ -12,11 +12,11 @@ void simplify_load_store(IR::CompileUnit *);
 void global_to_local(IR::CompileUnit *);
 
 inline void optimize_ir(IR::CompileUnit *ir) {
-  global_to_local(ir);
   if (global_config.disabled_passes.find("func-inline") ==
       global_config.disabled_passes.end()) {
     func_inline(ir);
   }
+  global_to_local(ir);
   mem2reg(ir);
   remove_unused_def(ir);
   if (global_config.disabled_passes.find("gvn") ==
