@@ -345,6 +345,22 @@ struct PointerBase : InstrVisitor {
   PointerBase(NormalFunc *_func) : func(_func) {}
   void visit(Instr *x) override {
     Case(ArrayIndex, ai, x) { info[ai->d1].base = info.at(ai->s1).base; }
+    else Case(PhiInstr, phi, x) {
+      for (auto &[r, bb] : phi->uses) {
+        if (info.count(r)) {
+          info[phi->d1].base = info.at(r).base;
+          (void)bb;
+          break;
+        }
+      }
+    }
+    else Case(UnaryOpInstr, uop, x) {
+      if (uop->op.type == UnaryCompute::ID) {
+        if (info.count(uop->s1)) {
+          info[uop->d1].base = info.at(uop->s1).base;
+        }
+      }
+    }
     else Case(LoadArg, la, x) {
       info[la->d1].base = std::make_pair(func, la->id);
     }
