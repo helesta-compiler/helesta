@@ -51,4 +51,5 @@ if __name__ == '__main__':
     shutil.rmtree("./build")
     shutil.rmtree("./third_party")
     shutil.rmtree("./scripts")
+    shutil.rmtree('./cache')
     os.remove(".gitignore")
