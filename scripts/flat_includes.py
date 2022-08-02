@@ -1,6 +1,6 @@
 import argparse
 import os
-
+import shutil
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -15,6 +15,8 @@ def process(line):
     if len(parts) != 2:
         return line
     if parts[0] != "#include":
+        return line
+    if "sys/" in parts[1]:
         return line
     hd = parts[1][1:-1].split("/")[-1]
     return "#include \"" + hd + "\"\n"
@@ -44,3 +46,17 @@ def run_with(args):
 if __name__ == '__main__':
     args = parse_args()
     run_with(args)
+    if os.path.exists("./src"):
+        shutil.rmtree("./src")
+    if os.path.exists("./testcases"):
+        shutil.rmtree("./testcases")
+    if os.path.exists("./build"):
+        shutil.rmtree("./build")
+    if os.path.exists("./third_party"):
+        shutil.rmtree("./third_party")
+    if os.path.exists("./scripts"):
+        shutil.rmtree("./scripts")
+    if os.path.exists("./cache"):
+        shutil.rmtree('./cache')
+    if os.path.exists(".gitignore"):
+        os.remove(".gitignore")
