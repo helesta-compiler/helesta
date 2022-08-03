@@ -172,6 +172,7 @@ struct GVNContext {
       } else if (auto binary = dynamic_cast<IR::BinaryOpInstr *>(i->i)) {
         auto key =
             std::make_tuple(binary->op.type, binary->s1.id, binary->s2.id);
+
         if (binary_values.find(key) != binary_values.end()) {
           i->removed = true;
           assert(binary_values[key] != 0);
