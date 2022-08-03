@@ -35,7 +35,7 @@ struct PointerBase : InstrVisitor {
     }
   }
 };
-struct SideEffect {
+struct SideEffect : SimpleLoopVisitor {
   struct Info {
     mem_set_t may_read, may_write;
     void operator|=(const Info &w) {

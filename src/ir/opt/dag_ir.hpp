@@ -53,6 +53,7 @@ struct DAG_IR {
   template <class T> void visit(T &f) { _visit(nullptr, f); }
   template <class T> void _visit(BB *w, T &f) {
     auto &wi = loop_tree[w];
+    f.visitLoopTreeNode(w, &wi);
     f.begin(w, wi.is_loop_head);
     for (auto u : wi.dfn) {
       if (u != w) {
@@ -158,6 +159,7 @@ template <class T> struct LoopVisitor {
     auto &w2 = info[bb2]; // to
     meet_eq(w2.in, w1.get_out(), w2.visited);
   }
+  virtual void visitLoopTreeNode(BB *, DAG_IR::LoopTreeNode *) {}
 };
 
 template <class T> struct ForwardLoopVisitor : LoopVisitor<T>, ReplaceReg {
@@ -193,8 +195,10 @@ template <class T> struct BackwardLoopVisitor : LoopVisitor<T>, ReplaceReg {
 struct SimpleLoopVisitor {
   void begin(BB *, bool) {}
   void end(BB *) {}
+  void visitBB(BB *) {}
   void visitMayExit(BB *, BB *) {}
   void visitEdge(BB *, BB *) {}
+  void visitLoopTreeNode(BB *, DAG_IR::LoopTreeNode *) {}
 };
 
 struct InstrVisitor : SimpleLoopVisitor {
