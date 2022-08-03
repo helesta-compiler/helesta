@@ -45,14 +45,6 @@ inline void optimize_ir(IR::CompileUnit *ir) {
       gvn(ir);
       call_graph(ir);
       gvn(ir);
-      func_inline(ir);
-      // PassEnabled("g2l") global_to_local(ir);
-      // mem2reg(ir);
-      remove_unused_func(ir);
-      gvn(ir);
-      dag_ir(ir);
-      gvn(ir);
-      gcm(ir);
     }
   }
   PassEnabled("del-phi") before_backend(ir);
