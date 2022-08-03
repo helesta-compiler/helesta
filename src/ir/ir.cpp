@@ -322,22 +322,12 @@ void map_use(NormalFunc *f, const std::unordered_map<Reg, Reg> &mp_reg) {
   });
 }
 
-void compute_data_offset(CompileUnit &c) {
-  c.for_each([](MemScope &s) {
-    s.size = 0;
-    s.for_each([&](MemObject *x) {
-      x->offset = s.size;
-      s.size += x->size;
-    });
-  });
-}
-
 int exec(CompileUnit &c) {
-  compute_data_offset(c);
   // std::cerr<<">>> exec"<<std::endl;
   // simulate IR execute result
   FILE *ifile = fopen("input.txt", "r");
   FILE *ofile = fopen("output.txt", "w");
+  bool ENABLE_PHI = 0;
   long long instr_cnt = 0, mem_r_cnt = 0, mem_w_cnt = 0, jump_cnt = 0,
             fork_cnt = 0, par_instr_cnt = 0;
   int sp = c.scope.size, mem_limit = sp + (8 << 20);
@@ -411,20 +401,26 @@ int exec(CompileUnit &c) {
     while (cur) {
       // printf("BB: %s\n",cur->name.data());
       tmps.clear();
-      for (auto it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
-        Instr *x0 = it->get();
-        Case(PhiInstr, x, x0) {
-          for (auto &kv : x->uses)
-            if (last_bb == kv.second)
-              tmps[x->d1.id] = rReg(kv.first);
+      if (ENABLE_PHI)
+        for (auto it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
+          Instr *x0 = it->get();
+          Case(PhiInstr, x, x0) {
+            for (auto &kv : x->uses)
+              if (last_bb == kv.second)
+                tmps[x->d1.id] = rReg(kv.first);
+          }
         }
-      }
       for (auto it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
         Instr *x0 = it->get();
         ++instr_cnt;
         if (in_fork)
           ++par_instr_cnt;
-        Case(PhiInstr, x, x0) { wReg(x->d1, tmps.at(x->d1.id)); }
+        Case(PhiInstr, x, x0) {
+          if (ENABLE_PHI)
+            wReg(x->d1, tmps.at(x->d1.id));
+          else
+            assert(0);
+        }
         else Case(LoadAddr, x, x0) {
           wReg(x->d1, (x->offset->global ? 0 : sp) + x->offset->offset);
         }

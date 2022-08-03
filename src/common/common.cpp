@@ -156,6 +156,7 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
           _throw std::invalid_argument("duplicate parameter key");
         }
         global_config.args[key] = kv.substr(pos + 1, kv.length() - 1 - pos);
+        std::cerr << key << '=' << global_config.args[key] << '\n';
       }
       if (cur == "--exec")
         global_config.simulate_exec = true;

@@ -50,6 +50,9 @@ struct Configuration {
   int get_int_arg(std::string key, int default_value);
 };
 
+#define PassEnabled(name) if (!global_config.disabled_passes.count(name))
+#define PassDisabled(name) if (global_config.disabled_passes.count(name))
+
 template <typename NodeType> struct Traversable {
   virtual const std::vector<NodeType *> getOutNodes() const = 0;
   virtual void addOutNode(NodeType *node) = 0;

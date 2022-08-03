@@ -753,6 +753,16 @@ struct RemoveUnusedStore {
   }
 };
 
+void compute_data_offset(CompileUnit &c) {
+  c.for_each([](MemScope &s) {
+    s.size = 0;
+    s.for_each([&](MemObject *x) {
+      x->offset = s.size;
+      s.size += x->size;
+    });
+  });
+}
+
 enum PassType { NORMAL, REMOVE_UNUSED_BB, BEFORE_BACKEND };
 
 struct DAG_IR_ALL {
@@ -928,19 +938,93 @@ struct DAG_IR_ALL {
       Case(BranchInstr, br, bb->back()) { assert(br->target1 != br->target0); }
     });
   }
+  void schedule_phi(BB *bb) {
+    struct Info {
+      PhiInstr *phi;
+      std::vector<Reg> out;
+      int in = 0;
+    };
+    std::unordered_map<Reg, Info> graph;
+    auto add_edge = [&](Reg a, Reg b) {
+      if (a == b)
+        return;
+      if (!graph.count(a))
+        return;
+      if (!graph.count(b))
+        return;
+      graph[a].out.push_back(b);
+      graph[b].in += 1;
+    };
+    // std::cerr << "================\n";
+    // std::cerr << bb->name << '\n';
+    bb->for_each([&](Instr *x) {
+      Case(PhiInstr, phi, x) { graph[phi->d1].phi = phi; }
+    });
+    bb->for_each([&](Instr *x) {
+      Case(PhiInstr, phi, x) {
+        for (auto &kv : phi->uses) {
+          add_edge(kv.first, phi->d1);
+        }
+        // std::cerr << *phi << '\n';
+        bb->move();
+      }
+    });
+    // std::cerr << "----------------\n";
+    std::set<std::pair<int, Reg>> q;
+    auto it = bb->instrs.begin();
+    for (auto &[r, ri] : graph) {
+      q.insert({ri.in, r});
+    }
+    while (!q.empty()) {
+      Reg w = q.begin()->second;
+      q.erase(q.begin());
+      auto &wi = graph.at(w);
+      for (Reg r : wi.out) {
+        auto &ri = graph[r];
+        auto it = q.find({ri.in, r});
+        if (it != q.end()) {
+          q.erase(it);
+          q.insert({ri.in - 1, r});
+        }
+        ri.in -= 1;
+      }
+      // std::cerr << *wi.phi << '\n';
+      bb->instrs.insert(it, std::unique_ptr<Instr>(wi.phi));
+    }
+  }
   void remove_phi(NormalFunc *f) {
     std::vector<std::pair<BB *, Instr *>> movs1, movs2;
+    PassEnabled("sp") {
+      f->for_each([&](BB *bb) { schedule_phi(bb); });
+    }
     f->for_each([&](BB *bb) {
+      std::unordered_set<Reg> used, need_tmp;
+      for (auto &x0 : reverse_view(bb->instrs)) {
+        Case(PhiInstr, phi, x0.get()) {
+          if (used.count(phi->d1))
+            need_tmp.insert(phi->d1);
+          for (auto &kv : phi->uses)
+            used.insert(kv.first);
+        }
+      }
       std::unordered_map<Reg, Reg> mp;
       bb->for_each([&](Instr *x) {
         Case(PhiInstr, phi, x) {
-          Reg tmp = mp[phi->d1] = f->new_Reg();
+          Reg tmp;
+          if (need_tmp.count(phi->d1)) {
+            tmp = mp[phi->d1] = f->new_Reg();
+          } else {
+            tmp = phi->d1;
+          }
           for (auto &[r, bb0] : phi->uses) {
-            movs2.emplace_back(bb0, new UnaryOpInstr(tmp, r, UnaryCompute::ID));
+            if (tmp != r)
+              movs2.emplace_back(bb0,
+                                 new UnaryOpInstr(tmp, r, UnaryCompute::ID));
           }
           bb->del();
-          movs1.emplace_back(bb,
-                             new UnaryOpInstr(phi->d1, tmp, UnaryCompute::ID));
+          if (phi->d1 != tmp)
+            movs1.emplace_back(
+                bb, new UnaryOpInstr(phi->d1, tmp, UnaryCompute::ID));
         }
         else x->map_use(partial_map(mp));
       });
@@ -1012,6 +1096,7 @@ struct DAG_IR_ALL {
         code_reorder(f);
         remove_phi(f);
       });
+      compute_data_offset(*ir);
       return;
     }
     if (!typed) {

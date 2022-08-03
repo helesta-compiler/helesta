@@ -421,15 +421,16 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     }
   }
 
-  merge_inst();
-  dce();
-#if 0
-  ir_func->for_each([&](IR::BB *bb0) {
-    std::cerr << "================================\n";
-    std::cerr << *bb0;
-    info.block_mapping[bb0]->print(std::cerr);
-  });
-#endif
+  PassEnabled("mi") merge_inst();
+  replace_pseduo_inst();
+  PassEnabled("dce") dce();
+  if (global_config.args.count("ir2")) {
+    ir_func->for_each([&](IR::BB *bb0) {
+      std::cerr << "================================\n";
+      std::cerr << *bb0;
+      info.block_mapping[bb0]->print(std::cerr);
+    });
+  }
 }
 
 std::pair<int64_t, int> div_opt(int32_t A0) {
@@ -581,6 +582,8 @@ void Func::merge_inst() {
       }
     }
   }
+}
+void Func::replace_pseduo_inst() {
   for (auto &block : blocks) {
     auto &insts = block->insts;
     for (auto it = insts.begin(); it != insts.end(); ++it) {
