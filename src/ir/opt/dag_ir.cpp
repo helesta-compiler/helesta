@@ -2,6 +2,27 @@
 #include "ir/opt/opt.hpp"
 using namespace IR;
 
+void _dbg1() {}
+template <class T1, class... T2> void _dbg1(const T1 &x, const T2 &... xs) {
+  if (global_config.log_level > 0)
+    return;
+  std::cerr << x;
+  _dbg1(xs...);
+}
+#define dbg(...) _dbg1(__VA_ARGS__)
+
+void print_cfg(NormalFunc *f) {
+  dbg("CFG:\n");
+  dbg("```mermaid\n");
+  dbg("graph TB\n");
+  f->for_each([&](BB *w) { dbg(w->name, "(", w->name, ")\n"); });
+  f->for_each([&](BB *w) {
+    for (BB *u : w->getOutNodes())
+      dbg(w->name, "-->", u->name, "\n");
+  });
+  dbg("```\n");
+}
+
 struct DAG_IR {
   NormalFunc *func;
   std::unique_ptr<DomTreeContext> dom;
@@ -170,11 +191,20 @@ struct DAG_IR {
   template <class T> void _visit_rev(BB *w, T &f) {
     auto &wi = loop_tree[w];
     f.begin(w, wi.is_loop_head);
+    if (wi.is_loop_head) {
+      for (auto u : wi.may_exit)
+        f.visitMayExit(w, u);
+    }
     for (auto u : reverse_view(wi.dfn)) {
       auto &ui = loop_tree[u];
+      if (u != w && ui.is_loop_head)
+        f.visitLoopHead(u);
       for (auto v : u == w ? ui.out : ui.loop_exit) {
         auto &vi = loop_tree[v];
-        if (v != w && vi.loop_head == w) {
+        if (v == w) {
+          f.visitBackEdge(w, u);
+        }
+        if (vi.loop_head == w) {
           f.visitEdge(u, v);
         }
       }
@@ -243,48 +273,7 @@ struct DAG_IR {
   }
 };
 
-template <class T> struct ForwardLoopVisitor {
-  typedef T map_t;
-  struct Info {
-    map_t in, out, loop_out;
-    bool visited = 0, is_loop_head = 0, in_loop = 0;
-    bool loop_visited = 0;
-    map_t &get_out() { return is_loop_head && !in_loop ? loop_out : out; }
-  };
-  std::unordered_map<BB *, Info> info;
-  void begin(BB *bb, bool is_loop_head) {
-    auto &w = info[bb];
-    w.is_loop_head = is_loop_head;
-    // std::cerr << bb->name << " : " << is_loop_head << '\n';
-    w.in_loop = 1;
-  }
-  void end(BB *bb) {
-    auto &w = info[bb];
-    w.in_loop = 0;
-  }
-  void meet_eq(map_t &a, const map_t &b, bool &flag) {
-    if (!flag) {
-      flag = 1;
-      a = b;
-      return;
-    }
-    remove_if(a, [&](typename map_t::value_type &x) {
-      auto &[k, v] = x;
-      auto it = b.find(k);
-      return !(it != b.end() && (it->second == v));
-    });
-  }
-  void visitMayExit(BB *bb1, BB *bb2) {
-    auto &w1 = info[bb1]; // loop head
-    auto &w2 = info[bb2]; // node before exit
-    meet_eq(w1.loop_out, w2.get_out(), w1.loop_visited);
-  }
-  void visitEdge(BB *bb1, BB *bb2) {
-    // std::cerr << bb1->name << " -> " << bb2->name << '\n';
-    auto &w1 = info[bb1];
-    auto &w2 = info[bb2];
-    meet_eq(w2.in, w1.get_out(), w2.visited);
-  }
+struct ReplaceReg {
   std::unordered_map<Reg, Reg> reg_map;
   void replace_reg(std::list<std::unique_ptr<Instr>>::iterator it, Reg d1,
                    Reg s1) {
@@ -299,14 +288,82 @@ template <class T> struct ForwardLoopVisitor {
   }
 };
 
-struct DefaultLoopVisitor {
+template <class T> struct LoopVisitor {
+  typedef T map_t;
+  struct Info {
+    // dataflow info at the beginning of this (loop|BB)
+    map_t in;
+    // dataflow info at the end of this BB
+    map_t out;
+    // dataflow info at the end of this loop
+    map_t loop_out;
+    bool visited = 0, is_loop_head = 0, in_loop = 0;
+    bool loop_visited = 0;
+    map_t &get_out() { return is_loop_head && !in_loop ? loop_out : out; }
+  };
+  std::unordered_map<BB *, Info> info;
+  virtual void begin(BB *bb, bool is_loop_head) {
+    // begin visit (loop|BB) bb (loop head is bb)
+    auto &w = info[bb];
+    w.is_loop_head = is_loop_head;
+    w.in_loop = 1;
+  }
+  virtual void end(BB *bb) {
+    // end visit loop bb (loop head is bb)
+    auto &w = info[bb];
+    w.in_loop = 0;
+  }
+  virtual void meet_eq(map_t &a, map_t &b, bool &flag) = 0;
+  virtual void visitMayExit(BB *bb1, BB *bb2) {
+    auto &w1 = info[bb1]; // loop head
+    auto &w2 = info[bb2]; // node before exit (in the view of DAG for loop bb1)
+    meet_eq(w1.loop_out, w2.get_out(), w1.loop_visited);
+  }
+  virtual void visitEdge(BB *bb1, BB *bb2) {
+    auto &w1 = info[bb1]; // from
+    auto &w2 = info[bb2]; // to
+    meet_eq(w2.in, w1.get_out(), w2.visited);
+  }
+};
+
+template <class T> struct ForwardLoopVisitor : LoopVisitor<T>, ReplaceReg {
+  typedef T map_t;
+  void meet_eq(map_t &a, map_t &b, bool &flag) {
+    if (!flag) {
+      flag = 1;
+      a = b;
+      return;
+    }
+    remove_if(a, [&](typename map_t::value_type &x) {
+      auto &[k, v] = x;
+      auto it = b.find(k);
+      return !(it != b.end() && (it->second == v));
+    });
+  }
+};
+
+template <class T> struct BackwardLoopVisitor : LoopVisitor<T>, ReplaceReg {
+  typedef T map_t;
+  void meet_eq(map_t &a, map_t &b, bool &flag) {
+    flag = 1;
+    for (auto &x : a)
+      b.insert(x);
+  }
+  virtual void visitLoopHead(BB *bb) {
+    auto &w = LoopVisitor<T>::info[bb];
+    w.is_loop_head = 1;
+  }
+  virtual void visitBackEdge(BB *bb1, BB *bb2) = 0;
+};
+
+struct SimpleLoopVisitor {
   void begin(BB *, bool) {}
   void end(BB *) {}
   void visitMayExit(BB *, BB *) {}
   void visitEdge(BB *, BB *) {}
 };
 
-struct CodeReorder : DefaultLoopVisitor {
+struct CodeReorder : SimpleLoopVisitor {
   std::vector<std::unique_ptr<BB>> bbs;
   void visitBB(BB *bb) { bbs.emplace_back(bb); }
   void apply(NormalFunc *f) {
@@ -316,7 +373,7 @@ struct CodeReorder : DefaultLoopVisitor {
   }
 };
 
-struct InstrVisitor : DefaultLoopVisitor {
+struct InstrVisitor : SimpleLoopVisitor {
   virtual void visit(Instr *) = 0;
   void visitBB(BB *bb) {
     bb->for_each([&](Instr *x) { visit(x); });
@@ -326,7 +383,7 @@ struct InstrVisitor : DefaultLoopVisitor {
 typedef std::pair<NormalFunc *, int> arg_name_t;
 typedef std::variant<MemObject *, arg_name_t> mem_name_t;
 typedef std::set<MemObject *> mem_set_t;
-mem_set_t any_mem{nullptr};
+mem_set_t any_mem{nullptr}, no_mem{};
 
 std::ostream &operator<<(std::ostream &os, const arg_name_t &arg) {
   os << arg.first->name << ".arg" << arg.second;
@@ -343,7 +400,7 @@ std::ostream &operator<<(std::ostream &os, const mem_name_t &ms) {
 std::ostream &operator<<(std::ostream &os, const mem_set_t &ms) {
   os << "[ ";
   for (auto x : ms) {
-    os << x->name << ' ';
+    os << (x ? x->name : "*") << ' ';
   }
   os << ']';
   return os;
@@ -454,6 +511,37 @@ struct TypeCheck : InstrVisitor {
   }
 };
 
+struct PrintLoopTree : SimpleLoopVisitor {
+  PrintLoopTree() {
+    dbg("loop tree\n");
+    dbg("```mermaid\n");
+    dbg("graph TB\n");
+    dbg("root(root)\n");
+  }
+  ~PrintLoopTree() { dbg("```\n"); }
+  std::vector<BB *> loop_head{nullptr};
+  void begin(BB *bb, bool flag) {
+    if (flag)
+      loop_head.push_back(bb);
+  }
+  void end(BB *bb) {
+    if (loop_head.back() == bb)
+      loop_head.pop_back();
+  }
+  void visitBB(BB *w) {
+    dbg(w->name);
+    BB *head = loop_head.back();
+    if (head == w) {
+      dbg("[", w->name, "]\n");
+      head = *std::prev(loop_head.end(), 2);
+      dbg((head ? head->name : "root"), "-->", w->name, "\n");
+    } else {
+      dbg("(", w->name, ")\n");
+      dbg((head ? head->name : "root"), "-->", w->name, "\n");
+    }
+  }
+};
+
 struct PointerBase : InstrVisitor {
   struct Info {
     mem_name_t base;
@@ -523,7 +611,11 @@ struct SideEffect {
         return 1;
     return 0;
   }
-  mem_set_t &maybe(Reg r) { return *ptr_base.info.at(r).maybe; }
+  mem_set_t &maybe(Reg r) {
+    if (!ptr_base.info.count(r))
+      return no_mem;
+    return *ptr_base.info.at(r).maybe;
+  }
   mem_set_t &may_read(Func *f) {
     Case(NormalFunc, f0, f) {
       return mp->at(f0)->loop_info.at(nullptr).may_read;
@@ -699,57 +791,126 @@ struct CondProp : ForwardLoopVisitor<std::map<std::pair<Reg, BB *>, int32_t>> {
   }
 };
 
-struct RemoveUnusedStore {
-  struct Info {
-    std::set<Reg> in;
-    std::set<Reg> out;
-    bool visited = 0, is_loop_head = 0;
-  };
-  ~RemoveUnusedStore() {
+struct RemoveUnusedStoreInBB : SimpleLoopVisitor {
+  size_t cnt = 0;
+  ~RemoveUnusedStoreInBB() {
     if (cnt) {
-      ::info << "RemoveUnusedStore: " << cnt << '\n';
+      ::info << "RemoveUnusedStoreInBB: " << cnt << '\n';
     }
   }
-  std::unordered_map<BB *, Info> info;
-  size_t cnt = 0;
-  void begin(BB *bb, bool is_loop_head) {
-    auto &w = info[bb];
-    w.is_loop_head = is_loop_head;
-    // std::cerr << bb->name << " : " << is_loop_head << '\n';
-  }
-  void end(BB *) {}
   void visitBB(BB *bb) {
-    auto &w = info[bb];
+    std::set<Reg> cur;
 
     for (auto it = bb->instrs.end(); it != bb->instrs.begin();) {
       auto it0 = it;
       --it;
       Instr *x = it->get();
-      Case(LoadInstr, _, x) {
-        w.out.clear();
-        (void)_;
+      Case(LoadInstr, ld, x) {
+        (void)ld;
+        cur.clear();
       }
       else Case(StoreInstr, st, x) {
-        if (!w.out.insert(st->addr).second) {
+        if (!cur.insert(st->addr).second) {
           ++cnt;
           bb->instrs.erase(it);
           it = it0;
         }
       }
       else Case(CallInstr, call, x) {
-        if (!call->no_store)
-          w.out.clear();
+        if (!call->no_store) {
+          cur.clear();
+        }
+      }
+    }
+  }
+};
+
+struct RemoveUnusedStore : BackwardLoopVisitor<mem_set_t> {
+  SideEffect &se;
+  RemoveUnusedStore(SideEffect &_se) : se(_se) {}
+
+  size_t cnt = 0;
+  ~RemoveUnusedStore() {
+    if (cnt) {
+      ::info << "RemoveUnusedStore: " << cnt << '\n';
+    }
+    dbg("================\n");
+  }
+  void begin(BB *bb, bool is_loop_head) override {
+    auto &w = info[bb];
+    if (is_loop_head) {
+      // w.is_loop_head = 1;
+      update(w.loop_out, se.loop_info.at(bb).may_read);
+      dbg(bb->name, " loop_out: ", w.loop_out, '\n');
+      dbg("loop mayread: ", se.loop_info.at(bb).may_read, '\n');
+    }
+    BackwardLoopVisitor<mem_set_t>::begin(bb, is_loop_head);
+  }
+
+  void update(map_t &m, map_t &mr) {
+    for (auto x : mr)
+      m.insert(x);
+  }
+  void visitBB(BB *bb) {
+    auto &w = info[bb];
+
+    w.in = w.out;
+    dbg("--------\n");
+    dbg("> ", bb->name, " out: ", w.out, '\n');
+
+    for (auto it = bb->instrs.end(); it != bb->instrs.begin();) {
+      auto it0 = it;
+      --it;
+      Instr *x = it->get();
+      dbg(*x, '\n');
+      Case(LoadInstr, ld, x) { update(w.in, se.maybe(ld->addr)); }
+      else Case(StoreInstr, st, x) {
+        if (!se.checkWAR(se.maybe(st->addr), w.in)) {
+          ++cnt;
+          bb->instrs.erase(it);
+          it = it0;
+          dbg(">>> del\n");
+        }
+      }
+      else Case(CallInstr, call, x) {
+        Case(NormalFunc, f, call->f) { update(w.in, se.may_read(f)); }
+        else {
+          for (Reg r : call->args) {
+            update(w.in, se.maybe(r));
+          }
+        }
       }
     }
 
-    if (w.is_loop_head) {
-      w.in.clear();
-    } else {
-      w.in = w.out;
-    }
+    dbg("> ", bb->name, " in: ", w.in, '\n');
   }
-  void visitEdge(BB *, BB *) {
-    // TODO: fix loop exit edges
+  /*void visitMayExit(BB *bb1, BB *bb2) {
+    auto &w1 = info[bb1]; // loop head
+    auto &w2 = info[bb2]; // node before exit (in the view of DAG for loop bb1)
+    meet_eq(w1.loop_out, w2.get_out(), w1.loop_visited);
+    dbg(bb1->name, " may exit ", bb2->name, '\n');
+    dbg(bb1->name, " loop_out: ", w1.loop_out, '\n');
+    dbg(bb2->name, (&w2.get_out() == &w2.loop_out ? " loop_out: " : " out: "),
+        w2.get_out(), '\n');
+  }
+  void visitEdge(BB *bb1, BB *bb2) {
+    auto &w1 = info[bb1]; // from
+    auto &w2 = info[bb2]; // to
+    meet_eq(w2.in, w1.get_out(), w2.visited);
+    dbg(bb1->name, " -> ", bb2->name, '\n');
+    dbg(bb2->name, " in: ", w2.in, '\n');
+    dbg(bb1->name, (&w1.get_out() == &w1.loop_out ? " loop_out: " : " out: "),
+        w1.get_out(), '\n');
+  }*/
+  virtual void visitBackEdge(BB *bb1, BB *bb2) {
+    auto &w1 = info[bb1]; // loop head
+    auto &w2 = info[bb2]; // node before exit (in the view of DAG for loop bb1)
+    bool flag = 0;
+    meet_eq(w1.loop_out, w2.get_out(), flag);
+    dbg(bb1->name, " <- ", bb2->name, '\n');
+    dbg(bb1->name, " loop_out: ", w1.loop_out, '\n');
+    dbg(bb2->name, (&w2.get_out() == &w2.loop_out ? " loop_out: " : " out: "),
+        w2.get_out(), '\n');
   }
 };
 
@@ -1084,8 +1245,20 @@ struct DAG_IR_ALL {
         dag->visit(w);
       }
       {
-        RemoveUnusedStore w;
+        RemoveUnusedStoreInBB w;
+        dag->visit(w);
+      }
+      if (f == ir->main()) {
+        print_cfg(f);
+        {
+          PrintLoopTree w;
+          dag->visit(w);
+        }
+        dbg("```\n", *f, "```\n");
+        dbg("```\n");
+        RemoveUnusedStore w(se);
         dag->visit_rev(w);
+        dbg("```\n");
       }
     }
   }
