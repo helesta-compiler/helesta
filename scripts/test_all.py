@@ -84,7 +84,7 @@ if __name__ == '__main__':
                     if len(lines) > 1:
                         without_returncode = '\n'.join(lines[:-1])
                         without_returncode = without_returncode.strip('\n\r ')
-                        std = '\n'.join(without_returncode, lines[-1].strip('\n\r '))
+                        std = '\n'.join([without_returncode, lines[-1].strip('\n\r ')])
                 if out != std:
                     print("my output: \n{}\nstd output: \n{}".format(out, std))
                     if not args.benchmark:
