@@ -110,7 +110,6 @@ public:
       ir_obj = cur_func->scope.new_MemObject(name);
       ir_obj->size = type.size();
       ir_obj->scalar_type = ScalarType::Int;
-      cur_bb->push(new IR::LocalVarDef(ir_obj));
       IR::Reg start_addr = new_reg();
       cur_bb->push(new IR::LoadAddr(start_addr, ir_obj));
       for (size_t i = 0; i < init_value.size(); ++i) {

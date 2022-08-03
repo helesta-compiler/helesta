@@ -58,6 +58,7 @@ struct Reg : Printable {
   // id is unique in a NormalFunc
   void print(ostream &os) const override;
   bool operator==(const Reg &r) const { return id == r.id; }
+  bool operator!=(const Reg &r) const { return id != r.id; }
   bool operator<(const Reg &r) const { return id < r.id; }
 };
 
@@ -201,14 +202,33 @@ struct BB : Printable, Traversable<BB> {
   // list of instructions in this basic block
   // the last one is ControlInstr, others are RegWriteInstr or StoreInstr
   void print(ostream &os) const override;
+
+  decltype(instrs)::iterator _it;
   void for_each(function<void(Instr *)> f) {
-    for (auto &x : instrs)
-      f(x.get());
+    for_each_until([&](Instr *x) -> bool {
+      f(x);
+      return 0;
+    });
   }
+  void replace(Instr *x) { *std::prev(_it) = unique_ptr<Instr>(x); }
+  bool _del = 0;
+  void move() {
+    std::prev(_it)->release();
+    del();
+  }
+  void del() { _del = 1; }
   bool for_each_until(function<bool(Instr *)> f) {
-    for (auto &x : instrs)
-      if (f(x.get()))
+    for (_it = instrs.begin(); _it != instrs.end();) {
+      auto it0 = _it;
+      ++_it;
+      _del = 0;
+      bool ret = f(it0->get());
+      if (_del) {
+        instrs.erase(it0);
+      }
+      if (ret)
         return 1;
+    }
     return 0;
   }
   void push_front(Instr *x) { instrs.emplace_front(x); }
@@ -216,6 +236,7 @@ struct BB : Printable, Traversable<BB> {
   void push1(Instr *x) { instrs.insert(--instrs.end(), unique_ptr<Instr>(x)); }
   void pop() { instrs.pop_back(); }
   Instr *back() const { return instrs.back().get(); }
+  Instr *back1() const { return std::prev(instrs.end(), 2)->get(); }
   void map_BB(std::function<void(BB *&)> f) {
     for (auto &x : instrs)
       x->map_BB(f);
@@ -307,25 +328,28 @@ struct CompileUnit : Printable {
   // the whole program
   MemScope scope; // global arrays
   std::map<string, unique_ptr<NormalFunc>> funcs;
+  std::vector<NormalFunc *> _funcs;
   // functions defined in .sy file
   std::map<string, unique_ptr<LibFunc>> lib_funcs;
   // functions defined in library
   CompileUnit();
+  NormalFunc *main() { return funcs.at("main").get(); }
   NormalFunc *new_NormalFunc(string _name) {
     NormalFunc *f = new NormalFunc(_name);
     funcs[_name] = unique_ptr<NormalFunc>(f);
+    _funcs.push_back(f);
     return f;
   }
   void print(ostream &os) const override;
   void map(function<void(CompileUnit &)> f) { f(*this); }
   void for_each(function<void(NormalFunc *)> f) {
-    for (auto &kv : funcs)
-      f(kv.second.get());
+    for (auto &x : _funcs)
+      f(x);
   }
   void for_each(function<void(MemScope &)> f) {
     f(scope);
-    for (auto &kv : funcs)
-      f(kv.second->scope);
+    for (auto &x : _funcs)
+      f(x->scope);
   }
 
 private:
@@ -434,7 +458,7 @@ struct BinaryOp : Printable {
   ScalarType input_type() {
     return type == BinaryCompute::FLESS || type == BinaryCompute::FLEQ ||
                    type == BinaryCompute::FEQ || type == BinaryCompute::FNEQ
-               ? ScalarType::Int
+               ? ScalarType::Float
                : ret_type();
   }
   ScalarType ret_type() {
@@ -560,19 +584,10 @@ struct CallInstr : RegWriteInstr {
   // d1 = f(args[0],args[1],...)
   vector<Reg> args;
   Func *f;
-  bool ignore_return_value, pure = 0;
+  bool ignore_return_value, no_store = 0, no_load = 0;
   CallInstr(Reg d1, Func *f, vector<Reg> args, bool ignore_return_value)
       : RegWriteInstr(d1), args(args), f(f),
         ignore_return_value(ignore_return_value) {}
-  void print(ostream &os) const override;
-};
-
-struct LocalVarDef : Instr {
-  // define variable as uninitialized array of bytes
-  MemObject *data;
-  // array from arg: data->global=0 data->size=0 data->arg=1
-  // local variable: data->global=0
-  LocalVarDef(MemObject *data) : data(data) { assert(!data->global); }
   void print(ostream &os) const override;
 };
 

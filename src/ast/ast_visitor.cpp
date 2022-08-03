@@ -100,7 +100,22 @@ CondJumpList ASTVisitor::to_CondJumpList(antlrcpp::Any value) {
     return value.as<CondJumpList>();
   assert(value.is<IRValue>());
   IRValue irv = value;
-  IR::Reg reg = _get_value(irv);
+  IR::Reg reg1 = _get_value(irv), reg0 = new_reg(), reg;
+  switch (irv.type.scalar_type) {
+  case ScalarType::Int: {
+    reg = reg1;
+    break;
+  }
+  case ScalarType::Float: {
+    reg = new_reg();
+    cur_bb->push(new IR::LoadConst<float>(reg0, 0));
+    cur_bb->push(
+        new IR::BinaryOpInstr(reg, reg1, reg0, IR::BinaryCompute::FNEQ));
+    break;
+  }
+  default:
+    assert(0);
+  }
   IR::BranchInstr *inst = new IR::BranchInstr(reg, nullptr, nullptr);
   cur_bb->push(inst);
   cur_bb = nullptr;
@@ -361,7 +376,6 @@ ASTVisitor::visitUninitVarDef(SysYParser::UninitVarDefContext *ctx) {
     if (cur_local_table->resolve(name))
       _throw DuplicateLocalName(name);
     ir_obj = cur_func->scope.new_MemObject(name);
-    cur_bb->push(new IR::LocalVarDef(ir_obj));
     cur_local_table->register_var(name, ir_obj, type);
   } else {
     if (global_var.resolve(name) || functions.resolve(name))
@@ -496,7 +510,6 @@ antlrcpp::Any ASTVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
     if (cur_local_table->resolve(name))
       _throw DuplicateLocalName(name);
     ir_obj = cur_func->scope.new_MemObject(name);
-    cur_bb->push(new IR::LocalVarDef(ir_obj));
     cur_local_table->register_var(name, ir_obj, type);
     vector<optional<IR::Reg>> init =
         parse_var_init(type.scalar_type, ctx->initVal(), type.array_dims);
@@ -583,13 +596,11 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
       cur_func->scope.set_arg(i, obj);
       cur_local_table->register_var(params[i].first, nullptr, params[i].second);
       cur_local_table->resolve(params[i].first)->arg_id = i;
-      cur_bb->push(new IR::LocalVarDef(obj));
     } else {
       IR::MemObject *obj = cur_func->scope.new_MemObject(params[i].first);
       obj->size = params[i].second.size();
       obj->scalar_type = params[i].second.scalar_type;
       cur_local_table->register_var(params[i].first, obj, params[i].second);
-      cur_bb->push(new IR::LocalVarDef(obj));
       IR::Reg value = new_reg(), addr = new_reg();
       cur_bb->push(new IR::LoadArg(value, i));
       cur_bb->push(new IR::LoadAddr(addr, obj));

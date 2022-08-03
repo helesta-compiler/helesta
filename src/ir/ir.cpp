@@ -75,14 +75,16 @@ void CompileUnit::print(ostream &os) const {
 }
 
 void LoadAddr::print(ostream &os) const { os << d1 << " = " << *offset; }
-template <typename Scalar> void LoadConst<Scalar>::print(ostream &os) const {
+template <> void LoadConst<int32_t>::print(ostream &os) const {
   os << d1 << " = " << value;
+}
+template <> void LoadConst<float>::print(ostream &os) const {
+  os << d1 << " = " << value << 'f';
 }
 void LoadArg::print(ostream &os) const { os << d1 << " = arg" << id; }
 void ArrayIndex::print(ostream &os) const {
   os << d1 << " = " << s1 << " + " << s2 << " * " << size << " : " << limit;
 }
-void LocalVarDef::print(ostream &os) const { os << "define " << data->name; }
 void UnaryOpInstr::print(ostream &os) const {
   os << d1 << " = " << op << " " << s1;
 }
@@ -214,13 +216,6 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
     f1(u->d1);
     return u;
   }
-  Case(LocalVarDef, w, this) {
-    auto u = w;
-    if (copy)
-      u = new LocalVarDef(*w);
-    f3(u->data);
-    return u;
-  }
   Case(UnaryOpInstr, w, this) {
     auto u = w;
     if (copy)
@@ -327,7 +322,7 @@ void map_use(NormalFunc *f, const std::unordered_map<Reg, Reg> &mp_reg) {
   });
 }
 
-void compute_data_offset(CompileUnit &c) {
+inline void compute_data_offset(CompileUnit &c) {
   c.for_each([](MemScope &s) {
     s.size = 0;
     s.for_each([&](MemObject *x) {
@@ -343,6 +338,7 @@ int exec(CompileUnit &c) {
   // simulate IR execute result
   FILE *ifile = fopen("input.txt", "r");
   FILE *ofile = fopen("output.txt", "w");
+  bool ENABLE_PHI = global_config.args["exec-phi"] == "1";
   long long instr_cnt = 0, mem_r_cnt = 0, mem_w_cnt = 0, jump_cnt = 0,
             fork_cnt = 0, par_instr_cnt = 0;
   int sp = c.scope.size, mem_limit = sp + (8 << 20);
@@ -386,11 +382,11 @@ int exec(CompileUnit &c) {
   BB *fork_bb = NULL;
   std::list<std::unique_ptr<Instr>>::iterator fork_instr;
 
-  auto skip_instr = [&](Instr *) {
+  /*auto skip_instr = [&](Instr *) {
     --instr_cnt;
     if (in_fork)
       --par_instr_cnt;
-  };
+  };*/
   std::function<typeless_scalar_t(NormalFunc *, std::vector<typeless_scalar_t>)>
       run;
   run = [&](NormalFunc *func,
@@ -398,7 +394,7 @@ int exec(CompileUnit &c) {
     BB *last_bb = NULL;
     BB *cur = func->entry;
     int sz = func->scope.size;
-    std::unordered_map<int, typeless_scalar_t> regs;
+    std::unordered_map<int, typeless_scalar_t> regs, tmps;
     auto wReg = [&](Reg x, typeless_scalar_t v) {
       assert(func->thread_local_regs.count(x) == in_fork);
       assert(1 <= x.id && x.id <= func->max_reg_id);
@@ -415,15 +411,26 @@ int exec(CompileUnit &c) {
     bool last_in_fork = in_fork;
     while (cur) {
       // printf("BB: %s\n",cur->name.data());
+      tmps.clear();
+      if (ENABLE_PHI)
+        for (auto it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
+          Instr *x0 = it->get();
+          Case(PhiInstr, x, x0) {
+            for (auto &kv : x->uses)
+              if (last_bb == kv.second)
+                tmps[x->d1.id] = rReg(kv.first);
+          }
+        }
       for (auto it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
         Instr *x0 = it->get();
         ++instr_cnt;
         if (in_fork)
           ++par_instr_cnt;
         Case(PhiInstr, x, x0) {
-          for (auto &kv : x->uses)
-            if (last_bb == kv.second)
-              wReg(x->d1, rReg(kv.first));
+          if (ENABLE_PHI)
+            wReg(x->d1, tmps.at(x->d1.id));
+          else
+            assert(0);
         }
         else Case(LoadAddr, x, x0) {
           wReg(x->d1, (x->offset->global ? 0 : sp) + x->offset->offset);
@@ -450,9 +457,6 @@ int exec(CompileUnit &c) {
           int32_t s1 = rReg(x->s1).int_value(), s2 = rReg(x->s2).int_value(),
                   d1 = s1 + s2 * x->size;
           wReg(x->d1, d1);
-        }
-        else Case(LocalVarDef, x, x0) {
-          skip_instr(x);
         }
         else Case(LoadInstr, x, x0) {
           wReg(x->d1, rMem(rReg(x->addr).int_value()));
@@ -613,7 +617,7 @@ int exec(CompileUnit &c) {
     assert(last_in_fork == in_fork);
     return _ret;
   };
-  int ret = run(c.funcs["main"].get(), {}).int_value();
+  int ret = run(c.main(), {}).int_value();
   dbg_pr();
   delete[] mem;
   if (!eol)

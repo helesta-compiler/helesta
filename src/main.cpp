@@ -54,8 +54,9 @@ int main(int argc, char **argv) {
     IR::exec(ir);
   std::ofstream asm_out{filename.second};
   if (global_config.output_ir) {
-    asm_out << ir;
-  } else {
+    PassEnabled("ir") asm_out << ir;
+  }
+  PassEnabled("asm") {
     ARMv7::Program prog(&ir);
     prog.gen_asm(asm_out);
   }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -48,6 +49,9 @@ struct Configuration {
   std::string get_arg(std::string key, std::string default_value);
   int get_int_arg(std::string key, int default_value);
 };
+
+#define PassEnabled(name) if (!global_config.disabled_passes.count(name))
+#define PassDisabled(name) if (global_config.disabled_passes.count(name))
 
 template <typename NodeType> struct Traversable {
   virtual const std::vector<NodeType *> getOutNodes() const = 0;
@@ -118,3 +122,56 @@ struct __or_t {
 };
 extern __or_t __or;
 #define unreachable() ___assert(__LINE__, 0, "unreachable", __FILE__)
+
+template <class T> struct reverse_view {
+  T &x;
+  reverse_view(T &_x) : x(_x) {}
+  auto begin() { return x.rbegin(); }
+  auto end() { return x.rend(); }
+};
+template <class T> struct enumerate {
+  T &x;
+  enumerate(T &_x) : x(_x) {}
+  struct iterator {
+    typename T::iterator x;
+    size_t y;
+    bool operator!=(const iterator &it) const { return x != it.x; }
+    std::pair<decltype(*x), size_t> operator*() const { return {*x, y}; }
+    void operator++() {
+      ++x;
+      ++y;
+    }
+  };
+  auto begin() { return iterator{x.begin(), 0}; }
+  auto end() { return iterator{x.end(), x.size()}; }
+};
+
+template <class T> struct UnionFind {
+  std::unordered_map<T, T> _f;
+  T &f(T x) {
+    if (_f.count(x))
+      return _f[x];
+    _f[x] = x;
+    return _f[x];
+  }
+  void add(T x) { _f[x] = x; }
+  T operator[](T x) {
+    while (x != f(x))
+      x = f(x) = f(f(x));
+    return x;
+  }
+  void merge(T x, T y) { f((*this)[x]) = (*this)[y]; }
+};
+
+template <class T, class F> void remove_if(T &ls, F f) {
+  for (auto it = ls.end(); it != ls.begin();) {
+    auto it0 = it;
+    if (f(*--it)) {
+      ls.erase(it);
+      it = it0;
+    }
+  }
+}
+template <class T, class F> void remove_if_vec(T &ls, F f) {
+  ls.resize(std::remove_if(ls.begin(), ls.end(), f) - ls.begin());
+}
