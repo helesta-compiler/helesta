@@ -49,5 +49,6 @@ void mem2reg(IR::CompileUnit *ir) {
   ir->for_each([&](IR::NormalFunc *func) {
     auto value_regs = mem2reg_func(func);
     ssa_construction(func, value_regs);
+    \
   });
 }
