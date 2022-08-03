@@ -322,12 +322,23 @@ void map_use(NormalFunc *f, const std::unordered_map<Reg, Reg> &mp_reg) {
   });
 }
 
+inline void compute_data_offset(CompileUnit &c) {
+  c.for_each([](MemScope &s) {
+    s.size = 0;
+    s.for_each([&](MemObject *x) {
+      x->offset = s.size;
+      s.size += x->size;
+    });
+  });
+}
+
 int exec(CompileUnit &c) {
+  compute_data_offset(c);
   // std::cerr<<">>> exec"<<std::endl;
   // simulate IR execute result
   FILE *ifile = fopen("input.txt", "r");
   FILE *ofile = fopen("output.txt", "w");
-  bool ENABLE_PHI = 0;
+  bool ENABLE_PHI = global_config.args["exec-phi"] == "1";
   long long instr_cnt = 0, mem_r_cnt = 0, mem_w_cnt = 0, jump_cnt = 0,
             fork_cnt = 0, par_instr_cnt = 0;
   int sp = c.scope.size, mem_limit = sp + (8 << 20);

@@ -32,26 +32,30 @@ inline void gcm(IR::CompileUnit *ir) {
 }
 
 inline void optimize_ir(IR::CompileUnit *ir) {
-  PassDisabled("opt") return;
-  PassEnabled("mem2reg") mem2reg(ir);
-  remove_unused_def(ir);
-  remove_unused_BB(ir);
-  gvn(ir);
-  gcm(ir);
-  call_graph(ir);
-  dag_ir(ir);
-  gvn(ir);
-  call_graph(ir);
-  gvn(ir);
-  PassEnabled("func-inline") {
-    func_inline(ir);
-    // PassEnabled("g2l") global_to_local(ir);
-    // mem2reg(ir);
-    remove_unused_func(ir);
-    gvn(ir);
-    dag_ir(ir);
+  PassEnabled("opt") {
+    PassEnabled("mem2reg") mem2reg(ir);
+    remove_unused_def(ir);
+    remove_unused_BB(ir);
     gvn(ir);
     gcm(ir);
+    gvn(ir);
+    PassEnabled("misc") {
+      call_graph(ir);
+      dag_ir(ir);
+      gvn(ir);
+      call_graph(ir);
+      gvn(ir);
+      PassEnabled("func-inline") {
+        func_inline(ir);
+        // PassEnabled("g2l") global_to_local(ir);
+        // mem2reg(ir);
+        remove_unused_func(ir);
+        gvn(ir);
+        dag_ir(ir);
+        gvn(ir);
+        gcm(ir);
+      }
+    }
   }
-  before_backend(ir);
+  PassEnabled("del-phi") before_backend(ir);
 }

@@ -753,7 +753,7 @@ struct RemoveUnusedStore {
   }
 };
 
-void compute_data_offset(CompileUnit &c) {
+inline void compute_data_offset(CompileUnit &c) {
   c.for_each([](MemScope &s) {
     s.size = 0;
     s.for_each([&](MemObject *x) {
@@ -939,30 +939,31 @@ struct DAG_IR_ALL {
     });
   }
   void remove_phi(NormalFunc *f) {
-    std::unordered_map<BB *, std::vector<std::pair<Reg, Reg>>> movs;
+    std::unordered_map<std::pair<BB *, BB *>, std::vector<std::pair<Reg, Reg>>>
+        movs;
     f->for_each([&](BB *bb) {
       bb->for_each([&](Instr *x) {
         Case(PhiInstr, phi, x) {
           for (auto &[r, bb0] : phi->uses) {
-            movs[bb0].emplace_back(r, phi->d1);
+            if (r != phi->d1)
+              movs[{bb0, bb}].emplace_back(r, phi->d1);
           }
           bb->move();
         }
       });
     });
-    f->for_each([&](BB *bb) {
+    for (auto &[edge, P] : movs) {
+      auto [bb0, bb] = edge;
+      BB *bb1 = f->new_BB();
+      bb0->back()->map_BB(partial_map(bb, bb1));
+      bb1->push(new JumpInstr(bb));
       auto emit_copy = [&](Reg a, Reg b) {
-        bb->push1(new UnaryOpInstr(b, a, UnaryCompute::ID));
+        bb1->push1(new UnaryOpInstr(b, a, UnaryCompute::ID));
       };
-      auto &P = movs[bb];
       Reg n = f->new_Reg();
       std::vector<std::pair<Reg, Reg>> res;
       std::map<Reg, std::optional<Reg>> loc, pred;
       std::vector<Reg> to_do, ready;
-      for (auto [a, b] : P) {
-        loc[b] = std::nullopt;
-        pred[a] = std::nullopt;
-      }
       for (auto [a, b] : P) {
         loc[a] = a;
         pred[b] = a;
@@ -991,7 +992,7 @@ struct DAG_IR_ALL {
           ready.push_back(b);
         }
       }
-    });
+    }
   }
   void remove_unused_BB(NormalFunc *f) {
     DAG_IR dag(f);
@@ -1038,7 +1039,6 @@ struct DAG_IR_ALL {
       PassEnabled("rtb") {
         code_reorder(f);
         remove_trivial_BB(f);
-        remove_unused_BB(f);
       }
       typed &= type_check(f);
     });
@@ -1050,8 +1050,9 @@ struct DAG_IR_ALL {
       return;
     if (type == BEFORE_BACKEND) {
       ir->for_each([&](NormalFunc *f) {
-        code_reorder(f);
         remove_phi(f);
+        code_reorder(f);
+        remove_trivial_BB(f);
       });
       compute_data_offset(*ir);
       return;
