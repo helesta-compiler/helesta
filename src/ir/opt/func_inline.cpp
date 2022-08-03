@@ -134,13 +134,13 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
 
 void search_call_instr(IR::NormalFunc *func) {
   // std::cerr << "start search call instr" << std::endl;
-  std::vector<IR::BB *> bbs;
-  func->for_each([&](IR::BB *bb) { bbs.push_back(bb); });
-  for (auto bb : bbs) {
-    // std::cerr << "auto bb : bbs" << std::endl;
-    bool flag;
-    do {
-      flag = false;
+  // std::cerr << "auto bb : bbs" << std::endl;
+  bool flag;
+  do {
+    flag = false;
+    std::vector<IR::BB *> bbs;
+    func->for_each([&](IR::BB *bb) { bbs.push_back(bb); });
+    for (auto bb : bbs) {
       for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
         Case(IR::CallInstr, call, it->get()) {
           Case(IR::NormalFunc, func_t, call->f) {
@@ -155,8 +155,9 @@ void search_call_instr(IR::NormalFunc *func) {
           }
         }
       }
-    } while (flag);
-  }
+    }
+    // std::cerr << func->name << " - flag = " << flag << std::endl;
+  } while (flag);
 }
 
 void func_inline(IR::CompileUnit *ir) {
@@ -172,6 +173,7 @@ void func_inline(IR::CompileUnit *ir) {
           Case(IR::NormalFunc, func_t, call_instr->f) {
             map[func].count++;
             map[func_t].in_nodes.push_back(func);
+            // std::cerr << func->name << " -> " << func_t->name << std::endl;
           }
         }
       });
@@ -187,6 +189,7 @@ void func_inline(IR::CompileUnit *ir) {
   for (auto &[func, state] : map) {
     if (state.count == 0) {
       order.push_back(func);
+      // std::cerr << func->name << ";\n";
     }
   }
   while (!order.empty()) {
@@ -197,6 +200,7 @@ void func_inline(IR::CompileUnit *ir) {
     search_call_instr(func);
 
     for (auto &in_node : map[func].in_nodes) {
+      // std::cerr << "in_node : " << in_node->name << std::endl;
       map[in_node].count--;
       if (map[in_node].count == 0) {
         order.push_back(in_node);
