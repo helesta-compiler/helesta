@@ -208,6 +208,9 @@ typedef std::pair<NormalFunc *, int> arg_name_t;
 typedef std::variant<MemObject *, arg_name_t> mem_name_t;
 typedef std::set<MemObject *> mem_set_t;
 inline mem_set_t any_mem{nullptr}, no_mem{};
+std::ostream &operator<<(std::ostream &os, const arg_name_t &arg);
+std::ostream &operator<<(std::ostream &os, const mem_name_t &ms);
+std::ostream &operator<<(std::ostream &os, const mem_set_t &ms);
 
 enum PassType { NORMAL, REMOVE_UNUSED_BB, BEFORE_BACKEND };
 

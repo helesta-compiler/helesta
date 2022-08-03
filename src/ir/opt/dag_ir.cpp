@@ -1,5 +1,57 @@
 #include "ir/opt/dag_ir.hpp"
 
+std::ostream &operator<<(std::ostream &os, const arg_name_t &arg) {
+  os << arg.first->name << ".arg" << arg.second;
+  return os;
+}
+std::ostream &operator<<(std::ostream &os, const mem_name_t &ms) {
+  if (std::holds_alternative<MemObject *>(ms)) {
+    os << std::get<MemObject *>(ms)->name;
+  } else {
+    os << std::get<arg_name_t>(ms);
+  }
+  return os;
+}
+std::ostream &operator<<(std::ostream &os, const mem_set_t &ms) {
+  os << "[ ";
+  for (auto x : ms) {
+    os << (x ? x->name : "*") << ' ';
+  }
+  os << ']';
+  return os;
+}
+
+struct PrintLoopTree : SimpleLoopVisitor {
+  PrintLoopTree() {
+    dbg("loop tree\n");
+    dbg("```mermaid\n");
+    dbg("graph TB\n");
+    dbg("root(root)\n");
+  }
+  ~PrintLoopTree() { dbg("```\n"); }
+  std::vector<BB *> loop_head{nullptr};
+  void begin(BB *bb, bool flag) {
+    if (flag)
+      loop_head.push_back(bb);
+  }
+  void end(BB *bb) {
+    if (loop_head.back() == bb)
+      loop_head.pop_back();
+  }
+  void visitBB(BB *w) {
+    dbg(w->name);
+    BB *head = loop_head.back();
+    if (head == w) {
+      dbg("[", w->name, "]\n");
+      head = *std::prev(loop_head.end(), 2);
+      dbg((head ? head->name : "root"), "-->", w->name, "\n");
+    } else {
+      dbg("(", w->name, ")\n");
+      dbg((head ? head->name : "root"), "-->", w->name, "\n");
+    }
+  }
+};
+
 void DAG_IR::rev_traverse(BB *w) {
   auto &wi = loop_tree[w];
   if (!wi.reachable || wi.returnable)
@@ -176,492 +228,3 @@ DAG_IR::DAG_IR(NormalFunc *_func) : func(_func) {
   assert(check_cnt - 1 == reach_cnt);
   // std::cerr << func->name << ": " << loop_cnt << '/' << reach_cnt << '\n';
 }
-
-std::ostream &operator<<(std::ostream &os, const arg_name_t &arg) {
-  os << arg.first->name << ".arg" << arg.second;
-  return os;
-}
-std::ostream &operator<<(std::ostream &os, const mem_name_t &ms) {
-  if (std::holds_alternative<MemObject *>(ms)) {
-    os << std::get<MemObject *>(ms)->name;
-  } else {
-    os << std::get<arg_name_t>(ms);
-  }
-  return os;
-}
-std::ostream &operator<<(std::ostream &os, const mem_set_t &ms) {
-  os << "[ ";
-  for (auto x : ms) {
-    os << (x ? x->name : "*") << ' ';
-  }
-  os << ']';
-  return os;
-}
-
-struct PrintLoopTree : SimpleLoopVisitor {
-  PrintLoopTree() {
-    dbg("loop tree\n");
-    dbg("```mermaid\n");
-    dbg("graph TB\n");
-    dbg("root(root)\n");
-  }
-  ~PrintLoopTree() { dbg("```\n"); }
-  std::vector<BB *> loop_head{nullptr};
-  void begin(BB *bb, bool flag) {
-    if (flag)
-      loop_head.push_back(bb);
-  }
-  void end(BB *bb) {
-    if (loop_head.back() == bb)
-      loop_head.pop_back();
-  }
-  void visitBB(BB *w) {
-    dbg(w->name);
-    BB *head = loop_head.back();
-    if (head == w) {
-      dbg("[", w->name, "]\n");
-      head = *std::prev(loop_head.end(), 2);
-      dbg((head ? head->name : "root"), "-->", w->name, "\n");
-    } else {
-      dbg("(", w->name, ")\n");
-      dbg((head ? head->name : "root"), "-->", w->name, "\n");
-    }
-  }
-};
-
-struct PointerBase : InstrVisitor {
-  struct Info {
-    mem_name_t base;
-    mem_set_t *maybe = nullptr;
-  };
-  std::unordered_map<Reg, Info> info;
-
-  NormalFunc *func;
-  PointerBase(NormalFunc *_func) : func(_func) {}
-  void visit(Instr *x) override {
-    Case(ArrayIndex, ai, x) { info[ai->d1].base = info.at(ai->s1).base; }
-    else Case(PhiInstr, phi, x) {
-      for (auto &[r, bb] : phi->uses) {
-        if (info.count(r)) {
-          info[phi->d1].base = info.at(r).base;
-          (void)bb;
-          break;
-        }
-      }
-    }
-    else Case(UnaryOpInstr, uop, x) {
-      if (uop->op.type == UnaryCompute::ID) {
-        if (info.count(uop->s1)) {
-          info[uop->d1].base = info.at(uop->s1).base;
-        }
-      }
-    }
-    else Case(LoadArg, la, x) {
-      info[la->d1].base = std::make_pair(func, la->id);
-    }
-    else Case(LoadAddr, la, x) {
-      info[la->d1].base = la->offset;
-    }
-  }
-};
-struct SideEffect {
-  struct Info {
-    mem_set_t may_read, may_write;
-    void operator|=(const Info &w) {
-      may_read.insert(w.may_read.begin(), w.may_read.end());
-      may_write.insert(w.may_write.begin(), w.may_write.end());
-    }
-  };
-  std::unordered_map<BB *, Info> info;
-  std::unordered_map<BB *, Info> loop_info;
-  NormalFunc *func;
-  std::map<NormalFunc *, std::unique_ptr<SideEffect>> *mp;
-  PointerBase ptr_base;
-
-  SideEffect(NormalFunc *_func,
-             std::map<NormalFunc *, std::unique_ptr<SideEffect>> *_mp)
-      : func(_func), mp(_mp), ptr_base(_func) {}
-  std::vector<BB *> head{nullptr};
-  void begin(BB *bb, bool) { head.push_back(bb); }
-  void end(BB *bb) {
-    head.pop_back();
-    loop_info[head.back()] |= loop_info[bb];
-  }
-  void ins(mem_set_t &ls, mem_set_t &rs) { ls.insert(rs.begin(), rs.end()); }
-  bool checkWAR(mem_set_t &ws, mem_set_t &rs) {
-    if (rs.empty() || ws.empty())
-      return 0;
-    if (rs.count(nullptr) || ws.count(nullptr))
-      return 1;
-    for (auto x : ws)
-      if (rs.count(x))
-        return 1;
-    return 0;
-  }
-  mem_set_t &maybe(Reg r) {
-    if (!ptr_base.info.count(r))
-      return no_mem;
-    return *ptr_base.info.at(r).maybe;
-  }
-  mem_set_t &may_read(Func *f) {
-    Case(NormalFunc, f0, f) {
-      return mp->at(f0)->loop_info.at(nullptr).may_read;
-    }
-    else {
-      return any_mem;
-    }
-  }
-  mem_set_t &may_write(Func *f) {
-    Case(NormalFunc, f0, f) {
-      return mp->at(f0)->loop_info.at(nullptr).may_write;
-    }
-    else {
-      return any_mem;
-    }
-  }
-  void visitBB(BB *bb) {
-    auto &w = info[bb];
-    bb->for_each([&](Instr *x) {
-      Case(LoadInstr, ld, x) {
-        ins(w.may_read, *ptr_base.info.at(ld->addr).maybe);
-      }
-      else Case(StoreInstr, st, x) {
-        ins(w.may_write, *ptr_base.info.at(st->addr).maybe);
-      }
-      else Case(CallInstr, call, x) {
-        Case(NormalFunc, f, call->f) {
-          if (f == func) {
-            w.may_read.insert(nullptr);
-            w.may_write.insert(nullptr);
-          } else {
-            w |= mp->at(f)->loop_info.at(nullptr);
-          }
-        }
-        else {
-          for (Reg r : call->args) {
-            if (ptr_base.info.count(r)) {
-              auto &ls = *ptr_base.info.at(r).maybe;
-              ins(w.may_read, ls);
-              ins(w.may_write, ls);
-            }
-          }
-        }
-      }
-    });
-    loop_info[bb] = w;
-  }
-  void visitMayExit(BB *, BB *) {}
-  void visitEdge(BB *, BB *) {}
-};
-
-struct MergePureCall
-    : ForwardLoopVisitor<std::map<std::pair<Func *, std::vector<Reg>>, Reg>> {
-  using ForwardLoopVisitor::map_t;
-  SideEffect &se;
-  MergePureCall(SideEffect &_se) : se(_se) {}
-  ~MergePureCall() {
-    if (cnt) {
-      ::info << "MergePureCall: " << cnt << '\n';
-    }
-  }
-  void update(map_t &m, mem_set_t &mw) {
-    remove_if(m, [&](typename map_t::value_type &t) -> bool {
-      auto &mr = se.may_read(t.first.first);
-      return se.checkWAR(mw, mr);
-    });
-  }
-  size_t cnt = 0;
-  void visitBB(BB *bb) {
-    // std::cerr << bb->name << " visited" << '\n';
-    auto &w = info[bb];
-    w.out = w.in;
-    if (w.is_loop_head) {
-      update(w.out, se.loop_info.at(bb).may_write);
-    }
-    for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
-      Instr *x = it->get();
-      replace_reg(x);
-      Case(StoreInstr, st, x) { update(w.out, se.maybe(st->addr)); }
-      else Case(CallInstr, call, x) {
-        // std::cerr << bb->name << " >>> " << *call << std::endl;
-        if (call->no_store) {
-          auto key = std::make_pair(call->f, call->args);
-          if (w.out.count(key)) {
-            replace_reg(it, call->d1, w.out[key]);
-            ++cnt;
-            // std::cerr << call->f->name << " merged" << std::endl;
-          } else {
-            w.out[key] = call->d1;
-          }
-        } else {
-          update(w.out, se.may_write(call->f));
-        }
-      }
-    }
-  }
-};
-
-struct LoadToReg : ForwardLoopVisitor<std::map<Reg, Reg>> {
-  using ForwardLoopVisitor::map_t;
-  SideEffect &se;
-  LoadToReg(SideEffect &_se) : se(_se) {}
-  ~LoadToReg() {
-    if (cnt) {
-      ::info << "LoadToReg: " << cnt << '\n';
-    }
-  }
-  void update(map_t &m, mem_set_t &mw) {
-    remove_if(m, [&](typename map_t::value_type &t) -> bool {
-      auto &mr = se.maybe(t.first);
-      return se.checkWAR(mw, mr);
-    });
-  }
-  size_t cnt = 0;
-  void visitBB(BB *bb) {
-    // std::cerr << bb->name << " visited" << '\n';
-    auto &w = info[bb];
-    w.out = w.in;
-    if (w.is_loop_head) {
-      update(w.out, se.loop_info.at(bb).may_write);
-    }
-    for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
-      Instr *x = it->get();
-      replace_reg(x);
-      Case(LoadInstr, ld, x) {
-        if (w.out.count(ld->addr)) {
-          replace_reg(it, ld->d1, w.out[ld->addr]);
-          ++cnt;
-        } else {
-          w.out[ld->addr] = ld->d1;
-        }
-      }
-      else Case(StoreInstr, st, x) {
-        update(w.out, se.maybe(st->addr));
-        w.out[st->addr] = st->s1;
-      }
-      else Case(CallInstr, call, x) {
-        update(w.out, se.may_write(call->f));
-      }
-    }
-  }
-};
-
-struct RemoveUnusedStoreInBB : SimpleLoopVisitor {
-  size_t cnt = 0;
-  ~RemoveUnusedStoreInBB() {
-    if (cnt) {
-      ::info << "RemoveUnusedStoreInBB: " << cnt << '\n';
-    }
-  }
-  void visitBB(BB *bb) {
-    std::set<Reg> cur;
-
-    for (auto it = bb->instrs.end(); it != bb->instrs.begin();) {
-      auto it0 = it;
-      --it;
-      Instr *x = it->get();
-      Case(LoadInstr, ld, x) {
-        (void)ld;
-        cur.clear();
-      }
-      else Case(StoreInstr, st, x) {
-        if (!cur.insert(st->addr).second) {
-          ++cnt;
-          bb->instrs.erase(it);
-          it = it0;
-        }
-      }
-      else Case(CallInstr, call, x) {
-        if (!call->no_store) {
-          cur.clear();
-        }
-      }
-    }
-  }
-};
-
-struct RemoveUnusedStore : BackwardLoopVisitor<mem_set_t> {
-  SideEffect &se;
-  RemoveUnusedStore(SideEffect &_se) : se(_se) {}
-
-  size_t cnt = 0;
-  ~RemoveUnusedStore() {
-    if (cnt) {
-      ::info << "RemoveUnusedStore: " << cnt << '\n';
-    }
-  }
-  void begin(BB *bb, bool is_loop_head) override {
-    auto &w = info[bb];
-    if (is_loop_head) {
-      update(w.loop_out, se.loop_info.at(bb).may_read);
-    }
-    BackwardLoopVisitor<mem_set_t>::begin(bb, is_loop_head);
-  }
-
-  void update(map_t &m, map_t &mr) {
-    for (auto x : mr)
-      m.insert(x);
-  }
-  void visitBB(BB *bb) {
-    auto &w = info[bb];
-
-    w.in = w.out;
-
-    for (auto it = bb->instrs.end(); it != bb->instrs.begin();) {
-      auto it0 = it;
-      --it;
-      Instr *x = it->get();
-      Case(LoadInstr, ld, x) { update(w.in, se.maybe(ld->addr)); }
-      else Case(StoreInstr, st, x) {
-        if (!se.checkWAR(se.maybe(st->addr), w.in)) {
-          ++cnt;
-          bb->instrs.erase(it);
-          it = it0;
-        }
-      }
-      else Case(CallInstr, call, x) {
-        Case(NormalFunc, f, call->f) { update(w.in, se.may_read(f)); }
-        else {
-          for (Reg r : call->args) {
-            update(w.in, se.maybe(r));
-          }
-        }
-      }
-    }
-  }
-  virtual void visitBackEdge(BB *bb1, BB *bb2) {
-    auto &w1 = info[bb1]; // loop head
-    auto &w2 = info[bb2]; // node before exit (in the view of DAG for loop bb1)
-    bool flag = 0;
-    meet_eq(w1.loop_out, w2.get_out(), flag);
-  }
-};
-
-inline void compute_data_offset(CompileUnit &c) {
-  c.for_each([](MemScope &s) {
-    s.size = 0;
-    s.for_each([&](MemObject *x) {
-      x->offset = s.size;
-      s.size += x->size;
-    });
-  });
-}
-
-void DAG_IR_ALL::update_alias() {
-  ir->for_each([&](NormalFunc *f) {
-    auto &info = effect[f]->ptr_base.info;
-    f->for_each([&](Instr *x) {
-      Case(CallInstr, call, x) {
-        Case(NormalFunc, f, call->f) {
-          for (auto [r, id] : enumerate(call->args)) {
-            if (info.count(r)) {
-              alias.emplace(info[r].base, arg_name_t{f, id});
-            }
-          }
-        }
-      }
-    });
-  });
-  for (bool flag;;) {
-    flag = 0;
-    for (auto &[a, b] : alias) {
-      auto &as = memobjs[a];
-      auto &bs = memobjs[b];
-      for (auto x : as) {
-        flag |= bs.insert(x).second;
-      }
-    }
-    if (!flag)
-      break;
-  }
-  ir->for_each([&](NormalFunc *f) {
-    for (auto &w : effect[f]->ptr_base.info) {
-      w.second.maybe = &memobjs[w.second.base];
-    }
-  });
-}
-void DAG_IR_ALL::print() {
-  for (auto &[k, v] : memobjs) {
-    std::cerr << k << " : " << v << '\n';
-  }
-  ir->for_each([&](NormalFunc *f) {
-    std::cerr << f->name << " : \n";
-    for (auto &[k, v] : effect.at(f)->ptr_base.info) {
-      std::cerr << k << " : " << v.base << " : " << *v.maybe << '\n';
-    }
-    std::cerr << f->name << " R: " << effect.at(f)->may_read(f) << '\n';
-    std::cerr << f->name << " W: " << effect.at(f)->may_write(f) << '\n';
-  });
-}
-void DAG_IR_ALL::remove_unused_memobj() {
-  std::set<MemObject *> used;
-  ir->for_each([&](NormalFunc *f) {
-    f->for_each([&](Instr *x) {
-      Case(LoadAddr, la, x) { used.insert(la->offset); }
-    });
-  });
-  ir->for_each([&](MemScope &ms) {
-    remove_if_vec(ms.objects, [&](const std::unique_ptr<MemObject> &mem) {
-      return !used.count(mem.get());
-    });
-  });
-}
-
-void remove_phi(NormalFunc *);
-void code_reorder(NormalFunc *);
-void remove_trivial_BB(NormalFunc *);
-
-DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
-  remove_unused_memobj();
-  remove_unused_BB();
-  if (type == REMOVE_UNUSED_BB)
-    return;
-  if (type == BEFORE_BACKEND) {
-    ir->for_each([&](NormalFunc *f) {
-      remove_phi(f);
-      code_reorder(f);
-      remove_trivial_BB(f);
-    });
-    compute_data_offset(*ir);
-    return;
-  }
-  if (!typed) {
-    std::cerr << "type check failed\n";
-    return;
-  }
-  PassDisabled("dag") return;
-  ir->for_each([&](MemScope &ms) {
-    ms.for_each([&](MemObject *mem) { memobjs[mem] = {mem}; });
-  });
-  ir->for_each([&](NormalFunc *f) {
-    dags.emplace(f, new DAG_IR(f));
-    effect.emplace(f, new SideEffect(f, &effect));
-    dags[f]->visit(effect[f]->ptr_base);
-  });
-  update_alias();
-  ir->for_each([&](NormalFunc *f) { dags[f]->visit(*effect[f]); });
-  // print();
-  for (auto &[f, dag] : dags) {
-    SideEffect &se = *effect[f];
-    {
-      LoadToReg w(se);
-      dag->visit(w);
-    }
-    {
-      MergePureCall w(se);
-      dag->visit(w);
-    }
-    {
-      RemoveUnusedStoreInBB w;
-      dag->visit(w);
-    }
-    if (f == ir->main()) {
-      RemoveUnusedStore w(se);
-      dag->visit_rev(w);
-    }
-  }
-}
-
-void dag_ir(CompileUnit *ir) { DAG_IR_ALL _(ir, NORMAL); }
-void remove_unused_BB(CompileUnit *ir) { DAG_IR_ALL _(ir, REMOVE_UNUSED_BB); }
-void before_backend(CompileUnit *ir) { DAG_IR_ALL _(ir, BEFORE_BACKEND); }

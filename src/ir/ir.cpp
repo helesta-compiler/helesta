@@ -322,7 +322,7 @@ void map_use(NormalFunc *f, const std::unordered_map<Reg, Reg> &mp_reg) {
   });
 }
 
-inline void compute_data_offset(CompileUnit &c) {
+void compute_data_offset(CompileUnit &c) {
   c.for_each([](MemScope &s) {
     s.size = 0;
     s.for_each([&](MemObject *x) {
