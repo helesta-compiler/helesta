@@ -164,7 +164,8 @@ void remove_phi(NormalFunc *f) {
     bb0->back()->map_BB(partial_map(bb, bb1));
     bb1->push(new JumpInstr(bb));
     auto emit_copy = [&](Reg a, Reg b) {
-      bb1->push1(new UnaryOpInstr(b, a, UnaryCompute::ID));
+      if (b != a)
+        bb1->push1(new UnaryOpInstr(b, a, UnaryCompute::ID));
     };
     Reg n = f->new_Reg();
     std::vector<std::pair<Reg, Reg>> res;

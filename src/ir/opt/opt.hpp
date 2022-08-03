@@ -47,16 +47,16 @@ inline void optimize_ir(IR::CompileUnit *ir) {
       gvn(ir);
       PassEnabled("func-inline") {
         func_inline(ir);
+        remove_unused_func(ir);
         PassEnabled("gvn") {
           PassEnabled("g2l") global_to_local(ir);
           gvn(ir);
           PassEnabled("mem2reg2") mem2reg(ir);
         }
-        /*remove_unused_func(ir);
         gvn(ir);
         dag_ir(ir);
         gvn(ir);
-        gcm(ir);*/
+        gcm(ir);
       }
     }
   }
