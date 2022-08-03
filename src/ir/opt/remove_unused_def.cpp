@@ -17,13 +17,11 @@ void remove_unused_def_func(IR::NormalFunc *func) {
   std::deque<IR::Instr *> q;
   func->for_each([&](IR::Instr *i) {
     if (auto call_instr = dynamic_cast<IR::CallInstr *>(i)) {
-      if (!call_instr->pure)
+      if (!call_instr->no_store)
         q.push_back(i);
     } else if (dynamic_cast<IR::ControlInstr *>(i))
       q.push_back(i);
     else if (dynamic_cast<IR::StoreInstr *>(i))
-      q.push_back(i);
-    else if (dynamic_cast<IR::LocalVarDef *>(i))
       q.push_back(i);
   });
   while (!q.empty()) {
@@ -33,6 +31,9 @@ void remove_unused_def_func(IR::NormalFunc *func) {
       continue;
     used_instrs.insert(i);
     i->map_use([&](IR::Reg &r) {
+      if (def_vec[r.id] == nullptr) {
+        std::cerr << r << std::endl;
+      }
       assert(def_vec[r.id] != nullptr);
       q.push_back(def_vec[r.id]);
     });

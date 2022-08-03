@@ -18,6 +18,18 @@ struct GVNInstr {
   }
 };
 
+std::optional<IR::Reg> find_same_value(IR::PhiInstr *phi) {
+  std::optional<IR::Reg> r0;
+  for (auto &[r, bb] : phi->uses) {
+    if (!(r == phi->d1)) {
+      if (r0 && !(*r0 == r))
+        return std::nullopt;
+      r0 = r;
+    }
+  }
+  return r0;
+}
+
 struct GVNNode : Traversable<GVNNode>, TreeNode<GVNNode> {
   std::vector<GVNNode *> outs;
   GVNNode *fa;
@@ -160,6 +172,7 @@ struct GVNContext {
       } else if (auto binary = dynamic_cast<IR::BinaryOpInstr *>(i->i)) {
         auto key =
             std::make_tuple(binary->op.type, binary->s1.id, binary->s2.id);
+
         if (binary_values.find(key) != binary_values.end()) {
           i->removed = true;
           assert(binary_values[key] != 0);
@@ -253,6 +266,11 @@ struct GVNContext {
         } else {
           addr_values[key] = la->d1.id;
           node->new_addrs.push_back(key);
+        }
+      } else if (auto phi = dynamic_cast<IR::PhiInstr *>(i->i)) {
+        if (auto r0 = find_same_value(phi)) {
+          i->removed = true;
+          replace_same_value(phi->d1.id, r0->id);
         }
       }
     }

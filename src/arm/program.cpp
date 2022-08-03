@@ -255,8 +255,6 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         debug << "thread_id: " << call->d1 << " -> "
               << info->from_ir_reg(call->d1) << " is forbidden to be spilled\n";
       }
-    } else if (dynamic_cast<IR::LocalVarDef *>(cur)) {
-      // do nothing
     } else if (auto array_index = dynamic_cast<IR::ArrayIndex *>(cur)) {
       Reg dst = info->from_ir_reg(array_index->d1),
           s1 = info->from_ir_reg(array_index->s1),
@@ -278,8 +276,6 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(load_imm(step, array_index->size));
         push_back(make_unique<ML>(ML::Mla, dst, s2, step, s1));
       }
-    } else if (dynamic_cast<IR::PhiInstr *>(cur)) {
-      // do nothing
     } else
       unreachable();
   }
@@ -414,23 +410,6 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
                            cmp_info); // maintain in_edge, out_edge,
                                       // reg_mapping, ignore phi function
     }
-  struct PendingMove {
-    Block *block;
-    Reg to, from;
-  };
-  vector<PendingMove> pending_moves;
-  for (auto &bb : ir_func->bbs)
-    for (auto &inst : bb->instrs)
-      if (auto *cur = dynamic_cast<IR::PhiInstr *>(inst.get()))
-        for (auto &prev : cur->uses) {
-          Block *b = info.block_mapping[prev.second];
-          Reg mid = info.new_reg();
-          b->insert_before_jump(
-              make_unique<MoveReg>(mid, info.from_ir_reg(prev.first.id)));
-          pending_moves.push_back({b, info.from_ir_reg(cur->d1.id), mid});
-        }
-  for (PendingMove &i : pending_moves)
-    i.block->insert_before_jump(make_unique<MoveReg>(i.to, i.from));
   reg_n = info.reg_n;
   float_regs = std::move(info.float_regs);
   for (auto &block : blocks) {
@@ -441,8 +420,17 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
       }
     }
   }
-  merge_inst();
-  dce();
+
+  PassEnabled("mi") merge_inst();
+  replace_pseduo_inst();
+  PassEnabled("dce") dce();
+  if (global_config.args.count("ir2")) {
+    ir_func->for_each([&](IR::BB *bb0) {
+      std::cerr << "================================\n";
+      std::cerr << *bb0;
+      info.block_mapping[bb0]->print(std::cerr);
+    });
+  }
 }
 
 std::pair<int64_t, int> div_opt(int32_t A0) {
@@ -594,6 +582,8 @@ void Func::merge_inst() {
       }
     }
   }
+}
+void Func::replace_pseduo_inst() {
   for (auto &block : blocks) {
     auto &insts = block->insts;
     for (auto it = insts.begin(); it != insts.end(); ++it) {
