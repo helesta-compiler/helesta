@@ -938,103 +938,60 @@ struct DAG_IR_ALL {
       Case(BranchInstr, br, bb->back()) { assert(br->target1 != br->target0); }
     });
   }
-  void schedule_phi(BB *bb) {
-    struct Info {
-      PhiInstr *phi;
-      std::vector<Reg> out;
-      int in = 0;
-    };
-    std::unordered_map<Reg, Info> graph;
-    auto add_edge = [&](Reg a, Reg b) {
-      if (a == b)
-        return;
-      if (!graph.count(a))
-        return;
-      if (!graph.count(b))
-        return;
-      graph[a].out.push_back(b);
-      graph[b].in += 1;
-    };
-    // std::cerr << "================\n";
-    // std::cerr << bb->name << '\n';
-    bb->for_each([&](Instr *x) {
-      Case(PhiInstr, phi, x) { graph[phi->d1].phi = phi; }
-    });
-    bb->for_each([&](Instr *x) {
-      Case(PhiInstr, phi, x) {
-        for (auto &kv : phi->uses) {
-          add_edge(kv.first, phi->d1);
-        }
-        // std::cerr << *phi << '\n';
-        bb->move();
-      }
-    });
-    // std::cerr << "----------------\n";
-    std::set<std::pair<int, Reg>> q;
-    auto it = bb->instrs.begin();
-    for (auto &[r, ri] : graph) {
-      q.insert({ri.in, r});
-    }
-    while (!q.empty()) {
-      Reg w = q.begin()->second;
-      q.erase(q.begin());
-      auto &wi = graph.at(w);
-      for (Reg r : wi.out) {
-        auto &ri = graph[r];
-        auto it = q.find({ri.in, r});
-        if (it != q.end()) {
-          q.erase(it);
-          q.insert({ri.in - 1, r});
-        }
-        ri.in -= 1;
-      }
-      // std::cerr << *wi.phi << '\n';
-      bb->instrs.insert(it, std::unique_ptr<Instr>(wi.phi));
-    }
-  }
   void remove_phi(NormalFunc *f) {
-    std::vector<std::pair<BB *, Instr *>> movs1, movs2;
-    PassEnabled("sp") {
-      f->for_each([&](BB *bb) { schedule_phi(bb); });
-    }
+    std::unordered_map<BB *, std::vector<std::pair<Reg, Reg>>> movs;
     f->for_each([&](BB *bb) {
-      std::unordered_set<Reg> used, need_tmp;
-      for (auto &x0 : reverse_view(bb->instrs)) {
-        Case(PhiInstr, phi, x0.get()) {
-          if (used.count(phi->d1))
-            need_tmp.insert(phi->d1);
-          for (auto &kv : phi->uses)
-            used.insert(kv.first);
-        }
-      }
-      std::unordered_map<Reg, Reg> mp;
       bb->for_each([&](Instr *x) {
         Case(PhiInstr, phi, x) {
-          Reg tmp;
-          if (need_tmp.count(phi->d1)) {
-            tmp = mp[phi->d1] = f->new_Reg();
-          } else {
-            tmp = phi->d1;
-          }
           for (auto &[r, bb0] : phi->uses) {
-            if (tmp != r)
-              movs2.emplace_back(bb0,
-                                 new UnaryOpInstr(tmp, r, UnaryCompute::ID));
+            movs[bb0].emplace_back(r, phi->d1);
           }
-          bb->del();
-          if (phi->d1 != tmp)
-            movs1.emplace_back(
-                bb, new UnaryOpInstr(phi->d1, tmp, UnaryCompute::ID));
+          bb->move();
         }
-        else x->map_use(partial_map(mp));
       });
     });
-    for (auto [bb, x] : movs1) {
-      bb->push1(x);
-    }
-    for (auto [bb, x] : movs2) {
-      bb->push1(x);
-    }
+    f->for_each([&](BB *bb) {
+      auto emit_copy = [&](Reg a, Reg b) {
+        bb->push1(new UnaryOpInstr(b, a, UnaryCompute::ID));
+      };
+      auto &P = movs[bb];
+      Reg n = f->new_Reg();
+      std::vector<std::pair<Reg, Reg>> res;
+      std::map<Reg, std::optional<Reg>> loc, pred;
+      std::vector<Reg> to_do, ready;
+      for (auto [a, b] : P) {
+        loc[b] = std::nullopt;
+        pred[a] = std::nullopt;
+      }
+      for (auto [a, b] : P) {
+        loc[a] = a;
+        pred[b] = a;
+        to_do.push_back(b);
+      }
+      for (auto [a, b] : P) {
+        if (!loc[b])
+          ready.push_back(b);
+      }
+      while (!to_do.empty()) {
+        while (!ready.empty()) {
+          Reg b = ready.back();
+          ready.pop_back();
+          Reg a = pred[b].value();
+          Reg c = loc[a].value();
+          emit_copy(c, b);
+          loc[a] = b;
+          if (a == c && pred[a])
+            ready.push_back(a);
+        }
+        Reg b = to_do.back();
+        to_do.pop_back();
+        if (b == loc[pred[b].value()].value()) {
+          emit_copy(b, n);
+          loc[b] = n;
+          ready.push_back(b);
+        }
+      }
+    });
   }
   void remove_unused_BB(NormalFunc *f) {
     DAG_IR dag(f);
