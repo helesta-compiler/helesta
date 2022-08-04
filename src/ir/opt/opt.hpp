@@ -19,6 +19,7 @@ void global_to_local(IR::CompileUnit *);
 void simplify_expr(IR::CompileUnit *ir);
 void call_graph(IR::CompileUnit *);
 void remove_unused_BB(IR::CompileUnit *ir);
+void loop_ops(IR::CompileUnit *ir);
 void before_backend(IR::CompileUnit *ir);
 
 inline void gvn(IR::CompileUnit *ir) {

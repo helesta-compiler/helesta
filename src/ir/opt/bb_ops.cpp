@@ -71,12 +71,13 @@ void code_reorder(NormalFunc *f) {
 }
 void remove_trivial_BB(NormalFunc *f) {
   auto prev = build_prev(f);
-  f->for_each([&](BB *bb) {
+  for (auto &_bb : reverse_view(f->bbs)) {
+    BB *bb = _bb.get();
     if (prev[bb].size() != 1)
-      return;
+      continue;
     BB *bb0 = prev[bb][0];
     Case(JumpInstr, _, bb0->back()) { (void)_; }
-    else return;
+    else continue;
     assert(bb0 != bb);
     bb->for_each_until([&](Instr *x) -> bool {
       Case(PhiInstr, _, x) {
@@ -91,7 +92,8 @@ void remove_trivial_BB(NormalFunc *f) {
       bb->move();
       return 0;
     });
-  });
+    // dbg("```cpp\n", *bb0, '\n', *bb, "\n```\n");
+  }
   UnionFind<BB *> mp1, mp2;
   f->for_each([&](BB *bb) {
     mp1.add(bb);
@@ -245,6 +247,7 @@ void simplify_BB(NormalFunc *f) {
     code_reorder(f);
     remove_trivial_BB(f);
   }
+  // dbg("```cpp\n", *f, "\n```\n");
 }
 
 void DAG_IR_ALL::remove_unused_BB() {

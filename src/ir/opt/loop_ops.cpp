@@ -267,8 +267,10 @@ struct LoopCopyTool {
     }
   }
 };
-
-void simplify_BB(NormalFunc *f);
+void code_reorder(NormalFunc *f);
+void remove_unused_BB(NormalFunc *f);
+void global_value_numbering_func(IR::NormalFunc *func);
+void remove_trivial_BB(NormalFunc *f);
 
 struct UnrollLoop {
   FindLoopVar &S;
@@ -366,7 +368,10 @@ struct UnrollLoop {
         print_cfg(S.f);
         dbg("\n```cpp\n", *S.f, "\n```\n");
       }
-      simplify_BB(S.f);
+      remove_unused_BB(S.f);
+      global_value_numbering_func(S.f);
+      code_reorder(S.f);
+      remove_trivial_BB(S.f);
       return 1;
     }
     return 0;
@@ -377,7 +382,6 @@ bool unroll_loop(FindLoopVar &S) {
   UnrollLoop w(S);
   return w.apply();
 }
-
 void loop_ops(NormalFunc *f) {
   for (int T = 0; T < 10; ++T) {
     DAG_IR dag(f);
