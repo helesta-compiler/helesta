@@ -53,10 +53,10 @@ inline void optimize_ir(IR::CompileUnit *ir) {
           gvn(ir);
           mem2reg(ir);
         }
-        /*gvn(ir);
+        gvn(ir);
         dag_ir(ir);
         gvn(ir);
-        gcm(ir);*/
+        gcm(ir);
       }
     }
   }
