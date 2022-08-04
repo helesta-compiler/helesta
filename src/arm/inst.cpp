@@ -54,7 +54,7 @@ InstCond reverse_operand(InstCond c) {
 }
 
 ostream &operator<<(ostream &os, const Reg &reg) {
-  if (reg.is_float)
+  if (reg.type == ScalarType::Float)
     os << 's' << reg.id;
   else if (reg.id == sp)
     os << "sp";
@@ -188,11 +188,11 @@ void RegRegInst::gen_asm(ostream &out, AsmContext *) {
   default:
     unreachable();
   }
-  assert(!dst.is_float);
-  assert(!lhs.is_float);
-  if (lhs.is_float)
+  assert(dst.type == ScalarType::Int);
+  assert(lhs.type == ScalarType::Int);
+  if (lhs.type == ScalarType::Float)
     out << "???\n";
-  assert(!rhs.is_float);
+  assert(rhs.type == ScalarType::Int);
   out << cond << ' ' << dst << ',' << lhs << ',' << rhs << shift << '\n';
 }
 
@@ -213,9 +213,9 @@ void FRegRegInst::gen_asm(ostream &out, AsmContext *) {
   default:
     unreachable();
   }
-  assert(dst.is_float);
-  assert(lhs.is_float);
-  assert(rhs.is_float);
+  assert(dst.type == ScalarType::Float);
+  assert(lhs.type == ScalarType::Float);
+  assert(rhs.type == ScalarType::Float);
   out << cond << ' ' << dst << ',' << lhs << ',' << rhs << '\n';
 }
 
@@ -226,18 +226,18 @@ void ML::gen_asm(ostream &out, AsmContext *) {
     out << "mls";
   else
     unreachable();
-  assert(!dst.is_float);
-  assert(!s1.is_float);
-  assert(!s2.is_float);
-  assert(!s3.is_float);
+  assert(dst.type == ScalarType::Int);
+  assert(s1.type == ScalarType::Int);
+  assert(s2.type == ScalarType::Int);
+  assert(s3.type == ScalarType::Int);
   out << cond << ' ' << dst << ',' << s1 << ',' << s2 << ',' << s3 << '\n';
 }
 
 void SMulL::gen_asm(ostream &out, AsmContext *) {
-  assert(!d1.is_float);
-  assert(!d2.is_float);
-  assert(!s1.is_float);
-  assert(!s2.is_float);
+  assert(d1.type == ScalarType::Int);
+  assert(d2.type == ScalarType::Int);
+  assert(s1.type == ScalarType::Int);
+  assert(s2.type == ScalarType::Int);
   out << "smull" << cond << ' ' << d1 << ',' << d2 << ',' << s1 << ',' << s2
       << '\n';
 }
@@ -268,14 +268,14 @@ void RegImmInst::gen_asm(ostream &out, AsmContext *) {
   default:
     unreachable();
   }
-  assert(!dst.is_float);
-  assert(!lhs.is_float);
+  assert(dst.type == ScalarType::Int);
+  assert(lhs.type == ScalarType::Int);
   out << cond << ' ' << dst << ',' << lhs << ",#" << rhs << '\n';
 }
 
 void MoveReg::gen_asm(ostream &out, AsmContext *) {
-  if (dst.is_float) {
-    if (src.is_float) {
+  if (dst.type == ScalarType::Float) {
+    if (src.type == ScalarType::Float) {
       if (src != dst) {
         out << "vmov.f32" << cond << ' ' << dst << ',' << src << '\n';
       }
@@ -283,7 +283,7 @@ void MoveReg::gen_asm(ostream &out, AsmContext *) {
       out << "vmov" << cond << ' ' << dst << ',' << src << '\n';
     }
   } else {
-    if (src.is_float) {
+    if (src.type == ScalarType::Float) {
       out << "vmov" << cond << ' ' << dst << ',' << src << '\n';
     } else {
       if (src != dst) {
@@ -294,8 +294,8 @@ void MoveReg::gen_asm(ostream &out, AsmContext *) {
 }
 
 void FRegInst::gen_asm(ostream &out, AsmContext *) {
-  assert(dst.is_float);
-  assert(src.is_float);
+  assert(dst.type == ScalarType::Float);
+  assert(src.type == ScalarType::Float);
   switch (op) {
   case Neg:
     out << "vneg.f32";
@@ -321,8 +321,8 @@ void FRegInst::gen_asm(ostream &out, AsmContext *) {
 }
 
 void ShiftInst::gen_asm(ostream &out, AsmContext *) {
-  assert(!dst.is_float);
-  assert(!src.is_float);
+  assert(dst.type == ScalarType::Int);
+  assert(src.type == ScalarType::Int);
   out << "mov" << cond << ' ' << dst << ',' << src << shift << '\n';
 }
 
@@ -337,27 +337,27 @@ void MoveImm::gen_asm(ostream &out, AsmContext *) {
   default:
     unreachable();
   }
-  assert(!dst.is_float);
+  assert(dst.type == ScalarType::Int);
   out << cond << ' ' << dst << ",#" << src << '\n';
 }
 
 void MoveW::gen_asm(ostream &out, AsmContext *) {
-  assert(!dst.is_float);
+  assert(dst.type == ScalarType::Int);
   out << "movw" << cond << ' ' << dst << ",#" << src << '\n';
 }
 
 void MoveT::gen_asm(ostream &out, AsmContext *) {
-  assert(!dst.is_float);
+  assert(dst.type == ScalarType::Int);
   out << "movt" << cond << ' ' << dst << ",#" << src << '\n';
 }
 
 void LoadSymbolAddrLower16::gen_asm(ostream &out, AsmContext *) {
-  assert(!dst.is_float);
+  assert(dst.type == ScalarType::Int);
   out << "movw" << cond << ' ' << dst << ",#:lower16:" << symbol << '\n';
 }
 
 void LoadSymbolAddrUpper16::gen_asm(ostream &out, AsmContext *) {
-  assert(!dst.is_float);
+  assert(dst.type == ScalarType::Int);
   out << "movt" << cond << ' ' << dst << ",#:upper16:" << symbol << '\n';
 }
 
@@ -423,7 +423,7 @@ bool load_store_offset_range(int64_t offset) {
 
 void Load::gen_asm(ostream &out, AsmContext *) {
   assert(load_store_offset_range(offset_imm));
-  if (dst.is_float) {
+  if (dst.type == ScalarType::Float) {
     out << "v";
   }
   out << "ldr" << cond << ' ' << dst << ",[" << base << ",#" << offset_imm
@@ -432,7 +432,7 @@ void Load::gen_asm(ostream &out, AsmContext *) {
 
 void Store::gen_asm(ostream &out, AsmContext *) {
   assert(load_store_offset_range(offset_imm));
-  if (src.is_float) {
+  if (src.type == ScalarType::Float) {
     out << "v";
   }
   out << "str" << cond << ' ' << src << ",[" << base << ",#" << offset_imm
@@ -440,7 +440,7 @@ void Store::gen_asm(ostream &out, AsmContext *) {
 }
 
 void ComplexLoad::gen_asm(ostream &out, AsmContext *) {
-  if (dst.is_float) {
+  if (dst.type == ScalarType::Float) {
     out << "ldr" << cond << ' ' << Reg{dst.id} << ",[" << base << ',' << offset
         << shift << "]\n";
     out << "vmov" << cond << ' ' << dst << ',' << Reg{dst.id} << "\n";
@@ -451,7 +451,7 @@ void ComplexLoad::gen_asm(ostream &out, AsmContext *) {
 }
 
 void ComplexStore::gen_asm(ostream &out, AsmContext *) {
-  if (src.is_float) {
+  if (src.type == ScalarType::Float) {
     out << "vmov" << cond << ' ' << Reg{src.id} << ',' << src << "\n";
     out << "str" << cond << ' ' << Reg{src.id} << ",[" << base << ',' << offset
         << shift << "]\n";
@@ -464,7 +464,7 @@ void ComplexStore::gen_asm(ostream &out, AsmContext *) {
 void LoadStack::gen_asm(ostream &out, AsmContext *ctx) {
   int32_t total_offset = src->position + offset - ctx->temp_sp_offset;
   assert(load_store_offset_range(total_offset));
-  if (dst.is_float)
+  if (dst.type == ScalarType::Float)
     out << 'v';
   out << "ldr" << cond << ' ' << dst << ",[sp,#" << total_offset << "]\n";
 }
@@ -472,14 +472,14 @@ void LoadStack::gen_asm(ostream &out, AsmContext *ctx) {
 void StoreStack::gen_asm(ostream &out, AsmContext *ctx) {
   int32_t total_offset = target->position + offset - ctx->temp_sp_offset;
   assert(load_store_offset_range(total_offset));
-  if (src.is_float)
+  if (src.type == ScalarType::Float)
     out << 'v';
   out << "str" << cond << ' ' << src << ",[sp,#" << total_offset << "]\n";
 }
 
 void Push::gen_asm(ostream &out, AsmContext *ctx) {
   for (Reg r : src) {
-    if (r.is_float) {
+    if (r.type == ScalarType::Float) {
       out << 'v';
     }
     out << "push" << cond << " {" << r << "}\n";
@@ -565,14 +565,14 @@ void RegRegCmp::gen_asm(ostream &out, AsmContext *) {
   default:
     unreachable();
   }
-  assert(!lhs.is_float);
-  assert(!rhs.is_float);
+  assert(lhs.type == ScalarType::Int);
+  assert(rhs.type == ScalarType::Int);
   out << cond << ' ' << lhs << ',' << rhs << '\n';
 }
 
 void FRegRegCmp::gen_asm(ostream &out, AsmContext *) {
-  assert(lhs.is_float);
-  assert(rhs.is_float);
+  assert(lhs.type == ScalarType::Float);
+  assert(rhs.type == ScalarType::Float);
   out << "vcmp.f32" << cond << ' ' << lhs << ',' << rhs << '\n';
   out << "vmrs APSR_nzcv,fpscr" << '\n';
 }
@@ -588,7 +588,7 @@ void RegImmCmp::gen_asm(ostream &out, AsmContext *) {
   default:
     unreachable();
   }
-  assert(!lhs.is_float);
+  assert(lhs.type == ScalarType::Float);
   out << cond << ' ' << lhs << ",#" << rhs << '\n';
 }
 
