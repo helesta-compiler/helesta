@@ -110,6 +110,13 @@ struct Func {
   void gen_asm(std::ostream &out);
   void print(std::ostream &out);
 
+  inline ScalarType get_reg_type(const int reg_id) const {
+    if (float_regs.find(Reg{reg_id}) != float_regs.end()) {
+      return ScalarType::Float;
+    }
+    return ScalarType::Int;
+  }
+
 private:
   std::vector<int> reg_allocate(RegAllocStat *stat);
   bool check_store_stack(); // if a StoreStack instruction immediate offset is

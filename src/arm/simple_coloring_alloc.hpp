@@ -5,15 +5,16 @@
 #include <utility>
 #include <vector>
 
+#include "common/common.hpp"
+
 namespace ARMv7 {
 
 struct RegAllocStat;
 struct Func;
 
-// no coalescing
-class SimpleColoringAllocator {
+template <ScalarType type> class SimpleColoringAllocator {
   Func *func;
-  std::vector<unsigned char> occur; // in fact it's boolean array
+  std::vector<bool> occur;
   std::vector<std::set<int>> interfere_edge;
   std::queue<int> simplify_nodes;
   std::vector<std::pair<int, std::vector<int>>> simplify_history;

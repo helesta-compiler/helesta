@@ -17,9 +17,12 @@ using std::vector;
 
 namespace ARMv7 {
 
-SimpleColoringAllocator::SimpleColoringAllocator(Func *_func) : func(_func) {}
+template <ScalarType type>
+SimpleColoringAllocator<type>::SimpleColoringAllocator(Func *_func)
+    : func(_func) {}
 
-void SimpleColoringAllocator::spill(const vector<int> &spill_nodes) {
+template <ScalarType type>
+void SimpleColoringAllocator<type>::spill(const vector<int> &spill_nodes) {
   vector<StackObject *> spill_obj;
   set<int> constant_spilled;
   for (size_t i = 0; i < spill_nodes.size(); ++i)
@@ -54,26 +57,26 @@ void SimpleColoringAllocator::spill(const vector<int> &spill_nodes) {
         if (func->constant_reg.find(Reg{id}) != func->constant_reg.end()) {
           assert(!cur_def);
           if (cur_use) {
-            Reg tmp{func->reg_n++, (bool)func->float_regs.count(Reg{id})};
+            Reg tmp{func->reg_n++, func->get_reg_type(id)};
             func->spilling_reg.insert(tmp);
-            func->constant_reg[tmp] = func->constant_reg[Reg{id}];
-            insert(block->insts, i, load_imm(tmp, func->constant_reg[Reg{id}]));
+            func->constant_reg[tmp] = func->constant_reg[Reg(id)];
+            insert(block->insts, i, load_imm(tmp, func->constant_reg[Reg(id)]));
             (*i)->replace_reg(Reg{id}, tmp);
           }
         } else if (func->symbol_reg.find(Reg{id}) != func->symbol_reg.end()) {
           assert(!cur_def);
           if (cur_use) {
-            Reg tmp{func->reg_n++, (bool)func->float_regs.count(Reg{id})};
+            Reg tmp{func->reg_n++, func->get_reg_type(id)};
             func->spilling_reg.insert(tmp);
-            func->symbol_reg[tmp] = func->symbol_reg[Reg{id}];
+            func->symbol_reg[tmp] = func->symbol_reg[Reg(id)];
             insert(block->insts, i,
-                   load_symbol_addr(tmp, func->symbol_reg[Reg{id}]));
+                   load_symbol_addr(tmp, func->symbol_reg[Reg(id)]));
             (*i)->replace_reg(Reg{id}, tmp);
           }
         } else {
           if (cur_def || cur_use) {
             StackObject *cur_obj = spill_obj[j];
-            Reg tmp{func->reg_n++, (bool)func->float_regs.count(Reg{id})};
+            Reg tmp{func->reg_n++, func->get_reg_type(id)};
             func->spilling_reg.insert(tmp);
             if (cur_use)
               block->insts.insert(i, make_unique<LoadStack>(tmp, 0, cur_obj));
@@ -88,7 +91,7 @@ void SimpleColoringAllocator::spill(const vector<int> &spill_nodes) {
     }
 }
 
-void SimpleColoringAllocator::build_graph() {
+template <ScalarType type> void SimpleColoringAllocator<type>::build_graph() {
   occur.resize(func->reg_n);
   interfere_edge.resize(func->reg_n);
   std::fill(occur.begin(), occur.end(), 0);
@@ -99,11 +102,11 @@ void SimpleColoringAllocator::build_graph() {
     set<Reg> live = block->live_out;
     temp.clear();
     for (Reg r : live)
-      if (r.is_pseudo() || allocable(r.id))
+      if (r.is_pseudo() || RegConvention<type>::allocable(r.id))
         temp.push_back(r.id);
     if (block->insts.size() > 0)
       for (Reg r : (*block->insts.rbegin())->def_reg())
-        if (r.is_pseudo() || allocable(r.id))
+        if (r.is_pseudo() || RegConvention<type>::allocable(r.id))
           temp.push_back(r.id);
     for (size_t idx1 = 0; idx1 < temp.size(); ++idx1)
       for (size_t idx0 = 0; idx0 < idx1; ++idx0)
@@ -114,12 +117,12 @@ void SimpleColoringAllocator::build_graph() {
     for (auto i = block->insts.rbegin(); i != block->insts.rend(); ++i) {
       new_nodes.clear();
       for (Reg r : (*i)->def_reg())
-        if (r.is_pseudo() || allocable(r.id)) {
+        if (r.is_pseudo() || RegConvention<type>::allocable(r.id)) {
           occur[r.id] = 1;
           live.erase(r);
         }
       for (Reg r : (*i)->use_reg())
-        if (r.is_pseudo() || allocable(r.id)) {
+        if (r.is_pseudo() || RegConvention<type>::allocable(r.id)) {
           occur[r.id] = 1;
           if (live.find(r) == live.end()) {
             for (Reg o : live) {
@@ -132,7 +135,7 @@ void SimpleColoringAllocator::build_graph() {
         }
       if (std::next(i) != block->insts.rend())
         for (Reg r : (*std::next(i))->def_reg())
-          if (r.is_pseudo() || allocable(r.id)) {
+          if (r.is_pseudo() || RegConvention<type>::allocable(r.id)) {
             new_nodes.push_back(r.id);
             if (live.find(r) == live.end())
               for (Reg o : live) {
@@ -150,19 +153,20 @@ void SimpleColoringAllocator::build_graph() {
   }
 }
 
-void SimpleColoringAllocator::remove(int id) {
-  assert(id >= RegCount);
+template <ScalarType type> void SimpleColoringAllocator<type>::remove(int id) {
+  assert(id >= RegConvention<type>::Count);
   for (int i : interfere_edge[id]) {
     interfere_edge[i].erase(id);
-    if (interfere_edge[i].size() == ALLOCABLE_REGISTER_COUNT - 1 &&
-        i >= RegCount)
+    if (interfere_edge[i].size() ==
+            RegConvention<type>::ALLOCABLE_REGISTER_COUNT - 1 &&
+        i >= RegConvention<type>::Count)
       simplify_nodes.push(i);
   }
   interfere_edge[id].clear();
   remain_pesudo_nodes.erase(id);
 }
 
-void SimpleColoringAllocator::simplify() {
+template <ScalarType type> void SimpleColoringAllocator<type>::simplify() {
   while (!simplify_nodes.empty()) {
     int cur = simplify_nodes.front();
     simplify_nodes.pop();
@@ -176,7 +180,7 @@ void SimpleColoringAllocator::simplify() {
   }
 }
 
-void SimpleColoringAllocator::clear() {
+template <ScalarType type> void SimpleColoringAllocator<type>::clear() {
   occur.clear();
   interfere_edge.clear();
   simplify_nodes = std::queue<int>{};
@@ -184,7 +188,7 @@ void SimpleColoringAllocator::clear() {
   remain_pesudo_nodes.clear();
 }
 
-int SimpleColoringAllocator::choose_spill() {
+template <ScalarType type> int SimpleColoringAllocator<type>::choose_spill() {
   int spill_node = -1;
   for (int i : remain_pesudo_nodes)
     if (func->spilling_reg.find(Reg{i}) == func->spilling_reg.end())
@@ -204,12 +208,14 @@ int SimpleColoringAllocator::choose_spill() {
   return spill_node;
 }
 
-vector<int> SimpleColoringAllocator::run(RegAllocStat *stat) {
+template <ScalarType type>
+vector<int> SimpleColoringAllocator<type>::run(RegAllocStat *stat) {
   build_graph();
-  for (int i = RegCount; i < func->reg_n; ++i)
+  for (int i = RegConvention<type>::Count; i < func->reg_n; ++i)
     if (occur[i]) {
       remain_pesudo_nodes.insert(i);
-      if (interfere_edge[i].size() < ALLOCABLE_REGISTER_COUNT)
+      if (interfere_edge[i].size() <
+          RegConvention<type>::ALLOCABLE_REGISTER_COUNT)
         simplify_nodes.push(i);
     }
   simplify();
@@ -230,10 +236,10 @@ vector<int> SimpleColoringAllocator::run(RegAllocStat *stat) {
   stat->move_eliminated = 0;
   stat->callee_save_used = 0;
   vector<int> ans;
-  bool used[RegCount] = {};
+  bool used[RegConvention<type>::Count] = {};
   ans.resize(func->reg_n);
   std::fill(ans.begin(), ans.end(), -1);
-  for (int i = 0; i < RegCount; ++i)
+  for (int i = 0; i < RegConvention<type>::Count; ++i)
     if (occur[i]) {
       ans[i] = i;
       used[i] = true;
@@ -241,26 +247,30 @@ vector<int> SimpleColoringAllocator::run(RegAllocStat *stat) {
   for (size_t i = simplify_history.size() - 1; i < simplify_history.size();
        --i) {
     assert(ans[simplify_history[i].first] == -1);
-    bool flag[RegCount] = {};
+    bool flag[RegConvention<type>::Count] = {};
     for (int neighbor : simplify_history[i].second)
       flag[ans[neighbor]] = true;
-    for (int j = 0; j < RegCount; ++j)
-      if ((REGISTER_USAGE[j] == caller_save ||
-           (REGISTER_USAGE[j] == callee_save && used[j])) &&
+    for (int j = 0; j < RegConvention<type>::Count; ++j)
+      if ((RegConvention<type>::REGISTER_USAGE[j] ==
+               RegisterUsage::caller_save ||
+           (RegConvention<type>::REGISTER_USAGE[j] ==
+                RegisterUsage::callee_save &&
+            used[j])) &&
           !flag[j]) {
         ans[simplify_history[i].first] = j;
         break;
       }
     if (ans[simplify_history[i].first] == -1)
-      for (int j = 0; j < RegCount; ++j)
-        if (allocable(j) && !flag[j]) {
+      for (int j = 0; j < RegConvention<type>::Count; ++j)
+        if (RegConvention<type>::allocable(j) && !flag[j]) {
           ans[simplify_history[i].first] = j;
           break;
         }
     used[ans[simplify_history[i].first]] = true;
   }
-  for (int i = 0; i < RegCount; ++i)
-    if (used[i] && REGISTER_USAGE[i] == callee_save)
+  for (int i = 0; i < RegConvention<type>::Count; ++i)
+    if (used[i] &&
+        RegConvention<type>::REGISTER_USAGE[i] == RegisterUsage::callee_save)
       ++stat->callee_save_used;
   return ans;
 }

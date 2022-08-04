@@ -19,25 +19,26 @@ struct Block;
 struct Func;
 struct AsmContext;
 
-/*
-struct Operand {
-    enum Type {
-        Reg, Imm
-    } type;
-    int data;
-
-    static Operand reg(int id);
-    static Operand imm(int value);
-};
-*/
-
 struct Reg {
   int id;
-  bool is_float;
+  ScalarType type;
 
-  Reg(int _id = -1, bool _is_float = 0) : id(_id), is_float(_is_float) {}
-  bool is_machine() const { return id < RegCount; }
-  bool is_pseudo() const { return id >= RegCount; }
+  Reg(int _id = -1, ScalarType _type = ScalarType::Int)
+      : id(_id), type(_type) {}
+  bool is_machine() const {
+    if (type == ScalarType::Int) {
+      return id < RegConvention<ScalarType::Int>::Count;
+    } else {
+      return id < RegConvention<ScalarType::Float>::Count;
+    }
+  }
+  bool is_pseudo() const {
+    if (type == ScalarType::Int) {
+      return id >= RegConvention<ScalarType::Int>::Count;
+    } else {
+      return id >= RegConvention<ScalarType::Float>::Count;
+    }
+  }
   bool operator<(const Reg &rhs) const { return id < rhs.id; }
   bool operator==(const Reg &rhs) const { return id == rhs.id; }
   bool operator>(const Reg &rhs) const { return id > rhs.id; }

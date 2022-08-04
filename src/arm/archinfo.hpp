@@ -3,6 +3,8 @@
 #include <array>
 #include <cstdint>
 
+#include "common/common.hpp"
+
 namespace ARMv7 {
 
 constexpr int r0 = 0;
@@ -26,48 +28,62 @@ constexpr int sp = r13;
 constexpr int lr = r14;
 constexpr int pc = r15;
 
-constexpr int RegCount = 16;
-// machine register in 0...RegCount-1
-// if an operand register >= RegCount, it's a pseudoregister
+enum class RegisterUsage { caller_save, callee_save, special };
 
-enum RegisterUsage { caller_save, callee_save, special };
+template <ScalarType scalar> struct RegConvention;
 
-constexpr RegisterUsage REGISTER_USAGE[RegCount] = {
-    caller_save, caller_save, caller_save, caller_save,              // r0...r3
-    callee_save, callee_save, callee_save, callee_save, callee_save, // r4...r8
-    callee_save,                                                     // r9
-    callee_save, callee_save,                                        // r10, r11
-    caller_save, special,     callee_save, special // r12...r15
+template <> struct RegConvention<ScalarType::Int> {
+  static constexpr int Count = 16;
+  static constexpr int ALLOCABLE_REGISTER_COUNT = 14;
+  static constexpr int ARGUMENT_REGISTER_COUNT = 4;
+  static constexpr int ARGUMENT_REGISTERS[ARGUMENT_REGISTER_COUNT] = {r0, r1,
+                                                                      r2, r3};
+  static constexpr RegisterUsage REGISTER_USAGE[Count] = {
+      RegisterUsage::caller_save, RegisterUsage::caller_save,
+      RegisterUsage::caller_save, RegisterUsage::caller_save, // r0...r3
+      RegisterUsage::callee_save, RegisterUsage::callee_save,
+      RegisterUsage::callee_save, RegisterUsage::callee_save,
+      RegisterUsage::callee_save,                             // r4...r8
+      RegisterUsage::callee_save,                             // r9
+      RegisterUsage::callee_save, RegisterUsage::callee_save, // r10, r11
+      RegisterUsage::caller_save, RegisterUsage::special,
+      RegisterUsage::callee_save, RegisterUsage::special // r12...r15
+  };
+  static constexpr bool allocable(int reg_id) {
+    return REGISTER_USAGE[reg_id] == RegisterUsage::caller_save ||
+           REGISTER_USAGE[reg_id] == RegisterUsage::callee_save;
+  }
 };
 
-constexpr bool allocable(int reg_id) {
-  return REGISTER_USAGE[reg_id] == caller_save ||
-         REGISTER_USAGE[reg_id] == callee_save;
-}
-
-constexpr int ALLOCABLE_REGISTER_COUNT = []() constexpr {
-  int cnt = 0;
-  for (int i = 0; i < RegCount; ++i)
-    if (allocable(i))
-      ++cnt;
-  return cnt;
-}
-();
-
-constexpr std::array<int, ALLOCABLE_REGISTER_COUNT> ALLOCABLE_REGISTERS =
-    []() constexpr {
-  std::array<int, ALLOCABLE_REGISTER_COUNT> ret{};
-  int cnt = 0;
-  for (int i = 0; i < RegCount; ++i)
-    if (allocable(i))
-      ret[cnt++] = i;
-  return ret;
-}
-();
-
-constexpr int ARGUMENT_REGISTER_COUNT = 4;
-
-constexpr int ARGUMENT_REGISTERS[ARGUMENT_REGISTER_COUNT] = {r0, r1, r2, r3};
+template <> struct RegConvention<ScalarType::Float> {
+  static const int Count = 32;
+  static constexpr int ALLOCABLE_REGISTER_COUNT = 32;
+  static constexpr int ARGUMENT_REGISTER_COUNT = 16;
+  static constexpr int ARGUMENT_REGISTERS[ARGUMENT_REGISTER_COUNT] = {
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+  static constexpr RegisterUsage REGISTER_USAGE[Count] = {
+      RegisterUsage::callee_save, RegisterUsage::callee_save,
+      RegisterUsage::callee_save, RegisterUsage::callee_save,
+      RegisterUsage::callee_save, RegisterUsage::callee_save,
+      RegisterUsage::callee_save, RegisterUsage::callee_save,
+      RegisterUsage::callee_save, RegisterUsage::callee_save,
+      RegisterUsage::callee_save, RegisterUsage::callee_save,
+      RegisterUsage::callee_save, RegisterUsage::callee_save,
+      RegisterUsage::callee_save, RegisterUsage::callee_save,
+      RegisterUsage::caller_save, RegisterUsage::caller_save,
+      RegisterUsage::caller_save, RegisterUsage::caller_save,
+      RegisterUsage::caller_save, RegisterUsage::caller_save,
+      RegisterUsage::caller_save, RegisterUsage::caller_save,
+      RegisterUsage::caller_save, RegisterUsage::caller_save,
+      RegisterUsage::caller_save, RegisterUsage::caller_save,
+      RegisterUsage::caller_save, RegisterUsage::caller_save,
+      RegisterUsage::caller_save, RegisterUsage::caller_save,
+  };
+  static constexpr bool allocable(int reg_id) {
+    return REGISTER_USAGE[reg_id] == RegisterUsage::caller_save ||
+           REGISTER_USAGE[reg_id] == RegisterUsage::callee_save;
+  }
+};
 
 constexpr bool is_legal_immediate(int32_t value) {
   uint32_t u = static_cast<uint32_t>(value);
