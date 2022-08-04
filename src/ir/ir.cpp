@@ -39,7 +39,8 @@ const std::vector<BB *> BB::getOutNodes() const {
   } else if (auto branch_instr = dynamic_cast<BranchInstr *>(last)) {
     return {branch_instr->target0, branch_instr->target1};
   } else {
-    assert(dynamic_cast<ReturnInstr *>(last) != nullptr);
+    assert(dynamic_cast<ReturnInstr<ScalarType::Int> *>(last) != nullptr ||
+           dynamic_cast<ReturnInstr<ScalarType::Float> *>(last) != nullptr);
   }
   return {};
 }
@@ -99,7 +100,9 @@ void JumpInstr::print(ostream &os) const { os << "goto " << target->name; }
 void BranchInstr::print(ostream &os) const {
   os << "goto " << cond << " ? " << target1->name << " : " << target0->name;
 }
-void ReturnInstr::print(ostream &os) const { os << "return " << s1; }
+template <ScalarType type> void ReturnInstr<type>::print(ostream &os) const {
+  os << "return " << s1;
+}
 
 void CallInstr::print(ostream &os) const {
   os << d1 << " = " << f->name;
@@ -274,10 +277,17 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
     f2(u->target0);
     return u;
   }
-  Case(ReturnInstr, w, this) {
+  Case(ReturnInstr<ScalarType::Int>, w, this) {
     auto u = w;
     if (copy)
-      u = new ReturnInstr(*w);
+      u = new ReturnInstr<ScalarType::Int>(*w);
+    f1(u->s1);
+    return u;
+  }
+  Case(ReturnInstr<ScalarType::Float>, w, this) {
+    auto u = w;
+    if (copy)
+      u = new ReturnInstr<ScalarType::Float>(*w);
     f1(u->s1);
     return u;
   }
@@ -478,7 +488,14 @@ int exec(CompileUnit &c) {
             ++jump_cnt;
           break;
         }
-        else Case(ReturnInstr, x, x0) {
+        else Case(ReturnInstr<ScalarType::Int>, x, x0) {
+          _ret = rReg(x->s1);
+          last_bb = cur;
+          cur = NULL;
+          jump_cnt += 2;
+          break;
+        }
+        else Case(ReturnInstr<ScalarType::Float>, x, x0) {
           _ret = rReg(x->s1);
           last_bb = cur;
           cur = NULL;

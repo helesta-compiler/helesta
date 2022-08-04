@@ -25,18 +25,25 @@ struct Reg {
 
   Reg(int _id = -1, ScalarType _type = ScalarType::Int)
       : id(_id), type(_type) {}
-  bool is_machine() const {
+  inline bool is_machine() const {
     if (type == ScalarType::Int) {
       return id < RegConvention<ScalarType::Int>::Count;
     } else {
       return id < RegConvention<ScalarType::Float>::Count;
     }
   }
-  bool is_pseudo() const {
+  inline bool is_pseudo() const {
     if (type == ScalarType::Int) {
       return id >= RegConvention<ScalarType::Int>::Count;
     } else {
       return id >= RegConvention<ScalarType::Float>::Count;
+    }
+  }
+  inline bool is_allocable() const {
+    if (type == ScalarType::Int) {
+      return RegConvention<ScalarType::Int>::allocable(id);
+    } else {
+      return RegConvention<ScalarType::Float>::allocable(id);
     }
   }
   bool operator<(const Reg &rhs) const { return id < rhs.id; }
@@ -115,10 +122,10 @@ struct Inst {
   template <class T> T *as() { return dynamic_cast<T *>(this); }
   void update_live(std::set<Reg> &live) {
     for (Reg i : def_reg())
-      if (i.is_pseudo() || allocable(i.id))
+      if (i.is_pseudo() || i.is_allocable())
         live.erase(i);
     for (Reg i : use_reg())
-      if (i.is_pseudo() || allocable(i.id))
+      if (i.is_pseudo() || i.is_allocable())
         live.insert(i);
   }
   bool def(Reg reg) {
@@ -333,7 +340,7 @@ struct MoveImm : Inst {
   Reg dst;
   int32_t src;
   MoveImm(Type _op, Reg _dst, int32_t _src) : op(_op), dst(_dst), src(_src) {
-    assert(!dst.is_float);
+    assert(dst.type == ScalarType::Int);
   }
 
   virtual std::vector<Reg> def_reg() override { return {dst}; }
@@ -536,7 +543,7 @@ struct Push : Inst {
   std::vector<Reg> src;
   Push(std::vector<Reg> _src) : src(_src) {
     for (auto x : src)
-      assert(!x.is_float);
+      assert(x.type == ScalarType::Int);
   }
 
   virtual std::vector<Reg> use_reg() override { return src; }
@@ -627,27 +634,6 @@ struct LoadStackOffset : Inst {
   }
 };
 
-// use ldr Rd, =label
-// don't use. error when too far
-/*
-struct LoadGlobalAddr : Inst {
-    Reg dst;
-    std::string name;
-    LoadGlobalAddr(Reg _dst, std::string _name): dst(_dst), name(_name) {}
-
-    virtual std::vector<Reg> def_reg() override {
-        return {dst};
-    }
-    virtual std::vector<Reg> use_reg() override {
-        if (cond != Always) return {dst}; else return {};
-    }
-    virtual std::vector<Reg*> regs() override {
-        return {&dst};
-    }
-    virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
-};
-*/
-
 // Cmp: compare lhs, rhs
 // Cmn: compare lhs, -rhs
 struct RegRegCmp : Inst {
@@ -697,22 +683,41 @@ struct Branch : Inst {
 
 struct FuncCall : Inst {
   std::string name;
-  int arg_cnt;
-  FuncCall(std::string _name, int _arg_cnt) : name(_name), arg_cnt(_arg_cnt) {}
+  int int_arg_cnt, float_arg_cnt;
+  FuncCall(std::string _name, int _int_arg_cnt, int _float_reg_cnt)
+      : name(_name), int_arg_cnt(_int_arg_cnt), float_arg_cnt(_float_reg_cnt) {}
 
   virtual std::vector<Reg> use_reg() override {
     if (cond != Always)
       return def_reg();
     std::vector<Reg> ret;
-    for (int i = 0; i < std::min(arg_cnt, ARGUMENT_REGISTER_COUNT); ++i)
-      ret.emplace_back(ARGUMENT_REGISTERS[i]);
+    for (int i = 0;
+         i < std::min(int_arg_cnt,
+                      RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT);
+         ++i)
+      ret.emplace_back(
+          Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[i],
+              ScalarType::Int));
+    for (int i = 0;
+         i <
+         std::min(float_arg_cnt,
+                  RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT);
+         ++i)
+      ret.emplace_back(
+          Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[i],
+              ScalarType::Float));
     return ret;
   }
   virtual std::vector<Reg> def_reg() override {
     std::vector<Reg> ret;
-    for (int i = 0; i < RegCount; ++i)
-      if (REGISTER_USAGE[i] == caller_save)
-        ret.emplace_back(i);
+    for (int i = 0; i < RegConvention<ScalarType::Int>::Count; ++i)
+      if (RegConvention<ScalarType::Int>::REGISTER_USAGE[i] ==
+          RegisterUsage::caller_save)
+        ret.emplace_back(Reg(i, ScalarType::Int));
+    for (int i = 0; i < RegConvention<ScalarType::Float>::Count; ++i)
+      if (RegConvention<ScalarType::Float>::REGISTER_USAGE[i] ==
+          RegisterUsage::caller_save)
+        ret.emplace_back(Reg(i, ScalarType::Float));
     ret.emplace_back(lr);
     return ret;
   }
@@ -723,12 +728,16 @@ struct FuncCall : Inst {
 
 // precondition: cond == Always
 struct Return : Inst {
-  bool has_return_value;
-  Return(bool _has_return_value) : has_return_value(_has_return_value) {}
+  ScalarType return_type;
+  Return(ScalarType _return_type) : return_type(_return_type) {}
 
   virtual std::vector<Reg> use_reg() override {
-    if (has_return_value)
-      return {Reg{ARGUMENT_REGISTERS[0]}};
+    if (return_type == ScalarType::Int)
+      return {Reg{RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0],
+                  ScalarType::Int}};
+    if (return_type == ScalarType::Float)
+      return {Reg{RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0],
+                  ScalarType::Float}};
     else
       return {};
   }
