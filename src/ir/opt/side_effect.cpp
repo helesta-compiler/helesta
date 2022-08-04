@@ -511,10 +511,12 @@ DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
         dag->visit(w);
       }
     }
-    loop_ops(f, dag.get());
   }
 }
 
-void dag_ir(CompileUnit *ir) { DAG_IR_ALL _(ir, NORMAL); }
+void dag_ir(CompileUnit *ir) {
+  DAG_IR_ALL _(ir, NORMAL);
+  ir->for_each([&](NormalFunc *f) { loop_ops(f); });
+}
 void remove_unused_BB(CompileUnit *ir) { DAG_IR_ALL _(ir, REMOVE_UNUSED_BB); }
 void before_backend(CompileUnit *ir) { DAG_IR_ALL _(ir, BEFORE_BACKEND); }

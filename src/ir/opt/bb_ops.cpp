@@ -237,15 +237,20 @@ void remove_unused_BB(NormalFunc *f) {
     bb->push(new ReturnInstr(r, 1));
   }
 }
+
+void simplify_BB(NormalFunc *f) {
+  PassEnabled("sb") simplify_branch(f);
+  ::remove_unused_BB(f);
+  PassEnabled("rtb") {
+    code_reorder(f);
+    remove_trivial_BB(f);
+  }
+}
+
 void DAG_IR_ALL::remove_unused_BB() {
   PassDisabled("rub") return;
   ir->for_each([&](NormalFunc *f) {
-    PassEnabled("sb") simplify_branch(f);
-    ::remove_unused_BB(f);
-    PassEnabled("rtb") {
-      code_reorder(f);
-      remove_trivial_BB(f);
-    }
+    simplify_BB(f);
     typed &= type_check(f);
   });
 }

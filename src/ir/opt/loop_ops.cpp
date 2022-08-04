@@ -1,7 +1,7 @@
 #include "ir/opt/dag_ir.hpp"
 
-template <class K> using uset = std::set<K>;
-template <class K, class V> using umap = std::map<K, V>;
+template <class K> using uset = std::unordered_set<K>;
+template <class K, class V> using umap = std::unordered_map<K, V>;
 
 #define BE(x) (x).begin(), (x).end()
 
@@ -187,6 +187,89 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
   }
 };
 
+struct LoopCopyTool {
+  BB *entry, *exit;
+  NormalFunc *f;
+  umap<BB *, BB *> bbs, bbs_rev;
+  umap<Reg, Reg> regs, regs_rev;
+  LoopCopyTool(const uset<BB *> &_bbs, BB *_entry, BB *_exit, NormalFunc *_f)
+      : entry(_entry), exit(_exit), f(_f) {
+    for (BB *bb : _bbs) {
+      bbs[bb] = bb;
+      bb->for_each([&](Instr *x) {
+        Case(RegWriteInstr, rw, x) {
+          Reg r = rw->d1;
+          regs[r] = r;
+        }
+      });
+    }
+    bbs_rev = bbs;
+    regs_rev = regs;
+  }
+  void copy(std::string name_suffix) {
+    regs_rev.clear();
+    for (auto &[k, v] : regs) {
+      v = f->new_Reg(f->get_name(k) + name_suffix);
+      regs_rev[v] = k;
+    }
+    bbs_rev.clear();
+    for (auto &[k, v] : bbs) {
+      v = f->new_BB(k->name + name_suffix);
+      bbs_rev[v] = k;
+    }
+    auto mp_regs = partial_map(regs);
+    auto mp_bbs = partial_map(bbs);
+    for (auto &[k, v] : bbs) {
+      k->for_each(
+          [&](Instr *x) { v->push(x->map(mp_regs, mp_bbs, [](auto &) {})); });
+    }
+    entry = bbs.at(entry);
+    exit = bbs.at(exit);
+  }
+  void entry_del_edge(bool back) {
+    entry->for_each([&](Instr *x) {
+      Case(PhiInstr, phi, x) {
+        remove_if_vec(phi->uses, [&](const std::pair<Reg, BB *> kv) {
+          return bbs_rev.count(kv.second) == back;
+        });
+      }
+    });
+  }
+  void no_exit() { exit_to(get_exit_next(1)); }
+  void exit_to(BB *w) {
+    exit->pop();
+    exit->push(new JumpInstr(w));
+  }
+  BB *get_exit_next(bool tp = 0) {
+    Case(BranchInstr, br, exit->back()) {
+      int n = 0;
+      BB *ans = nullptr;
+      for (BB *bb : {br->target1, br->target0}) {
+        if (tp == bbs_rev.count(bb)) {
+          ans = bb;
+          ++n;
+        }
+      }
+      assert(n == 1);
+      return ans;
+    }
+    else assert(0);
+    return nullptr;
+  }
+  void change_to(LoopCopyTool &w, BB *bb) {
+    bb->map_phi_use(sequential(partial_map(regs_rev), partial_map(w.regs)),
+                    sequential(partial_map(bbs_rev), partial_map(w.bbs)));
+  }
+  void back_edge_to(BB *bb) {
+    auto f = partial_map(entry, bb);
+    for (auto &w : bbs_rev) {
+      w.first->back()->map_BB(f);
+    }
+  }
+};
+
+void simplify_BB(NormalFunc *f);
+
 struct UnrollLoop {
   FindLoopVar &S;
   UnrollLoop(FindLoopVar &_S) : S(_S) {}
@@ -202,6 +285,41 @@ struct UnrollLoop {
     if (unroll_fixed(w))
       return 1;
     return 0;
+  }
+  void _unroll_fixed(BB *w, size_t cnt) {
+    auto &wi = S.loop_info.at(w);
+    std::deque<LoopCopyTool> loops;
+    loops.emplace_back(wi.bbs, w, w, S.f);
+    for (size_t i = 1; i <= cnt; ++i) {
+      loops.emplace_back(loops[0]);
+      loops.back().copy(std::string(":") + std::to_string(i) + ":");
+    }
+    auto &p0 = loops[0];
+    auto &p3 = loops.back();
+    BB *next = p0.get_exit_next();
+    p0.entry_del_edge(1);
+    for (size_t i = 1; i <= cnt; ++i) {
+      auto &p1 = loops[i - 1];
+      auto &p2 = loops[i];
+      p1.no_exit();
+      p2.entry_del_edge(0);
+    }
+    for (size_t i = 1; i <= cnt; ++i) {
+      auto &p1 = loops[i - 1];
+      auto &p2 = loops[i];
+      p1.back_edge_to(p2.entry);
+      p2.change_to(p1, p2.entry);
+    }
+    p3.exit_to(next);
+    p0.change_to(p3, next);
+    umap<BB *, BB *> bbs_rev;
+    for (auto &p : loops)
+      bbs_rev.insert(BE(p.bbs_rev));
+    S.f->for_each([&](BB *bb) {
+      if (!bbs_rev.count(bb)) {
+        bb->map_use(partial_map(p3.regs));
+      }
+    });
   }
   bool unroll_fixed(BB *w) {
     auto &wi = S.loop_info.at(w);
@@ -240,7 +358,16 @@ struct UnrollLoop {
       if (cnt * wi.instr_cnt > MAX_UNROLL_INSTR)
         return 0;
       dbg(">>> unroll: cnt=", cnt, " instr=", wi.instr_cnt, '\n');
-      return 0;
+      bool dbg_on(global_config.args["dbg-unroll"] == "1");
+      if (dbg_on)
+        print_cfg(S.f);
+      _unroll_fixed(w, cnt);
+      if (dbg_on) {
+        print_cfg(S.f);
+        dbg("\n```cpp\n", *S.f, "\n```\n");
+      }
+      simplify_BB(S.f);
+      return 1;
     }
     return 0;
   }
@@ -251,13 +378,12 @@ bool unroll_loop(FindLoopVar &S) {
   return w.apply();
 }
 
-void loop_ops(NormalFunc *f, DAG_IR *dag) {
-  for (;;) {
+void loop_ops(NormalFunc *f) {
+  for (int T = 0; T < 10; ++T) {
+    DAG_IR dag(f);
     FindLoopVar w(f);
-    dag->visit(w);
-    if (unroll_loop(w))
-      dag->rebuild();
-    else
+    dag.visit(w);
+    if (!unroll_loop(w))
       break;
   }
 }

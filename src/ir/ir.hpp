@@ -243,6 +243,9 @@ struct BB : Printable, Traversable<BB> {
     for (auto &x : instrs)
       x->map_BB(f);
   }
+  void map_use(std::function<void(Reg &)> f);
+  void map_phi_use(std::function<void(Reg &)> f1,
+                   std::function<void(BB *&)> f2);
 
   const std::vector<BB *> getOutNodes() const override;
   void addOutNode(BB *) override {
@@ -298,7 +301,7 @@ struct NormalFunc : Func {
     return Reg(++max_reg_id);
   }
   BB *new_BB(string _name = "BB") {
-    BB *bb = new BB(name + "::" + _name + to_string(++max_bb_id));
+    BB *bb = new BB(name + "::" + _name + std::to_string(++max_bb_id));
     bbs.emplace_back(bb);
     return bb;
   }
@@ -642,6 +645,14 @@ std::function<void(T &)> partial_map(std::unordered_map<T, T> &mp) {
     auto it = p_mp->find(x);
     if (it != p_mp->end())
       x = it->second;
+  };
+}
+template <class T>
+std::function<void(T &)> sequential(std::function<void(T &)> a,
+                                    std::function<void(T &)> b) {
+  return [a, b](T &x) {
+    a(x);
+    b(x);
   };
 }
 

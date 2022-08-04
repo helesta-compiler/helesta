@@ -252,4 +252,4 @@ struct DAG_IR_ALL {
 };
 
 bool type_check(NormalFunc *f);
-void loop_ops(NormalFunc *f, DAG_IR *dag);
+void loop_ops(NormalFunc *f);
