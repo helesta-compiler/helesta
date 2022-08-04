@@ -5,7 +5,7 @@ using namespace IR;
 
 inline void _dbg1() {}
 template <class T1, class... T2> void _dbg1(const T1 &x, const T2 &...xs) {
-  if (global_config.log_level > 0)
+  if (global_config.log_level > 1)
     return;
   std::cerr << x;
   _dbg1(xs...);
@@ -50,6 +50,12 @@ struct DAG_IR {
   size_t check_cnt = 0;
   void check_dag(BB *head);
   DAG_IR(NormalFunc *_func);
+  void rebuild() {
+    void *addr = this;
+    NormalFunc *f = func;
+    this->~DAG_IR();
+    new (addr) DAG_IR(f);
+  }
   template <class T> void visit(T &f) { _visit(nullptr, f); }
   template <class T> void _visit(BB *w, T &f) {
     auto &wi = loop_tree[w];
@@ -216,6 +222,16 @@ std::ostream &operator<<(std::ostream &os, const arg_name_t &arg);
 std::ostream &operator<<(std::ostream &os, const mem_name_t &ms);
 std::ostream &operator<<(std::ostream &os, const mem_set_t &ms);
 
+struct Defs {
+  NormalFunc *f;
+  std::map<Reg, RegWriteInstr *> defs;
+  Defs(NormalFunc *_f) : f(_f) { defs = build_defs(f); }
+  std::optional<int32_t> get_const(Reg r) {
+    Case(LoadConst<int32_t>, lc, defs.at(r)) return lc->value;
+    return std::nullopt;
+  }
+};
+
 enum PassType { NORMAL, REMOVE_UNUSED_BB, BEFORE_BACKEND };
 
 struct SideEffect;
@@ -236,3 +252,4 @@ struct DAG_IR_ALL {
 };
 
 bool type_check(NormalFunc *f);
+void loop_ops(NormalFunc *f, DAG_IR *dag);

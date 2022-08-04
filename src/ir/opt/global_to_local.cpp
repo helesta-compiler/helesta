@@ -4,7 +4,7 @@
 void global_to_local(IR::CompileUnit *ir) {
   std::unordered_set<IR::MemObject *> do_not_opt;
   ir->for_each([&](IR::NormalFunc *func) {
-    if (func->name == "main" || func->name == ".init")
+    if (func->name == "main")
       return;
     func->for_each([&](IR::Instr *i) {
       if (auto load_addr = dynamic_cast<IR::LoadAddr *>(i)) {

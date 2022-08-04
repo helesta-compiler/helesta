@@ -1,20 +1,36 @@
 #include "ir/opt/dag_ir.hpp"
 
-struct PointerBase : InstrVisitor {
+typedef std::pair<MemObject *, MemSize> const_mem_addr_t;
+
+struct PointerBase : InstrVisitor, Defs {
   struct Info {
     mem_name_t base;
     mem_set_t *maybe = nullptr;
+    std::optional<const_mem_addr_t> mustbe;
   };
   std::unordered_map<Reg, Info> info;
 
-  NormalFunc *func;
-  PointerBase(NormalFunc *_func) : func(_func) {}
+  PointerBase(NormalFunc *_func) : Defs(_func) {}
   void visit(Instr *x) override {
-    Case(ArrayIndex, ai, x) { info[ai->d1].base = info.at(ai->s1).base; }
+    Case(ArrayIndex, ai, x) {
+      auto &w = info[ai->d1];
+      auto &w0 = info.at(ai->s1);
+      w.base = w0.base;
+      if (w0.mustbe) {
+        auto c = get_const(ai->s2);
+        if (c) {
+          w.mustbe = w0.mustbe;
+          w.mustbe->second += *c * ai->size;
+        }
+      }
+    }
     else Case(PhiInstr, phi, x) {
       for (auto &[r, bb] : phi->uses) {
         if (info.count(r)) {
-          info[phi->d1].base = info.at(r).base;
+          auto &i1 = info[phi->d1];
+          auto &i2 = info.at(r);
+          i1.base = i2.base;
+          i1.mustbe = i2.mustbe;
           (void)bb;
           break;
         }
@@ -23,18 +39,25 @@ struct PointerBase : InstrVisitor {
     else Case(UnaryOpInstr, uop, x) {
       if (uop->op.type == UnaryCompute::ID) {
         if (info.count(uop->s1)) {
-          info[uop->d1].base = info.at(uop->s1).base;
+          auto &d1 = info[uop->d1];
+          auto &s1 = info.at(uop->s1);
+          d1.base = s1.base;
+          d1.mustbe = s1.mustbe;
         }
       }
     }
     else Case(LoadArg, la, x) {
-      info[la->d1].base = std::make_pair(func, la->id);
+      auto &w = info[la->d1];
+      w.base = std::make_pair(f, la->id);
     }
     else Case(LoadAddr, la, x) {
-      info[la->d1].base = la->offset;
+      auto &w = info[la->d1];
+      w.base = la->offset;
+      w.mustbe = std::make_pair(la->offset, 0);
     }
   }
 };
+
 struct SideEffect : SimpleLoopVisitor {
   struct Info {
     mem_set_t may_read, may_write;
@@ -59,6 +82,9 @@ struct SideEffect : SimpleLoopVisitor {
     loop_info[head.back()] |= loop_info[bb];
   }
   void ins(mem_set_t &ls, mem_set_t &rs) { ls.insert(rs.begin(), rs.end()); }
+  bool checkWAR(mem_set_t &ws, MemObject *r) {
+    return ws.count(nullptr) || ws.count(r);
+  }
   bool checkWAR(mem_set_t &ws, mem_set_t &rs) {
     if (rs.empty() || ws.empty())
       return 0;
@@ -68,6 +94,11 @@ struct SideEffect : SimpleLoopVisitor {
       if (rs.count(x))
         return 1;
     return 0;
+  }
+  std::optional<std::pair<MemObject *, MemSize>> mustbe(Reg r) {
+    if (!ptr_base.info.count(r))
+      return std::nullopt;
+    return *ptr_base.info.at(r).mustbe;
   }
   mem_set_t &maybe(Reg r) {
     if (!ptr_base.info.count(r))
@@ -167,6 +198,58 @@ struct MergePureCall
         } else {
           update(w.out, se.may_write(call->f));
         }
+      }
+    }
+  }
+};
+
+struct GlobalInitProp : ForwardLoopVisitor<std::map<MemObject *, bool>> {
+  SideEffect &se;
+  GlobalInitProp(SideEffect &_se, BB *bb, MemScope &scope) : se(_se) {
+    scope.for_each([&](MemObject *mem) {
+      if (mem->scalar_type == ScalarType::Int) {
+        info[bb].in[mem];
+      }
+    });
+  }
+  void update(map_t &m, mem_set_t &mw) {
+    remove_if(m, [&](typename map_t::value_type &t) -> bool {
+      return se.checkWAR(mw, t.first);
+    });
+  }
+  template <class T>
+  void lc(std::optional<const_mem_addr_t> v, Reg d1,
+          decltype(BB::instrs)::iterator it, T _ = 0) {
+    (void)_;
+    dbg(*it->get(), " mustbe ", v->first->name, " + ", v->second, " : ",
+        v->first->at<T>(v->second), '\n');
+    *it = std::make_unique<LoadConst<T>>(d1, v->first->at<T>(v->second));
+  };
+  void visitBB(BB *bb) {
+    // std::cerr << bb->name << " visited" << '\n';
+    auto &w = info[bb];
+    w.out = w.in;
+    if (w.is_loop_head) {
+      update(w.out, se.loop_info.at(bb).may_write);
+    }
+    for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
+      Instr *x = it->get();
+      replace_reg(x);
+      Case(LoadInstr, ld, x) {
+        auto v = se.mustbe(ld->addr);
+        if (v && w.out.count(v->first)) {
+          if (v->first->scalar_type == ScalarType::Int) {
+            lc<int32_t>(v, ld->d1, it);
+          } else {
+            lc<float>(v, ld->d1, it);
+          }
+        }
+      }
+      else Case(StoreInstr, st, x) {
+        update(w.out, se.maybe(st->addr));
+      }
+      else Case(CallInstr, call, x) {
+        update(w.out, se.may_write(call->f));
       }
     }
   }
@@ -419,9 +502,16 @@ DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
       dag->visit(w);
     }
     if (f == ir->main()) {
-      RemoveUnusedStore w(se);
-      dag->visit_rev(w);
+      {
+        RemoveUnusedStore w(se);
+        dag->visit_rev(w);
+      }
+      {
+        GlobalInitProp w(se, f->entry, ir->scope);
+        dag->visit(w);
+      }
     }
+    loop_ops(f, dag.get());
   }
 }
 

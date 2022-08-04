@@ -72,9 +72,9 @@ namespace IR {
 struct MemObject : Printable {
   // data stored in memory
   string name;
-  int size = 0;   // number of bytes, size%4==0
-  int offset = 0; // offset from gp or sp, computed after machine irrelavant
-                  // optimization
+  MemSize size = 0; // number of bytes, size%4==0
+  int offset = 0;   // offset from gp or sp, computed after machine irrelavant
+                    // optimization
   bool global;
   bool arg = 0;
   // global=0 arg=0: local variable, but not arg
@@ -88,34 +88,36 @@ struct MemObject : Printable {
   bool is_const = 0;
   // computed in optimize_passes
 
-  std::vector<int> dims;
+  std::vector<MemSize> dims;
   // only for int array, array dim size
 
-  void init(float *x, int size) {
+  void init(float *x, MemSize size) {
     initial_value = x;
     scalar_type = ScalarType::Float;
     this->size = size;
   }
-  void init(int32_t *x, int size) {
+  void init(int32_t *x, MemSize size) {
     initial_value = x;
     scalar_type = ScalarType::Int;
     this->size = size;
   }
-  void init(char *x, int size) {
+  void init(char *x, MemSize size) {
     initial_value = x;
     scalar_type = ScalarType::Char;
     this->size = size;
   }
   bool is_single_var() { return !arg && size == 4 && dims.empty(); }
   void print(ostream &os) const override;
-  int at(int x) {
-    if (!(0 <= x && x + 4 <= size))
+  template <class T> T at(MemSize x, T _ = 0) {
+    (void)_;
+    if (!(x <= size && x + sizeof(T) <= size))
       return 0; // assert
-    if (x % 4 != 0)
+    if (x % sizeof(T) != 0)
       return 0; // assert
-    if (!initial_value)
-      return 0;
-    return ((int *)initial_value)[x / 4];
+    T v = 0;
+    if (initial_value)
+      v = ((T *)initial_value)[x / sizeof(T)];
+    return v;
   }
 
 private:
