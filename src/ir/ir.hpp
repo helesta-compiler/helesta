@@ -571,7 +571,7 @@ struct BranchInstr : ControlInstr {
   void print(ostream &os) const override;
 };
 
-struct ReturnInstr : ControlInstr {
+template <ScalarType type> struct ReturnInstr : ControlInstr {
   // return s1
   Reg s1;
   bool ignore_return_value;

@@ -249,7 +249,7 @@ antlrcpp::Any ASTVisitor::visitCompUnit(SysYParser::CompUnitContext *ctx) {
   visitChildren(ctx);
   auto r = init_func->new_Reg();
   init_bb->push(new IR::LoadConst(r, static_cast<int32_t>(0)));
-  init_bb->push(new IR::ReturnInstr(r, true));
+  init_bb->push(new IR::ReturnInstr<ScalarType::Int>(r, true));
   return found_main;
 }
 
@@ -624,12 +624,15 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     IR::PhiInstr *inst = new IR::PhiInstr(ret_value);
     inst->uses = return_value;
     return_bb->push(inst);
-    return_bb->push(new IR::ReturnInstr(ret_value, false));
+    if (return_value_is_float)
+      return_bb->push(new IR::ReturnInstr<ScalarType::Float>(ret_value, false));
+    else
+      return_bb->push(new IR::ReturnInstr<ScalarType::Int>(ret_value, false));
   } else {
     cur_bb->push(new IR::JumpInstr(return_bb));
     IR::Reg ret_value = cur_func->new_Reg();
     return_bb->push(new IR::LoadConst(ret_value, static_cast<int32_t>(0)));
-    return_bb->push(new IR::ReturnInstr(ret_value, true));
+    return_bb->push(new IR::ReturnInstr<ScalarType::Int>(ret_value, true));
   }
   cur_func = nullptr;
   cur_bb = nullptr;

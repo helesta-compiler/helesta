@@ -217,12 +217,24 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       out_edge.push_back(false_target);
       true_target->in_edge.push_back(this);
       false_target->in_edge.push_back(this);
-    } else if (auto ret = dynamic_cast<IR::ReturnInstr *>(cur)) {
+    } else if (auto ret =
+                   dynamic_cast<IR::ReturnInstr<ScalarType::Int> *>(cur)) {
       if (ret->ignore_return_value) {
         push_back(make_unique<Return>(false));
       } else {
-        push_back(make_unique<MoveReg>(Reg{ARGUMENT_REGISTERS[0]},
-                                       info->from_ir_reg(ret->s1)));
+        push_back(make_unique<MoveReg>(
+            Reg{RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0]},
+            info->from_ir_reg(ret->s1)));
+        push_back(make_unique<Return>(true));
+      }
+    } else if (auto ret =
+                   dynamic_cast<IR::ReturnInstr<ScalarType::Float> *>(cur)) {
+      if (ret->ignore_return_value) {
+        push_back(make_unique<Return>(false));
+      } else {
+        push_back(make_unique<MoveReg>(
+            Reg{RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0]},
+            info->from_ir_reg(ret->s1)));
         push_back(make_unique<Return>(true));
       }
     } else if (auto call = dynamic_cast<IR::CallInstr *>(cur)) {
