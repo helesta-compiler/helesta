@@ -238,14 +238,26 @@ struct GVNContext {
           }
         }
       } else if (auto ai = dynamic_cast<IR::ArrayIndex *>(i->i)) {
-        auto key = std::make_tuple(ai->s1.id, ai->s2.id, ai->size);
-        if (array_index_values.count(key)) {
+        std::optional<IR::typed_scalar_t> s2_value = std::nullopt;
+        if (scalar_value_by_reg.find(ai->s2.id) != scalar_value_by_reg.end()) {
+          s2_value = scalar_value_by_reg[ai->s2.id];
+        }
+
+        if (s2_value && std::holds_alternative<int32_t>(*s2_value) &&
+            std::get<int32_t>(*s2_value) == 0) {
           i->removed = true;
-          assert(array_index_values[key] != 0);
-          replace_same_value(ai->d1.id, array_index_values[key]);
+          assert(ai->s1.id != 0);
+          replace_same_value(ai->d1.id, ai->s1.id);
         } else {
-          array_index_values[key] = ai->d1.id;
-          node->new_array_indexs.push_back(key);
+          auto key = std::make_tuple(ai->s1.id, ai->s2.id, ai->size);
+          if (array_index_values.count(key)) {
+            i->removed = true;
+            assert(array_index_values[key] != 0);
+            replace_same_value(ai->d1.id, array_index_values[key]);
+          } else {
+            array_index_values[key] = ai->d1.id;
+            node->new_array_indexs.push_back(key);
+          }
         }
       } else if (auto la = dynamic_cast<IR::LoadArg *>(i->i)) {
         auto key = la->id;

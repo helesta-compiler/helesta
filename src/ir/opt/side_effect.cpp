@@ -255,6 +255,94 @@ struct GlobalInitProp : ForwardLoopVisitor<std::map<MemObject *, bool>> {
   }
 };
 
+struct LocalInitToGlobal : InstrVisitor {
+  PointerBase &pb;
+  std::unordered_map<MemObject *, std::unordered_map<size_t, int32_t>> init;
+  LocalInitToGlobal(PointerBase &_pb) : pb(_pb) {
+    pb.f->scope.for_each([&](MemObject *mem) {
+      if (mem->scalar_type == ScalarType::Int) {
+        init[mem];
+      }
+    });
+  }
+  void apply(MemScope &global) {
+    std::unordered_map<MemObject *, MemObject *> mp;
+    for (auto &[mem, kv] : init) {
+      dbg(mem->name, " init ", kv.size(), '\n');
+      if (kv.size() * 4 * 16 >= mem->size || kv.size() <= 64) {
+        auto w = global.new_MemObject(mem->name + "::to_global");
+        w->global = 1;
+        w->scalar_type = mem->scalar_type;
+        w->dims = mem->dims;
+        int32_t *data = new int32_t[mem->size / 4]();
+        w->init(data, mem->size);
+        for (auto &[k, v] : kv) {
+          w->set<int32_t>(k, v);
+        }
+        mp[mem] = w;
+      }
+    }
+    auto f = partial_map(mp);
+    pb.f->for_each([&](BB *bb) {
+      bb->for_each([&](Instr *x) {
+        Case(LoadAddr, la, x) { f(la->offset); }
+        else Case(StoreInstr, st, x) {
+          auto &w = pb.info.at(st->addr);
+          if (auto base = std::get_if<MemObject *>(&w.base)) {
+            if (mp.count(*base)) {
+              bb->del();
+            }
+          }
+        }
+      });
+    });
+  }
+  void visit(Instr *x) override {
+    Case(StoreInstr, st, x) {
+      auto &w = pb.info.at(st->addr);
+      if (auto base = std::get_if<MemObject *>(&w.base)) {
+        // dbg(*st, " base: ", (*base)->name, '\n');
+        if (!init.count(*base))
+          return;
+        if (!w.mustbe) {
+          // dbg(*st, " => ", (*base)->name, " + ?\n");
+          init.erase(*base);
+          return;
+        }
+        MemSize pos = w.mustbe->second;
+        assert(w.mustbe->first == *base);
+        if (auto val = pb.get_const(st->s1)) {
+          auto &mp = init.at(*base);
+          if (mp.count(pos)) {
+            auto &v = mp[pos];
+            if (v != *val) {
+              // dbg(*st, " => ", (*base)->name, " + ", pos, " : ", v, '|',
+              // *val,
+              // "\n");
+              init.erase(*base);
+            }
+          } else {
+            // dbg(*st, " => ", (*base)->name, " + ", pos, " : ", *val, "\n");
+            mp[pos] = *val;
+          }
+        } else {
+          // dbg(*st, " => ", (*base)->name, " + ", pos, " : ?\n");
+          init.erase(*base);
+        }
+      }
+    }
+    else Case(CallInstr, call, x) {
+      for (Reg r : call->args) {
+        if (!pb.info.count(r))
+          continue;
+        if (auto base = std::get_if<MemObject *>(&pb.info[r].base)) {
+          init.erase(*base);
+        }
+      }
+    }
+  }
+};
+
 struct LoadToReg : ForwardLoopVisitor<std::map<Reg, Reg>> {
   using ForwardLoopVisitor::map_t;
   SideEffect &se;
@@ -513,10 +601,21 @@ DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
     }
   }
 }
+void local_init_to_global(CompileUnit *ir, NormalFunc *f) {
+  DAG_IR dag(f);
+  PointerBase pb(f);
+  dag.visit(pb);
+  LocalInitToGlobal w(pb);
+  dag.visit(w);
+  w.apply(ir->scope);
+}
 
 void dag_ir(CompileUnit *ir) {
   DAG_IR_ALL _(ir, NORMAL);
-  ir->for_each([&](NormalFunc *f) { loop_ops(f); });
+  ir->for_each([&](NormalFunc *f) {
+    loop_ops(f);
+    local_init_to_global(ir, f);
+  });
 }
 void remove_unused_BB(CompileUnit *ir) { DAG_IR_ALL _(ir, REMOVE_UNUSED_BB); }
 void before_backend(CompileUnit *ir) { DAG_IR_ALL _(ir, BEFORE_BACKEND); }

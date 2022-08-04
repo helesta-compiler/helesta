@@ -57,6 +57,8 @@ inline void optimize_ir(IR::CompileUnit *ir) {
         gvn(ir);
         dag_ir(ir);
         gvn(ir);
+        dag_ir(ir);
+        gvn(ir);
         gcm(ir);
       }
     }

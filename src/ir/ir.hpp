@@ -119,6 +119,14 @@ struct MemObject : Printable {
       v = ((T *)initial_value)[x / sizeof(T)];
     return v;
   }
+  template <class T> void set(MemSize x, T y) {
+    if (!(x <= size && x + sizeof(T) <= size))
+      return; // assert
+    if (x % sizeof(T) != 0)
+      return; // assert
+    assert(initial_value);
+    ((T *)initial_value)[x / sizeof(T)] = y;
+  }
 
 private:
   friend struct MemScope;
