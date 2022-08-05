@@ -19,7 +19,6 @@ namespace ARMv7 {
 struct Func;
 struct AsmContext;
 
-
 InstCond logical_not(InstCond c);
 
 InstCond reverse_operand(InstCond c);
