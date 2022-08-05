@@ -220,22 +220,22 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
     } else if (auto ret =
                    dynamic_cast<IR::ReturnInstr<ScalarType::Int> *>(cur)) {
       if (ret->ignore_return_value) {
-        push_back(make_unique<Return>(false));
+        push_back(make_unique<Return>(ScalarType::Void));
       } else {
         push_back(make_unique<MoveReg>(
             Reg{RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0]},
             info->from_ir_reg(ret->s1)));
-        push_back(make_unique<Return>(true));
+        push_back(make_unique<Return>(ScalarType::Int));
       }
     } else if (auto ret =
                    dynamic_cast<IR::ReturnInstr<ScalarType::Float> *>(cur)) {
       if (ret->ignore_return_value) {
-        push_back(make_unique<Return>(false));
+        push_back(make_unique<Return>(ScalarType::Void));
       } else {
         push_back(make_unique<MoveReg>(
             Reg{RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0]},
             info->from_ir_reg(ret->s1)));
-        push_back(make_unique<Return>(true));
+        push_back(make_unique<Return>(ScalarType::Float));
       }
     } else if (auto call = dynamic_cast<IR::CallInstr *>(cur)) {
       std::vector<Reg> float_args;
@@ -359,9 +359,13 @@ void Block::print(ostream &out) {
     i->print(out);
 }
 
-MappingInfo::MappingInfo() : reg_n(RegCount) {}
+MappingInfo::MappingInfo()
+    : reg_n(
+          std::max(RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT,
+                   RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT)) {
+}
 
-Reg MappingInfo::new_reg() { return Reg{reg_n++, 0}; }
+Reg MappingInfo::new_reg() { return Reg{reg_n++, ScalarType::Int}; }
 
 Reg MappingInfo::from_ir_reg(IR::Reg ir_reg) {
   auto it = reg_mapping.find(ir_reg.id);
@@ -419,13 +423,14 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
   int arg_n = 0;
   for (auto &bb : ir_func->bbs)
     for (auto &inst : bb->instrs)
-      if (auto *cur = dynamic_cast<IR::LoadArg *>(inst.get()))
+      if (auto *cur = dynamic_cast<IR::LoadArg<ScalarType::Int> *>(inst.get()))
         arg_n = std::max(arg_n, cur->id + 1);
   for (int i = 0; i < arg_n; ++i) {
     Reg cur_arg = info.new_reg();
-    if (i < ARGUMENT_REGISTER_COUNT) {
-      entry->push_back(
-          make_unique<MoveReg>(cur_arg, Reg{ARGUMENT_REGISTERS[i]}));
+    if (i < RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT) {
+      entry->push_back(make_unique<MoveReg>(
+          cur_arg, Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[i],
+                       ScalarType::Int)));
     } else {
       unique_ptr<StackObject> t = make_unique<StackObject>();
       t->size = INT_SIZE;
@@ -433,7 +438,28 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
       entry->push_back(make_unique<LoadStack>(cur_arg, 0, t.get()));
       caller_stack_object.push_back(std::move(t));
     }
-    arg_reg.push_back(cur_arg);
+    int_arg_reg.push_back(cur_arg);
+  }
+  arg_n = 0;
+  for (auto &bb : ir_func->bbs)
+    for (auto &inst : bb->instrs)
+      if (auto *cur =
+              dynamic_cast<IR::LoadArg<ScalarType::Float> *>(inst.get()))
+        arg_n = std::max(arg_n, cur->id + 1);
+  for (int i = 0; i < arg_n; ++i) {
+    Reg cur_arg = info.new_reg();
+    if (i < RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT) {
+      entry->push_back(make_unique<MoveReg>(
+          cur_arg, Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[i],
+                       ScalarType::Float)));
+    } else {
+      unique_ptr<StackObject> t = make_unique<StackObject>();
+      t->size = INT_SIZE;
+      t->position = -1;
+      entry->push_back(make_unique<LoadStack>(cur_arg, 0, t.get()));
+      caller_stack_object.push_back(std::move(t));
+    }
+    float_arg_reg.push_back(cur_arg);
   }
   Block *real_entry = info.block_mapping[ir_func->entry];
   if (blocks[1].get() != real_entry)
@@ -457,7 +483,7 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     for (auto &inst : block->insts) {
       for (Reg *r : inst->regs()) {
         if (r->is_pseudo())
-          r->is_float = float_regs.count(*r);
+          r->type = float_regs.count(*r) ? ScalarType::Float : ScalarType::Int;
       }
     }
   }
@@ -663,7 +689,7 @@ void Func::dce() {
       bool used = cur->side_effect();
       used |= (cur->change_cpsr() && use_cpsr);
       for (Reg r : cur->def_reg())
-        if ((r.is_machine() && !allocable(r.id)) || live.count(r))
+        if ((r.is_machine() && !dynamic_allocable(r)) || live.count(r))
           used = true;
       if (!used)
         return 1;
@@ -712,12 +738,12 @@ void Func::calc_live() {
     block->def.clear();
     for (auto it = block->insts.rbegin(); it != block->insts.rend(); ++it) {
       for (Reg r : (*it)->def_reg())
-        if (r.is_pseudo() || allocable(r.id)) {
+        if (r.is_pseudo() || dynamic_allocable(r)) {
           block->live_use.erase(r);
           block->def.insert(r);
         }
       for (Reg r : (*it)->use_reg())
-        if (r.is_pseudo() || allocable(r.id)) {
+        if (r.is_pseudo() || dynamic_allocable(r)) {
           block->def.erase(r);
           block->live_use.insert(r);
         }
@@ -845,7 +871,7 @@ void Func::replace_complex_inst() {
         if (!load_store_offset_range(total_offset)) {
           Reg dst = load_stk->dst;
           Reg tmp = dst;
-          tmp.is_float = 0;
+          tmp.type = ScalarType::Int;
           insert(block->insts, i, set_cond(load_imm(tmp, total_offset), cond));
           *i = set_cond(make_unique<ComplexLoad>(dst, Reg{sp}, tmp), cond);
         }

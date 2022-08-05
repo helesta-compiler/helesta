@@ -574,8 +574,8 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   cur_local_table = new_variable_table(&global_var);
   if (name == "main") {
     found_main = true;
-    cur_bb->push(
-        new IR::CallInstr(new_reg(), init_func, vector<IR::Reg>{}, true));
+    cur_bb->push(new IR::CallInstr(new_reg(), init_func, vector<IR::Reg>{},
+                                   ScalarType::Void));
     if (!return_value_non_void)
       _throw InvalidMainFuncInterface("main function should return int");
     if (params.size() > 0)
@@ -583,6 +583,7 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
           "main function should have no parameters");
   }
   return_bb = cur_func->new_BB();
+  int int_arg_cnt = 0, float_arg_cnt = 0;
   for (int i = 0; i < static_cast<int>(params.size()); ++i) {
     if (params[i].second.is_array()) {
       IR::MemObject *obj =
@@ -593,16 +594,22 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
       obj->dims.push_back(-1);
       for (MemSize i : params[i].second.array_dims)
         obj->dims.push_back(static_cast<int>(i));
-      cur_func->scope.set_arg(i, obj);
+      cur_func->scope.set_arg(int_arg_cnt, obj);
       cur_local_table->register_var(params[i].first, nullptr, params[i].second);
-      cur_local_table->resolve(params[i].first)->arg_id = i;
+      cur_local_table->resolve(params[i].first)->arg_id = int_arg_cnt;
+      int_arg_cnt += 1;
     } else {
       IR::MemObject *obj = cur_func->scope.new_MemObject(params[i].first);
       obj->size = params[i].second.size();
       obj->scalar_type = params[i].second.scalar_type;
       cur_local_table->register_var(params[i].first, obj, params[i].second);
       IR::Reg value = new_reg(), addr = new_reg();
-      cur_bb->push(new IR::LoadArg(value, i));
+      if (params[i].second.scalar_type == ScalarType::Int) {
+        cur_bb->push(new IR::LoadArg<ScalarType::Int>(value, int_arg_cnt++));
+      } else {
+        cur_bb->push(
+            new IR::LoadArg<ScalarType::Float>(value, float_arg_cnt++));
+      }
       cur_bb->push(new IR::LoadAddr(addr, obj));
       cur_bb->push(new IR::StoreInstr(addr, value));
     }
@@ -867,7 +874,7 @@ antlrcpp::Any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
   } else {
     IR::Reg addr = new_reg();
     if (entry->arg_id >= 0) {
-      cur_bb->push(new IR::LoadArg(addr, entry->arg_id));
+      cur_bb->push(new IR::LoadArg<ScalarType::Int>(addr, entry->arg_id));
     } else {
       cur_bb->push(new IR::LoadAddr(addr, entry->ir_obj));
     }
@@ -1023,15 +1030,16 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
   }
   if (entry->interface.return_type != ScalarType::Void) {
     IR::Reg return_value = new_reg();
-    cur_bb->push(
-        new IR::CallInstr(return_value, entry->ir_func, arg_regs, false));
+    cur_bb->push(new IR::CallInstr(return_value, entry->ir_func, arg_regs,
+                                   entry->interface.return_type));
     auto interface = functions.resolve(entry->ir_func->name)->interface;
     IRValue ret(interface.return_type);
     ret.is_left_value = false;
     ret.reg = return_value;
     return ret;
   } else {
-    cur_bb->push(new IR::CallInstr(new_reg(), entry->ir_func, arg_regs, true));
+    cur_bb->push(new IR::CallInstr(new_reg(), entry->ir_func, arg_regs,
+                                   ScalarType::Void));
     return nullptr;
   }
 }

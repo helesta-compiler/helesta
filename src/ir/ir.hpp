@@ -506,7 +506,7 @@ template <typename Scalar> struct LoadConst : RegWriteInstr {
   void print(ostream &os) const override;
 };
 
-struct LoadArg : RegWriteInstr {
+template <ScalarType type> struct LoadArg : RegWriteInstr {
   // load arg with arg_id=id to d1
   // d1 = arg
   int id;

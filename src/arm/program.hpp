@@ -14,6 +14,13 @@
 
 namespace ARMv7 {
 
+int dynamic_allocable(const Reg &r) {
+  if (r.type == ScalarType::Int)
+    return RegConvention<ScalarType::Int>::allocable(r.id);
+  else
+    return RegConvention<ScalarType::Float>::allocable(r.id);
+}
+
 struct MappingInfo {
   std::map<IR::MemObject *, StackObject *> obj_mapping;
   std::map<int, Reg> reg_mapping;
@@ -85,7 +92,8 @@ struct Func {
   std::vector<std::unique_ptr<Block>> blocks;
   std::vector<std::unique_ptr<StackObject>> stack_objects,
       caller_stack_object; // caller_stack_object is for argument
-  std::vector<Reg> arg_reg;
+  std::vector<Reg> int_arg_reg;
+  std::vector<Reg> float_arg_reg;
   Block *entry;
   std::set<Reg> spilling_reg;
   std::map<Reg, int32_t> constant_reg;
