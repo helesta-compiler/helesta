@@ -582,11 +582,12 @@ template <ScalarType type> struct ReturnInstr : ControlInstr {
 
 struct CallInstr : RegWriteInstr {
   // d1 = f(args[0],args[1],...)
-  vector<Reg> args;
+  vector<std::pair<Reg, ScalarType>> args;
   Func *f;
   ScalarType return_type;
   bool no_store = 0, no_load = 0;
-  CallInstr(Reg d1, Func *f, vector<Reg> args, ScalarType return_type_)
+  CallInstr(Reg d1, Func *f, vector<std::pair<Reg, ScalarType>> args,
+            ScalarType return_type_)
       : RegWriteInstr(d1), args(args), f(f), return_type(return_type_) {}
   void print(ostream &os) const override;
 };

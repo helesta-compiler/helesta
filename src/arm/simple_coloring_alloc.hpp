@@ -35,6 +35,12 @@ template <ScalarType type> class SimpleColoringAllocator {
     std::vector<int> temp, new_nodes;
     for (auto &block : func->blocks) {
       std::set<Reg> live = block->live_out;
+      for (auto it = live.begin(); it != live.end();) {
+        if (it->type != type)
+          it = live.erase(it);
+        else
+          it++;
+      }
       temp.clear();
       for (Reg r : live)
         if (r.type == type &&
@@ -56,12 +62,14 @@ template <ScalarType type> class SimpleColoringAllocator {
         for (Reg r : (*i)->def_reg())
           if (r.type == type &&
               (r.is_pseudo() || RegConvention<type>::allocable(r.id))) {
+            assert(r.id >= 0);
             occur[r.id] = 1;
             live.erase(r);
           }
         for (Reg r : (*i)->use_reg())
           if (r.type == type &&
               (r.is_pseudo() || RegConvention<type>::allocable(r.id))) {
+            assert(r.id >= 0);
             occur[r.id] = 1;
             if (live.find(r) == live.end()) {
               for (Reg o : live) {

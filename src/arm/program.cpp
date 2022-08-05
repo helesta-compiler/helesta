@@ -249,10 +249,13 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       std::vector<Reg> int_args;
       for (auto reg : call->args) {
         auto r = info->from_ir_reg(reg);
-        if (r.type == ScalarType::Float)
+        if (r.type == ScalarType::Float) {
           float_args.push_back(r);
-        else
+          std::cout << r << " is float" << std::endl;
+        } else {
           int_args.push_back(r);
+          std::cout << r << " is int" << std::endl;
+        }
       }
       for (int i = float_args.size() - 1; i >= 0; i--) {
         if (static_cast<int>(i) >=
@@ -367,10 +370,8 @@ void Block::print(ostream &out) {
 }
 
 MappingInfo::MappingInfo()
-    : reg_n(
-          std::max(RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT,
-                   RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT)) {
-}
+    : reg_n(std::max(RegConvention<ScalarType::Int>::Count,
+                     RegConvention<ScalarType::Float>::Count)) {}
 
 Reg MappingInfo::new_reg() { return Reg(reg_n++, ScalarType::Int); }
 
