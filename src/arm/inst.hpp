@@ -542,8 +542,16 @@ struct StoreStack : Inst {
 struct Push : Inst {
   std::vector<Reg> src;
   Push(std::vector<Reg> _src) : src(_src) {
-    for (auto x : src)
-      assert(x.type == ScalarType::Int);
+    if (src[0].type == ScalarType::Int) {
+      for (auto x : src)
+        assert(x.type == ScalarType::Int);
+    } else {
+      std::sort(src.begin(), src.end());
+      for (auto x : src)
+        assert(x.type == ScalarType::Float);
+      assert(src.back().id - src.front().id ==
+             static_cast<int>(src.size() - 1));
+    }
   }
 
   virtual std::vector<Reg> use_reg() override { return src; }
@@ -559,7 +567,8 @@ struct Push : Inst {
   }
   virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
   virtual void print(std::ostream &out) override {
-    out << "push" << cond << " {";
+    out << ((src[0].type == ScalarType::Int) ? "push" : "vpush") << cond
+        << " {";
     for (size_t i = 0; i < src.size(); ++i) {
       if (i > 0)
         out << ',';

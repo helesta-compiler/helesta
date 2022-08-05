@@ -238,34 +238,63 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(make_unique<Return>(true));
       }
     } else if (auto call = dynamic_cast<IR::CallInstr *>(cur)) {
-      for (size_t i = call->args.size() - 1; i < call->args.size(); --i)
-        if (static_cast<int>(i) >= ARGUMENT_REGISTER_COUNT) {
-          push_back(
-              make_unique<Push>(vector<Reg>{info->from_ir_reg(call->args[i])}));
+      std::vector<Reg> float_args;
+      std::vector<Reg> int_args;
+      for (auto reg : call->args) {
+        auto r = info->from_ir_reg(reg);
+        if (r.type == ScalarType::Float)
+          float_args.push_back(r);
+        else
+          int_args.push_back(r);
+      }
+      for (size_t i = float_args.size() - 1; i >= 0; i--) {
+        if (static_cast<int>(i) >=
+            RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT) {
+          push_back(std::make_unique<Push>(std::vector<Reg>{float_args[i]}));
         } else {
-          push_back(make_unique<MoveReg>(Reg{ARGUMENT_REGISTERS[i]},
-                                         info->from_ir_reg(call->args[i])));
+          push_back(std::make_unique<MoveReg>(
+              Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[i],
+                  ScalarType::Float),
+              float_args[i]));
         }
-      if (call->f->name == "putfloat") {
-        push_back(make_unique<MoveReg>(Reg(0, 1), Reg{ARGUMENT_REGISTERS[0]}));
+      }
+      for (size_t i = int_args.size() - 1; i >= 0; i--) {
+        if (static_cast<int>(i) >=
+            RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT) {
+          push_back(std::make_unique<Push>(std::vector<Reg>{int_args[i]}));
+        } else {
+          push_back(std::make_unique<MoveReg>(
+              Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[i],
+                  ScalarType::Int),
+              int_args[i]));
+        }
       }
       push_back(make_unique<FuncCall>(call->f->name,
-                                      static_cast<int>(call->args.size())));
-      if (static_cast<int>(call->args.size()) > ARGUMENT_REGISTER_COUNT)
-        push_back(sp_move(
-            (static_cast<int>(call->args.size()) - ARGUMENT_REGISTER_COUNT) *
-            INT_SIZE));
-      if (!call->ignore_return_value) {
-        Reg ret{ARGUMENT_REGISTERS[0]};
-        if (call->f->name == "getfloat") {
-          ret = Reg(0, 1);
-        }
-        push_back(make_unique<MoveReg>(info->from_ir_reg(call->d1), ret));
+                                      static_cast<int>(int_args.size()),
+                                      static_cast<int>(float_args.size())));
+      int stack_passed = 0;
+      if (int_args.size() >
+          RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT)
+        stack_passed += int_args.size() -
+                        RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT;
+      if (float_args.size() >
+          RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT)
+        stack_passed +=
+            float_args.size() -
+            RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT;
+      if (stack_passed > 0) {
+        push_back(sp_move(stack_passed * INT_SIZE));
       }
-      if (call->f->name == "__create_threads") {
-        func->spilling_reg.insert(info->from_ir_reg(call->d1));
-        debug << "thread_id: " << call->d1 << " -> "
-              << info->from_ir_reg(call->d1) << " is forbidden to be spilled\n";
+      if (call->return_type == ScalarType::Float) {
+        push_back(std::make_unique<MoveReg>(
+            info->from_ir_reg(call->d1),
+            Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0],
+                ScalarType::Float)));
+      } else if (call->return_type == ScalarType::Int) {
+        push_back(std::make_unique<MoveReg>(
+            info->from_ir_reg(call->d1),
+            Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0],
+                ScalarType::Int)));
       }
     } else if (auto array_index = dynamic_cast<IR::ArrayIndex *>(cur)) {
       Reg dst = info->from_ir_reg(array_index->d1),
