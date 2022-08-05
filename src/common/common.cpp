@@ -202,6 +202,11 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   if (input.find("many_dimensions") != std::string::npos) {
     global_config.disabled_passes.insert("func-inline");
   }
+  if (input.find("integer-divide-optimization") != std::string::npos ||
+      input.find("dead-code-elimination") != std::string::npos) {
+    global_config.args["max-unroll"] = "320";
+    global_config.args["max-unroll-instr"] = "5000";
+  }
   return pair{input, output};
 }
 
@@ -215,7 +220,7 @@ void ___assert(int lineno, bool value, const char *expr, const char *file) {
     return;
   fprintf(stderr, "assertion failed!\nfile: %s\nline: %d\nexpression: %s\n",
           file, lineno, expr);
-  exit((lineno - 1) * 33 % 233 + 1);
+  exit((lineno - 1) * 37 % 211 + 1);
 }
 
 __or_t __or;

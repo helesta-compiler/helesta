@@ -281,6 +281,17 @@ void after_unroll(NormalFunc *f) {
   code_reorder(f);
   remove_trivial_BB(f);
 }
+
+int parseIntArg(int v, std::string s) {
+  if (global_config.args.count(s)) {
+    int x = v;
+    if (sscanf(global_config.args[s].data(), "%d", &x) == 1) {
+      v = x;
+    }
+  }
+  return v;
+}
+
 struct UnrollLoop {
   FindLoopVar &S;
   uset<BB *> &disable_unroll;
@@ -432,7 +443,8 @@ struct UnrollLoop {
     dbg("for(i=", i0, ";i", wi.cond->name(), i1, ";i=i", BinaryOp(op), i2,
         "){...}\n");
     size_t cnt = 0;
-    constexpr size_t MAX_UNROLL = 32, MAX_UNROLL_INSTR = 640;
+    size_t MAX_UNROLL = parseIntArg(32, "max-unroll"),
+           MAX_UNROLL_INSTR = parseIntArg(64, "max-unroll-instr");
     while (cnt <= MAX_UNROLL && wi.cond->compute(i0, i1)) {
       i0 = std::get<int32_t>(typed_compute(op, i0, i2));
       cnt += 1;
