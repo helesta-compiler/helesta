@@ -157,22 +157,17 @@ struct SideEffect : SimpleLoopVisitor {
 };
 
 struct MergePureCall
-    : ForwardLoopVisitor<std::map<std::pair<Func *, std::vector<Reg>>, Reg>> {
+    : ForwardLoopVisitor<std::map<std::pair<Func *, std::vector<Reg>>, Reg>>,
+      CounterOutput {
   using ForwardLoopVisitor::map_t;
   SideEffect &se;
-  MergePureCall(SideEffect &_se) : se(_se) {}
-  ~MergePureCall() {
-    if (cnt) {
-      ::info << "MergePureCall: " << cnt << '\n';
-    }
-  }
+  MergePureCall(SideEffect &_se) : CounterOutput("MergePureCall"), se(_se) {}
   void update(map_t &m, mem_set_t &mw) {
     remove_if(m, [&](typename map_t::value_type &t) -> bool {
       auto &mr = se.may_read(t.first.first);
       return se.checkWAR(mw, mr);
     });
   }
-  size_t cnt = 0;
   void visitBB(BB *bb) {
     // std::cerr << bb->name << " visited" << '\n';
     auto &w = info[bb];
@@ -430,22 +425,16 @@ struct LocalInitToGlobalConst : InstrVisitor {
   }
 };
 
-struct LoadToReg : ForwardLoopVisitor<std::map<Reg, Reg>> {
+struct LoadToReg : ForwardLoopVisitor<std::map<Reg, Reg>>, CounterOutput {
   using ForwardLoopVisitor::map_t;
   SideEffect &se;
-  LoadToReg(SideEffect &_se) : se(_se) {}
-  ~LoadToReg() {
-    if (cnt) {
-      ::info << "LoadToReg: " << cnt << '\n';
-    }
-  }
+  LoadToReg(SideEffect &_se) : CounterOutput("LoadToReg"), se(_se) {}
   void update(map_t &m, mem_set_t &mw) {
     remove_if(m, [&](typename map_t::value_type &t) -> bool {
       auto &mr = se.maybe(t.first);
       return se.checkWAR(mw, mr);
     });
   }
-  size_t cnt = 0;
   void visitBB(BB *bb) {
     // std::cerr << bb->name << " visited" << '\n';
     auto &w = info[bb];
@@ -475,13 +464,8 @@ struct LoadToReg : ForwardLoopVisitor<std::map<Reg, Reg>> {
   }
 };
 
-struct RemoveUnusedStoreInBB : SimpleLoopVisitor {
-  size_t cnt = 0;
-  ~RemoveUnusedStoreInBB() {
-    if (cnt) {
-      ::info << "RemoveUnusedStoreInBB: " << cnt << '\n';
-    }
-  }
+struct RemoveUnusedStoreInBB : SimpleLoopVisitor, CounterOutput {
+  RemoveUnusedStoreInBB() : CounterOutput("RemoveUnusedStoreInBB") {}
   void visitBB(BB *bb) {
     std::set<Reg> cur;
 
