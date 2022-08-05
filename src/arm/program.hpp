@@ -130,7 +130,8 @@ private:
   bool check_store_stack(); // if a StoreStack instruction immediate offset is
                             // out of range, replace with load_imm +
                             // ComplexStore and return false, else return true
-  void replace_with_reg_alloc(const std::vector<int> &reg_alloc);
+  void replace_with_reg_alloc(const std::vector<int> &int_reg_alloc,
+                              const std::vector<int> &float_reg_alloc);
   void replace_complex_inst(); // replace out-of-range LoadStack, all of
                                // LoadStackAddr and LoadStackOffset
 

@@ -59,9 +59,14 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       func->constant_reg[tmp] = as_int;
       push_back(load_imm(tmp, as_int));
       push_back(std::make_unique<MoveReg>(dst, tmp));
-    } else if (auto loadarg = dynamic_cast<IR::LoadArg *>(cur)) {
+    } else if (auto loadarg =
+                   dynamic_cast<IR::LoadArg<ScalarType::Int> *>(cur)) {
       push_back(make_unique<MoveReg>(info->from_ir_reg(loadarg->d1),
-                                     func->arg_reg[loadarg->id]));
+                                     func->int_arg_reg[loadarg->id]));
+    } else if (auto loadarg =
+                   dynamic_cast<IR::LoadArg<ScalarType::Float> *>(cur)) {
+      push_back(make_unique<MoveReg>(info->from_ir_reg(loadarg->d1),
+                                     func->float_arg_reg[loadarg->id]));
     } else if (auto unary = dynamic_cast<IR::UnaryOpInstr *>(cur)) {
       Reg dst = info->from_ir_reg(unary->d1),
           src = info->from_ir_reg(unary->s1);
@@ -812,7 +817,7 @@ vector<int> Func::get_branch_in_deg() {
   return ret;
 }
 
-vector<int> Func::reg_allocate(RegAllocStat *stat) {
+template <ScalarType type> vector<int> Func::reg_allocate(RegAllocStat *stat) {
   info << "register allocation for function: " << name << '\n';
   info << "reg_n = " << reg_n << '\n';
   stat->spill_cnt = 0;
@@ -851,12 +856,14 @@ bool Func::check_store_stack() {
   return ret;
 }
 
-void Func::replace_with_reg_alloc(const vector<int> &reg_alloc) {
+void Func::replace_with_reg_alloc(const vector<int> &int_reg_alloc,
+                                  const vector<int> &float_reg_alloc) {
   for (auto &block : blocks)
     for (auto &inst : block->insts)
       for (Reg *i : inst->regs())
         if (i->is_pseudo())
-          i->id = reg_alloc[i->id];
+          i->id = i->type == ScalarType::Int ? int_reg_alloc[i->id]
+                                             : float_reg_alloc[i->id];
 }
 
 void Func::replace_complex_inst() {
@@ -892,59 +899,78 @@ void Func::replace_complex_inst() {
 }
 
 void Func::gen_asm(ostream &out) {
-  RegAllocStat stat;
-  vector<int> reg_alloc;
+  RegAllocStat int_stat, float_stat;
+  vector<int> int_reg_alloc, float_reg_alloc;
   AsmContext ctx;
   std::function<void(ostream & out)> prologue;
   while (true) {
-    reg_alloc = reg_allocate(&stat);
+    int_reg_alloc = reg_allocate(&int_stat);
+    float_reg_alloc = reg_allocate(&float_stat);
     int32_t stack_size = 0;
     for (auto i = stack_objects.rbegin(); i != stack_objects.rend(); ++i) {
       (*i)->position = stack_size;
       stack_size += (*i)->size;
     }
-    vector<Reg> save_regs;
-    bool used[RegCount] = {};
-    for (int i : reg_alloc)
+    vector<Reg> save_int_regs, save_float_regs;
+    bool used_int[RegConvention<ScalarType::Int>::Count] = {};
+    bool used_float[RegConvention<ScalarType::Float>::Count] = {};
+    for (int i : int_reg_alloc)
       if (i >= 0)
-        used[i] = true;
-    for (int i = 0; i < RegCount; ++i)
-      if (REGISTER_USAGE[i] == callee_save && used[i])
-        save_regs.emplace_back(i);
-    size_t save_reg_cnt = save_regs.size();
+        used_int[i] = true;
+    for (int i = 0; i < RegConvention<ScalarType::Int>::Count; ++i)
+      if (RegConvention<ScalarType::Int>::REGISTER_USAGE[i] ==
+              RegisterUsage::callee_save &&
+          used_int[i])
+        save_int_regs.emplace_back(i);
+    for (int i : float_reg_alloc)
+      if (i >= 0)
+        used_float[i] = true;
+    for (int i = 0; i < RegConvention<ScalarType::Float>::Count; ++i)
+      if (RegConvention<ScalarType::Float>::REGISTER_USAGE[i] ==
+              RegisterUsage::callee_save &&
+          used_float[i])
+        save_float_regs.emplace_back(i);
+    size_t save_reg_cnt = save_int_regs.size() + save_float_regs.size();
     if (save_reg_cnt)
       save_reg_cnt += 16;
     if ((stack_size + save_reg_cnt * 4) % 8)
       stack_size += 4;
-    prologue = [save_regs, stack_size](ostream &out) {
-      if (save_regs.size()) {
+    prologue = [save_int_regs, save_float_regs, stack_size](ostream &out) {
+      if (save_int_regs.size()) {
         out << "push {";
-        for (size_t i = 0; i < save_regs.size(); ++i) {
+        for (size_t i = 0; i < save_int_regs.size(); ++i) {
           if (i > 0)
             out << ',';
-          out << save_regs[i];
+          out << save_int_regs[i];
         }
         out << "}\n";
-        out << "vpush {d0,d1,d2,d3,d4,d5,d6,d7}\n";
+      }
+      for (auto reg : save_float_regs) {
+        out << "vpush {" << reg << "}" << std::endl;
       }
       if (stack_size != 0)
         sp_move_asm(-stack_size, out);
     };
-    ctx.epilogue = [save_regs, stack_size](ostream &out) -> bool {
+    ctx.epilogue = [save_int_regs, save_float_regs,
+                    stack_size](ostream &out) -> bool {
       if (stack_size != 0)
         sp_move_asm(stack_size, out);
+      for (auto it = save_float_regs.rbegin(); it != save_float_regs.rend();
+           it++) {
+        auto reg = *it;
+        out << "vpop {" << reg << "}" << std::endl;
+      }
       bool pop_lr = false;
-      if (save_regs.size()) {
-        out << "vpop {d0,d1,d2,d3,d4,d5,d6,d7}\n";
+      if (save_int_regs.size()) {
         out << "pop {";
-        for (size_t i = 0; i < save_regs.size(); ++i) {
+        for (size_t i = 0; i < save_int_regs.size(); ++i) {
           if (i > 0)
             out << ',';
-          if (save_regs[i].id == lr) {
+          if (save_int_regs[i].id == lr) {
             pop_lr = true;
             out << "pc";
           } else
-            out << save_regs[i];
+            out << save_int_regs[i];
         }
         out << "}\n";
       }
@@ -958,11 +984,7 @@ void Func::gen_asm(ostream &out) {
     if (check_store_stack())
       break;
   }
-  info << "Register allocation:\n"
-       << "spill: " << stat.spill_cnt << '\n'
-       << "move instructions eliminated: " << stat.move_eliminated << '\n'
-       << "callee-save registers used: " << stat.callee_save_used << '\n';
-  replace_with_reg_alloc(reg_alloc);
+  replace_with_reg_alloc(int_reg_alloc, float_reg_alloc);
   replace_complex_inst();
   out << '\n' << name << ":\n";
   prologue(out);

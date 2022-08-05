@@ -213,7 +213,7 @@ struct BB : Printable, Traversable<BB> {
   void replace(Instr *x) { *std::prev(_it) = unique_ptr<Instr>(x); }
   bool _del = 0;
   void move() {
-    std::prev(_it)->release();
+    (void)std::prev(_it)->release();
     del();
   }
   void del() { _del = 1; }

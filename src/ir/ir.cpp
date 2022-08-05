@@ -82,7 +82,9 @@ template <> void LoadConst<int32_t>::print(ostream &os) const {
 template <> void LoadConst<float>::print(ostream &os) const {
   os << d1 << " = " << value << 'f';
 }
-void LoadArg::print(ostream &os) const { os << d1 << " = arg" << id; }
+template <ScalarType type> void LoadArg<type>::print(ostream &os) const {
+  os << d1 << " = arg" << id;
+}
 void ArrayIndex::print(ostream &os) const {
   os << d1 << " = " << s1 << " + " << s2 << " * " << size << " : " << limit;
 }
@@ -212,7 +214,14 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
     f1(u->d1);
     return u;
   }
-  Case(LoadArg, w, this) {
+  Case(LoadArg<ScalarType::Int>, w, this) {
+    auto u = w;
+    if (copy)
+      u = new LoadArg(*w);
+    f1(u->d1);
+    return u;
+  }
+  Case(LoadArg<ScalarType::Float>, w, this) {
     auto u = w;
     if (copy)
       u = new LoadArg(*w);
@@ -451,7 +460,10 @@ int exec(CompileUnit &c) {
         else Case(LoadConst<float>, x, x0) {
           wReg(x->d1, x->value);
         }
-        else Case(LoadArg, x, x0) {
+        else Case(LoadArg<ScalarType::Int>, x, x0) {
+          wReg(x->d1, args.at(x->id));
+        }
+        else Case(LoadArg<ScalarType::Float>, x, x0) {
           wReg(x->d1, args.at(x->id));
         }
         else Case(UnaryOpInstr, x, x0) {
@@ -625,7 +637,7 @@ int exec(CompileUnit &c) {
               assert(0);
             }
           }
-          if (!x->f->ignore_return_value && !x->ignore_return_value)
+          if (!x->f->ignore_return_value && x->return_type != ScalarType::Void)
             wReg(x->d1, ret);
         }
         else assert(0);
