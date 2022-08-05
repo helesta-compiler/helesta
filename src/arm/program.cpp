@@ -817,19 +817,6 @@ vector<int> Func::get_branch_in_deg() {
   return ret;
 }
 
-template <ScalarType type> vector<int> Func::reg_allocate(RegAllocStat *stat) {
-  info << "register allocation for function: " << name << '\n';
-  info << "reg_n = " << reg_n << '\n';
-  stat->spill_cnt = 0;
-  info << "using SimpleColoringAllocator\n";
-  while (true) {
-    SimpleColoringAllocator allocator(this);
-    vector<int> ret = allocator.run(stat);
-    if (stat->succeed)
-      return ret;
-  }
-}
-
 bool Func::check_store_stack() {
   bool ret = true;
   for (auto &block : blocks) {
@@ -898,14 +885,28 @@ void Func::replace_complex_inst() {
   }
 }
 
+template <ScalarType type>
+std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
+  info << "register allocation for function: " << ctx->name << '\n';
+  info << "reg_n = " << ctx->reg_n << '\n';
+  stat->spill_cnt = 0;
+  info << "using SimpleColoringAllocator\n";
+  while (true) {
+    SimpleColoringAllocator<type> allocator(ctx);
+    std::vector<int> ret = allocator.run(stat);
+    if (stat->succeed)
+      return ret;
+  }
+}
+
 void Func::gen_asm(ostream &out) {
   RegAllocStat int_stat, float_stat;
   vector<int> int_reg_alloc, float_reg_alloc;
   AsmContext ctx;
   std::function<void(ostream & out)> prologue;
   while (true) {
-    int_reg_alloc = reg_allocate(&int_stat);
-    float_reg_alloc = reg_allocate(&float_stat);
+    int_reg_alloc = reg_allocate<ScalarType::Int>(&int_stat, this);
+    float_reg_alloc = reg_allocate<ScalarType::Float>(&float_stat, this);
     int32_t stack_size = 0;
     for (auto i = stack_objects.rbegin(); i != stack_objects.rend(); ++i) {
       (*i)->position = stack_size;

@@ -9,52 +9,16 @@
 #include <vector>
 
 #include "arm/archinfo.hpp"
+#include "arm/block.hpp"
 #include "common/common.hpp"
 #include "ir/ir.hpp"
 #include "ir/scalar.hpp"
 
 namespace ARMv7 {
 
-struct Block;
 struct Func;
 struct AsmContext;
 
-struct Reg {
-  int id;
-  ScalarType type;
-
-  Reg(int _id = -1, ScalarType _type = ScalarType::Int)
-      : id(_id), type(_type) {}
-  inline bool is_machine() const {
-    if (type == ScalarType::Int) {
-      return id < RegConvention<ScalarType::Int>::Count;
-    } else {
-      return id < RegConvention<ScalarType::Float>::Count;
-    }
-  }
-  inline bool is_pseudo() const {
-    if (type == ScalarType::Int) {
-      return id >= RegConvention<ScalarType::Int>::Count;
-    } else {
-      return id >= RegConvention<ScalarType::Float>::Count;
-    }
-  }
-  inline bool is_allocable() const {
-    if (type == ScalarType::Int) {
-      return RegConvention<ScalarType::Int>::allocable(id);
-    } else {
-      return RegConvention<ScalarType::Float>::allocable(id);
-    }
-  }
-  bool operator<(const Reg &rhs) const { return id < rhs.id; }
-  bool operator==(const Reg &rhs) const { return id == rhs.id; }
-  bool operator>(const Reg &rhs) const { return id > rhs.id; }
-  bool operator!=(const Reg &rhs) const { return id != rhs.id; }
-};
-
-std::ostream &operator<<(std::ostream &os, const Reg &reg);
-
-enum InstCond { Always, Eq, Ne, Ge, Gt, Le, Lt };
 
 InstCond logical_not(InstCond c);
 

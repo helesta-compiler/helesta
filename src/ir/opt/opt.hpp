@@ -14,13 +14,10 @@ void func_inline(IR::CompileUnit *);
 void global_code_motion(IR::CompileUnit *);
 void global_value_numbering(IR::CompileUnit *);
 void global_to_local(IR::CompileUnit *);
-void simplify_expr(IR::CompileUnit *ir);
-void before_backend(IR::CompileUnit *ir);
 
 inline void gvn(IR::CompileUnit *ir) {
   PassEnabled("gvn") global_value_numbering(ir);
   remove_unused_def(ir);
-  PassEnabled("se") simplify_expr(ir);
 }
 
 inline void gcm(IR::CompileUnit *ir) {
@@ -35,5 +32,4 @@ inline void optimize_ir(IR::CompileUnit *ir) {
     gcm(ir);
     gvn(ir);
   }
-  PassEnabled("del-phi") before_backend(ir);
 }
