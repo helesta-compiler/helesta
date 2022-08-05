@@ -220,8 +220,9 @@ struct LoopCopyTool {
     auto mp_regs = partial_map(regs);
     auto mp_bbs = partial_map(bbs);
     for (auto &[k, v] : bbs) {
-      k->for_each(
-          [&](Instr *x) { v->push(x->map(mp_regs, mp_bbs, [](auto &) {})); });
+      k->for_each([v, mp_regs, mp_bbs](Instr *x) {
+        v->push(x->map(mp_regs, mp_bbs, [](auto &) {}));
+      });
     }
     entry = bbs.at(entry);
     exit = bbs.at(exit);
