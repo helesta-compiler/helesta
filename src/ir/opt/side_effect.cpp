@@ -228,13 +228,14 @@ struct GlobalInitProp : ForwardLoopVisitor<std::map<MemObject *, bool>> {
   void visitBB(BB *bb) {
     // std::cerr << bb->name << " visited" << '\n';
     auto &w = info[bb];
+    // dbgs(bb, w.in);
     w.out = w.in;
     if (w.is_loop_head) {
       update(w.out, se.loop_info.at(bb).may_write);
     }
+    // dbgs(bb, w.out);
     for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
       Instr *x = it->get();
-      replace_reg(x);
       Case(LoadInstr, ld, x) {
         auto v = se.mustbe(ld->addr);
         if (v && w.out.count(v->first)) {
@@ -249,16 +250,101 @@ struct GlobalInitProp : ForwardLoopVisitor<std::map<MemObject *, bool>> {
         update(w.out, se.maybe(st->addr));
       }
       else Case(CallInstr, call, x) {
-        update(w.out, se.may_write(call->f));
+        Case(NormalFunc, f, call->f) { update(w.out, se.may_write(f)); }
+        else {
+          for (Reg r : call->args) {
+            update(w.out, se.maybe(r));
+          }
+        }
+      }
+    }
+    // dbgs(bb, w.out);
+    // dbg(bb->name, " visited\n");
+  }
+};
+
+struct GlobalInitToGlobalConst {
+  PointerBase &pb;
+  CompileUnit *ir;
+  struct Info {
+    bool locked = 0;
+    std::unordered_map<size_t, int32_t> kv;
+  };
+  std::unordered_map<MemObject *, Info> init;
+  GlobalInitToGlobalConst(PointerBase &_pb, CompileUnit *_ir)
+      : pb(_pb), ir(_ir) {
+    assert(pb.f == ir->main());
+    ir->scope.for_each([&](MemObject *mem) {
+      if (mem->scalar_type == ScalarType::Int && mem->size <= 4 * 64) {
+        init[mem];
+      }
+    });
+  }
+  void apply() {
+    pb.f->entry->for_each_until([&](Instr *x) {
+      Case(LoadInstr, ld, x) {
+        auto &w = pb.info.at(ld->addr);
+        auto mem = std::get<MemObject *>(w.base);
+        if (!init.count(mem))
+          return 0;
+        auto &mp = init[mem];
+        if (mp.locked)
+          return 0;
+        if (w.mustbe) {
+          assert(w.mustbe->first == mem);
+          auto offset = w.mustbe->second;
+          int32_t v = (mp.kv.count(offset) ? mp.kv.at(offset)
+                                           : mem->at<int32_t>(offset));
+          pb.f->entry->replace(new LoadConst(ld->d1, v));
+        } else {
+          mp.locked = 1;
+        }
+      }
+      else Case(StoreInstr, st, x) {
+        auto &w = pb.info.at(st->addr);
+        auto mem = std::get<MemObject *>(w.base);
+        if (!init.count(mem))
+          return 0;
+        auto &mp = init[mem];
+        if (mp.locked)
+          return 0;
+        if (w.mustbe) {
+          assert(w.mustbe->first == mem);
+          auto offset = w.mustbe->second;
+          if (auto v = pb.get_const(st->s1)) {
+            mp.kv[offset] = *v;
+            pb.f->entry->del();
+          } else {
+            mp.locked = 1;
+          }
+        } else {
+          mp.locked = 1;
+        }
+      }
+      else Case(CallInstr, call, x) {
+        (void)call;
+        return 1;
+      }
+      return 0;
+    });
+    for (auto &[mem, mp] : init) {
+      if (!mp.kv.size())
+        continue;
+      dbg("GlobalInitToGlobalConst: ", mem->name, '\n');
+      if (!mem->initial_value) {
+        mem->initial_value = new int32_t[mem->size / 4]();
+      }
+      for (auto &[k, v] : mp.kv) {
+        mem->set<int32_t>(k, v);
       }
     }
   }
 };
 
-struct LocalInitToGlobal : InstrVisitor {
+struct LocalInitToGlobalConst : InstrVisitor {
   PointerBase &pb;
   std::unordered_map<MemObject *, std::unordered_map<size_t, int32_t>> init;
-  LocalInitToGlobal(PointerBase &_pb) : pb(_pb) {
+  LocalInitToGlobalConst(PointerBase &_pb) : pb(_pb) {
     pb.f->scope.for_each([&](MemObject *mem) {
       if (mem->scalar_type == ScalarType::Int) {
         init[mem];
@@ -280,6 +366,7 @@ struct LocalInitToGlobal : InstrVisitor {
           w->set<int32_t>(k, v);
         }
         mp[mem] = w;
+        dbg("LocalInitToGlobalConst: ", mem->name, '\n');
       }
     }
     auto f = partial_map(mp);
@@ -605,17 +692,25 @@ void local_init_to_global(CompileUnit *ir, NormalFunc *f) {
   DAG_IR dag(f);
   PointerBase pb(f);
   dag.visit(pb);
-  LocalInitToGlobal w(pb);
-  dag.visit(w);
-  w.apply(ir->scope);
+
+  {
+    LocalInitToGlobalConst w(pb);
+    dag.visit(w);
+    w.apply(ir->scope);
+  }
+  if (f == ir->main()) {
+    GlobalInitToGlobalConst w(pb, ir);
+    w.apply();
+  }
 }
 
 void dag_ir(CompileUnit *ir) {
+  static size_t round;
+  dbg("DAG IR Round ", ++round, "\n");
+  ir->for_each([&](NormalFunc *f) { local_init_to_global(ir, f); });
   DAG_IR_ALL _(ir, NORMAL);
-  ir->for_each([&](NormalFunc *f) {
-    loop_ops(f);
-    local_init_to_global(ir, f);
-  });
+  ir->for_each([&](NormalFunc *f) { loop_ops(f); });
+  ir->for_each([&](NormalFunc *f) { local_init_to_global(ir, f); });
 }
 void remove_unused_BB(CompileUnit *ir) { DAG_IR_ALL _(ir, REMOVE_UNUSED_BB); }
 void before_backend(CompileUnit *ir) { DAG_IR_ALL _(ir, BEFORE_BACKEND); }
