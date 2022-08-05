@@ -227,6 +227,16 @@ struct BB : Printable, Traversable<BB> {
     del();
   }
   void del() { _del = 1; }
+  void ins(Instr *x) { instrs.insert(std::prev(_it), unique_ptr<Instr>(x)); }
+  void ins(decltype(instrs) &&ls) {
+    for (auto &x : ls) {
+      ins(x.release());
+    }
+  }
+  void replace(decltype(instrs) &&ls) {
+    ins(std::move(ls));
+    del();
+  }
   bool for_each_until(function<bool(Instr *)> f) {
     for (_it = instrs.begin(); _it != instrs.end();) {
       auto it0 = _it;
@@ -485,10 +495,10 @@ struct BinaryOp : Printable {
            type == BinaryCompute::EQ || type == BinaryCompute::NEQ;
   }
   const char *get_name() const {
-    static const char *names[] = {"+",      "-",     "*",     "/",     "<",
-                                  "<=",     "==",    "!=",    "%",     "(F+F)",
-                                  "(F-F)",  "(F*F)", "(F/F)", "(F<F)", "(F<=F)",
-                                  "(F==F)", "(F!=F)"};
+    static const char *names[] = {"+",      "-",      "*",     "/",     "<",
+                                  "<=",     "==",     "!=",    "%",     "<<",
+                                  "(F+F)",  "(F-F)",  "(F*F)", "(F/F)", "(F<F)",
+                                  "(F<=F)", "(F==F)", "(F!=F)"};
     return names[(int)type];
   }
   void print(ostream &os) const override { os << get_name(); }
@@ -700,4 +710,48 @@ struct SetPrintContext {
   }
   ~SetPrintContext() { print_ctx.f = f0; }
 };
+struct CodeGen {
+  std::list<std::unique_ptr<Instr>> instrs;
+  NormalFunc *f;
+  CodeGen(NormalFunc *_f) : f(_f) {}
+  struct RegRef {
+    Reg r;
+    CodeGen *cg;
+    friend RegRef operator-(RegRef a) {
+      Reg r = a.cg->f->new_Reg();
+      a.cg->instrs.emplace_back(new UnaryOpInstr(r, a.r, UnaryCompute::NEG));
+      return a.cg->reg(r);
+    }
+    void assign(RegRef a) {
+      cg->instrs.emplace_back(new UnaryOpInstr(r, a.r, UnaryCompute::ID));
+    }
+    void set_last_def(RegRef a) {
+      if (cg->instrs.size()) {
+        Case(RegWriteInstr, rw, cg->instrs.back().get()) {
+          if (rw->d1 == a.r) {
+            rw->d1 = r;
+          }
+          return;
+        }
+      }
+      assign(a);
+    }
+#define bop(op, name)                                                          \
+  friend RegRef operator op(RegRef a, RegRef b) {                              \
+    Reg r = a.cg->f->new_Reg();                                                \
+    a.cg->instrs.emplace_back(                                                 \
+        new BinaryOpInstr(r, a.r, b.r, BinaryCompute::name));                  \
+    return a.cg->reg(r);                                                       \
+  }
+    bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD)
+#undef bop
+  };
+  RegRef reg(Reg r) { return RegRef{r, this}; }
+  RegRef lc(int32_t x) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadConst<int32_t>(r, x));
+    return reg(r);
+  }
+};
+
 } // namespace IR

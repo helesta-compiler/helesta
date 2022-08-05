@@ -10,15 +10,10 @@ struct CodeReorder : SimpleLoopVisitor {
   }
 };
 
-struct CondProp : ForwardLoopVisitor<std::map<std::pair<Reg, BB *>, int32_t>> {
+struct CondProp : ForwardLoopVisitor<std::map<std::pair<Reg, BB *>, int32_t>>,
+                  CounterOutput {
   using ForwardLoopVisitor::map_t;
-  CondProp() {}
-  ~CondProp() {
-    if (cnt) {
-      ::info << "CondProp: " << cnt << '\n';
-    }
-  }
-  size_t cnt = 0;
+  CondProp() : CounterOutput("CondProp") {}
   void visitBB(BB *bb) {
     auto &w = info[bb];
     w.out.clear();

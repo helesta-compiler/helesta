@@ -509,16 +509,10 @@ struct RemoveUnusedStoreInBB : SimpleLoopVisitor {
   }
 };
 
-struct RemoveUnusedStore : BackwardLoopVisitor<mem_set_t> {
+struct RemoveUnusedStore : BackwardLoopVisitor<mem_set_t>, CounterOutput {
   SideEffect &se;
-  RemoveUnusedStore(SideEffect &_se) : se(_se) {}
-
-  size_t cnt = 0;
-  ~RemoveUnusedStore() {
-    if (cnt) {
-      ::info << "RemoveUnusedStore: " << cnt << '\n';
-    }
-  }
+  RemoveUnusedStore(SideEffect &_se)
+      : CounterOutput("RemoveUnusedStore"), se(_se) {}
   void begin(BB *bb, bool is_loop_head) override {
     auto &w = info[bb];
     if (is_loop_head) {
@@ -629,6 +623,8 @@ void DAG_IR_ALL::remove_unused_memobj() {
 void remove_phi(NormalFunc *);
 void code_reorder(NormalFunc *);
 void remove_trivial_BB(NormalFunc *);
+void mod2div(NormalFunc *);
+
 namespace IR {
 void compute_data_offset(CompileUnit &c);
 }
@@ -704,6 +700,10 @@ void local_init_to_global(CompileUnit *ir, NormalFunc *f) {
   }
 }
 
+void arith(CompileUnit *ir) {
+  ir->for_each([&](NormalFunc *f) { mod2div(f); });
+}
+
 void dag_ir(CompileUnit *ir) {
   static size_t round;
   dbg("DAG IR Round ", ++round, "\n");
@@ -711,6 +711,7 @@ void dag_ir(CompileUnit *ir) {
   DAG_IR_ALL _(ir, NORMAL);
   ir->for_each([&](NormalFunc *f) { loop_ops(f); });
   ir->for_each([&](NormalFunc *f) { local_init_to_global(ir, f); });
+  arith(ir);
 }
 void remove_unused_BB(CompileUnit *ir) { DAG_IR_ALL _(ir, REMOVE_UNUSED_BB); }
 void before_backend(CompileUnit *ir) { DAG_IR_ALL _(ir, BEFORE_BACKEND); }

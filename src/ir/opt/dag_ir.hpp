@@ -251,5 +251,16 @@ struct DAG_IR_ALL {
   DAG_IR_ALL(CompileUnit *_ir, PassType type);
 };
 
+struct CounterOutput {
+  const char *name;
+  size_t cnt = 0;
+  CounterOutput(const char *_name) : name(_name) {}
+  ~CounterOutput() {
+    if (cnt) {
+      dbg(name, ": ", cnt, '\n');
+    }
+  }
+};
+
 bool type_check(NormalFunc *f);
 void loop_ops(NormalFunc *f);

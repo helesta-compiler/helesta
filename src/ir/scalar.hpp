@@ -34,6 +34,7 @@ enum class BinaryCompute {
   EQ,
   NEQ,
   MOD,
+  SHL,
   FADD,
   FSUB,
   FMUL,
@@ -232,6 +233,8 @@ inline typeless_scalar_t compute(BinaryCompute op, const typeless_scalar_t &s1,
     return int32_t(i1 != i2);
   case BinaryCompute::MOD:
     return (i2 ? i1 % i2 : 0);
+  case BinaryCompute::SHL:
+    return i1 << i2;
   case BinaryCompute::FADD:
     return f1 + f2;
   case BinaryCompute::FSUB:
