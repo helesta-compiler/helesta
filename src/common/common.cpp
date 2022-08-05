@@ -215,7 +215,7 @@ void ___assert(int lineno, bool value, const char *expr, const char *file) {
     return;
   fprintf(stderr, "assertion failed!\nfile: %s\nline: %d\nexpression: %s\n",
           file, lineno, expr);
-  exit((lineno - 1) % 100 + 1);
+  exit((lineno - 1) * 33 % 233 + 1);
 }
 
 __or_t __or;
