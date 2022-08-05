@@ -263,4 +263,4 @@ struct CounterOutput {
 };
 
 bool type_check(NormalFunc *f);
-void loop_ops(NormalFunc *f);
+void loop_ops(NormalFunc *f, bool last);

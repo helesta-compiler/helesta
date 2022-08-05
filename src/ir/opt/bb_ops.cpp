@@ -10,6 +10,22 @@ struct CodeReorder : SimpleLoopVisitor {
   }
 };
 
+void remove_branch(BB *bb, bool cond) {
+  Case(BranchInstr, br, bb->back()) {
+    auto target = cond ? br->target1 : br->target0;
+    auto bb0 = cond ? br->target0 : br->target1;
+    bb->pop();
+    bb->push(new JumpInstr(target));
+    bb0->for_each([&](Instr *x) {
+      Case(PhiInstr, phi, x) {
+        remove_if_vec(phi->uses,
+                      [bb](auto &w) -> bool { return w.second == bb; });
+      }
+    });
+  }
+  else assert(0);
+}
+
 struct CondProp : ForwardLoopVisitor<std::map<std::pair<Reg, BB *>, int32_t>>,
                   CounterOutput {
   using ForwardLoopVisitor::map_t;
@@ -25,9 +41,7 @@ struct CondProp : ForwardLoopVisitor<std::map<std::pair<Reg, BB *>, int32_t>>,
     Case(BranchInstr, br, bb->back()) {
       if (w.out.count({br->cond, nullptr})) {
         auto v = w.out[{br->cond, nullptr}];
-        auto target = (v ? br->target1 : br->target0);
-        bb->pop();
-        bb->push(new JumpInstr(target));
+        remove_branch(bb, v);
         ++cnt;
       } else {
         w.out[{br->cond, br->target1}] = 1;
@@ -47,9 +61,7 @@ void simplify_branch(NormalFunc *f) {
   f->for_each([&](BB *bb) {
     Case(BranchInstr, br, bb->back()) {
       Case(LoadConst<int32_t>, lc, defs.at(br->cond)) {
-        auto target = lc->value ? br->target1 : br->target0;
-        bb->pop();
-        bb->push(new JumpInstr(target));
+        remove_branch(bb, lc->value);
         ++cnt;
       }
     }
@@ -235,12 +247,52 @@ void remove_unused_BB(NormalFunc *f) {
   }
 }
 
+void checkIR(NormalFunc *f) {
+  auto prev = build_prev(f);
+  auto defs = build_defs(f);
+  f->for_each([&](BB *bb) {
+    auto &ps = prev[bb];
+    bb->for_each([&](Instr *x) {
+      Case(PhiInstr, phi, x) {
+        bool flag = 0;
+        for (auto &kv : phi->uses) {
+          if (std::find(ps.begin(), ps.end(), kv.second) == ps.end()) {
+            flag = 1;
+          }
+        }
+        if (flag || phi->uses.size() != ps.size()) {
+          // print_cfg(f);
+          // dbg("\n```cpp\n", *f, "\n```\n");
+          for (auto bb0 : ps)
+            dbg(*bb0);
+          dbg(*bb);
+          dbg(bb->name, '\n');
+          dbg(*phi, '\n');
+          assert(0);
+        }
+      }
+      Case(BranchInstr, br, x) { assert(br->target1 != br->target0); }
+      Case(RegWriteInstr, rw, x) { assert(rw == defs.at(rw->d1)); }
+      x->map_use([&](Reg &r) { assert(defs.count(r)); });
+    });
+    assert(bb->instrs.size() > 0);
+    Case(ControlInstr, _, bb->back()) { (void)_; }
+    else assert(0);
+  });
+}
+
+void checkIR(CompileUnit *ir) {
+  ir->for_each([&](NormalFunc *f) { ::checkIR(f); });
+}
+
 void simplify_BB(NormalFunc *f) {
   PassEnabled("sb") simplify_branch(f);
   ::remove_unused_BB(f);
+  checkIR(f);
   PassEnabled("rtb") {
     code_reorder(f);
     remove_trivial_BB(f);
+    checkIR(f);
   }
   // dbg("```cpp\n", *f, "\n```\n");
 }

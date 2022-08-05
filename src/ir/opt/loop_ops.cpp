@@ -272,9 +272,19 @@ void remove_unused_BB(NormalFunc *f);
 void global_value_numbering_func(IR::NormalFunc *func);
 void remove_trivial_BB(NormalFunc *f);
 
+void after_unroll(NormalFunc *f) {
+  remove_unused_BB(f);
+  checkIR(f);
+  global_value_numbering_func(f);
+  code_reorder(f);
+  remove_trivial_BB(f);
+}
 struct UnrollLoop {
   FindLoopVar &S;
-  UnrollLoop(FindLoopVar &_S) : S(_S) {}
+  uset<BB *> &disable_unroll;
+  bool last;
+  UnrollLoop(FindLoopVar &_S, uset<BB *> &_d, bool _last)
+      : S(_S), disable_unroll(_d), last(_last) {}
   bool apply() { return dfs(nullptr); }
   bool dfs(BB *w) {
     auto &wi = S.loop_info.at(w);
@@ -286,7 +296,75 @@ struct UnrollLoop {
     }
     if (unroll_fixed(w))
       return 1;
+    if (unroll_simple_for_loop(w))
+      return 1;
     return 0;
+  }
+  void _unroll_simple_for_loop(BB *w, size_t cnt, Reg i, Reg l, Reg r) {
+    assert(cnt >= 2);
+    dbg(">>> unroll: ", i, ' ', l, ' ', r, '\n');
+    auto &wi = S.loop_info.at(w);
+    std::deque<LoopCopyTool> loops;
+    loops.emplace_back(wi.bbs, w, w, S.f);
+    for (size_t i = 1; i <= cnt; ++i) {
+      loops.emplace_back(loops[0]);
+      loops.back().copy(std::string(":") + std::to_string(i) + ":");
+    }
+    auto &p0 = loops[0];
+    auto &p3 = loops[cnt - 1];
+    auto &p4 = loops[cnt];
+    BB *next = p0.get_exit_next();
+    for (size_t i = 1; i < cnt; ++i) {
+      auto &p2 = loops[i];
+      p2.no_exit();
+      p2.entry_del_edge(0);
+    }
+    for (size_t i = 1; i < cnt; ++i) {
+      auto &p1 = loops[i - 1];
+      auto &p2 = loops[i];
+      p1.back_edge_to(p2.entry);
+      p2.change_to(p1, p2.entry);
+    }
+    p3.back_edge_to(p0.entry);
+    p0.change_to(p3, p0.entry);
+    p0.exit->back()->map_BB(partial_map(next, p4.entry));
+    p4.entry->for_each([&](Instr *x) {
+      Case(PhiInstr, phi, x) {
+        size_t n = 0;
+        for (auto &[r, bb] : phi->uses) {
+          if (!p4.bbs_rev.count(bb)) {
+            r = p4.regs_rev.at(phi->d1);
+            bb = p0.exit;
+            ++n;
+          }
+        }
+        assert(n == 1);
+      }
+    });
+
+    p0.change_to(p4, next);
+
+    umap<BB *, BB *> bbs_rev;
+    for (auto &p : loops)
+      bbs_rev.insert(BE(p.bbs_rev));
+    S.f->for_each([&](BB *bb) {
+      if (!bbs_rev.count(bb)) {
+        bb->map_use(partial_map(p4.regs));
+      }
+    });
+    disable_unroll.insert(p0.entry);
+    disable_unroll.insert(p4.entry);
+
+    size_t n = 0;
+    w->for_each([&](Instr *x) {
+      Case(BranchInstr, br, x) {
+        CodeGen cg(S.f);
+        br->cond = (cg.reg(i) + cg.lc(cnt) < cg.reg(r)).r;
+        w->ins(std::move(cg.instrs));
+        ++n;
+      }
+    });
+    assert(n == 1);
   }
   void _unroll_fixed(BB *w, size_t cnt) {
     auto &wi = S.loop_info.at(w);
@@ -297,7 +375,7 @@ struct UnrollLoop {
       loops.back().copy(std::string(":") + std::to_string(i) + ":");
     }
     auto &p0 = loops[0];
-    auto &p3 = loops.back();
+    auto &p3 = loops[cnt];
     BB *next = p0.get_exit_next();
     p0.entry_del_edge(1);
     for (size_t i = 1; i <= cnt; ++i) {
@@ -324,10 +402,11 @@ struct UnrollLoop {
     });
   }
   bool unroll_fixed(BB *w) {
+    if (disable_unroll.count(w))
+      return 0;
     auto &wi = S.loop_info.at(w);
     if (wi.nested_cnt != 1)
       return 0;
-    // if(wi.instr_cnt>20)return 0;
     if (!wi.cond)
       return 0;
     auto r = S.get_const(wi.cond->s2);
@@ -368,26 +447,83 @@ struct UnrollLoop {
         print_cfg(S.f);
         dbg("\n```cpp\n", *S.f, "\n```\n");
       }
-      remove_unused_BB(S.f);
-      global_value_numbering_func(S.f);
-      code_reorder(S.f);
-      remove_trivial_BB(S.f);
+      after_unroll(S.f);
       return 1;
     }
     return 0;
   }
+  bool unroll_simple_for_loop(BB *w) {
+    constexpr size_t MAX_UNROLL_SIMPLE_FOR_INSTR = 32;
+    if (disable_unroll.count(w) || !last)
+      return 0;
+    auto &wi = S.loop_info.at(w);
+    if (wi.nested_cnt != 1)
+      return 0;
+    if (!wi.cond)
+      return 0;
+    if (wi.instr_cnt > MAX_UNROLL_SIMPLE_FOR_INSTR)
+      return 0;
+    if (!(wi.cond->less && !wi.cond->eq))
+      return 0;
+    Reg i = wi.cond->s1;
+    if (!wi.vars.count(i))
+      return 0;
+    auto ind = wi.vars[i].ind;
+    if (!ind)
+      return 0;
+    auto step = S.get_const(ind->step);
+    if (!step || *step != 1)
+      return 0;
+    auto op = ind->op;
+    if (op != BinaryCompute::ADD)
+      return 0;
+    bool pure = 1;
+    w->for_each([&](Instr *x) {
+      Case(StoreInstr, _, x) {
+        (void)_;
+        pure = 0;
+      }
+      else Case(CallInstr, _, x) {
+        (void)_;
+        pure = 0;
+      }
+    });
+    if (!pure)
+      return 0;
+    Reg l = ind->init;
+    Reg r = wi.cond->s2;
+    // for(i=l;i<r;++i);
+    dbg("for(i=", l, ";i", wi.cond->name(), r, ";i=i", BinaryOp(op), *step,
+        "){...}\n");
+    bool dbg_on(global_config.args["dbg-unroll"] == "1");
+    if (dbg_on)
+      print_cfg(S.f);
+    _unroll_simple_for_loop(w, 4, i, l, r);
+    if (dbg_on) {
+      print_cfg(S.f);
+      dbg("\n```cpp\n", *S.f, "\n```\n");
+    }
+    after_unroll(S.f);
+    if (dbg_on) {
+      print_cfg(S.f);
+      dbg("\n```cpp\n", *S.f, "\n```\n");
+    }
+    return 1;
+  }
 };
 
-bool unroll_loop(FindLoopVar &S) {
-  UnrollLoop w(S);
+bool unroll_loop(FindLoopVar &S, uset<BB *> &disable_unroll, bool last) {
+  UnrollLoop w(S, disable_unroll, last);
   return w.apply();
 }
-void loop_ops(NormalFunc *f) {
+void loop_ops(NormalFunc *f, bool last) {
+  PassDisabled("loop-ops") return;
+  uset<BB *> disable_unroll;
   for (int T = 0; T < 10; ++T) {
     DAG_IR dag(f);
     FindLoopVar w(f);
     dag.visit(w);
-    if (!unroll_loop(w))
+    if (!unroll_loop(w, disable_unroll, last))
       break;
   }
 }

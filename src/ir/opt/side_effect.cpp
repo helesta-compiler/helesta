@@ -688,12 +688,12 @@ void arith(CompileUnit *ir) {
   ir->for_each([&](NormalFunc *f) { mod2div(f); });
 }
 
-void dag_ir(CompileUnit *ir) {
+void dag_ir(CompileUnit *ir, bool last) {
   static size_t round;
   dbg("DAG IR Round ", ++round, "\n");
   ir->for_each([&](NormalFunc *f) { local_init_to_global(ir, f); });
   DAG_IR_ALL _(ir, NORMAL);
-  ir->for_each([&](NormalFunc *f) { loop_ops(f); });
+  ir->for_each([&](NormalFunc *f) { loop_ops(f, last); });
   ir->for_each([&](NormalFunc *f) { local_init_to_global(ir, f); });
   arith(ir);
 }

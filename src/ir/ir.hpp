@@ -743,7 +743,8 @@ struct CodeGen {
         new BinaryOpInstr(r, a.r, b.r, BinaryCompute::name));                  \
     return a.cg->reg(r);                                                       \
   }
-    bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD)
+    bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD) bop(<, LESS)
+        bop(<=, LEQ)
 #undef bop
   };
   RegRef reg(Reg r) { return RegRef{r, this}; }

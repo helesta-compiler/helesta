@@ -281,9 +281,11 @@ void call_graph(CompileUnit *ir) {
   PassEnabled("pure") cg.build_pure();
   PassEnabled("rur") cg.remove_unused_ret();
   PassEnabled("trtl") cg.tail_rec_to_loop();
+  checkIR(ir);
 }
 void remove_unused_func(CompileUnit *ir) {
   PassDisabled("ruf") return;
   CallGraph cg(ir);
   cg.remove_unused_func();
+  checkIR(ir);
 }
