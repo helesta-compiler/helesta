@@ -252,7 +252,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         else
           int_args.push_back(r);
       }
-      for (size_t i = float_args.size() - 1; i >= 0; i--) {
+      for (int i = float_args.size() - 1; i >= 0; i--) {
         if (static_cast<int>(i) >=
             RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT) {
           push_back(std::make_unique<Push>(std::vector<Reg>{float_args[i]}));
@@ -263,7 +263,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
               float_args[i]));
         }
       }
-      for (size_t i = int_args.size() - 1; i >= 0; i--) {
+      for (int i = int_args.size() - 1; i >= 0; i--) {
         if (static_cast<int>(i) >=
             RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT) {
           push_back(std::make_unique<Push>(std::vector<Reg>{int_args[i]}));
