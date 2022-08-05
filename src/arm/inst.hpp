@@ -690,7 +690,7 @@ struct FuncCall : Inst {
       if (RegConvention<ScalarType::Float>::REGISTER_USAGE[i] ==
           RegisterUsage::caller_save)
         ret.emplace_back(Reg(i, ScalarType::Float));
-    ret.emplace_back(lr);
+    ret.emplace_back(Reg(lr, ScalarType::Int));
     return ret;
   }
   virtual bool side_effect() override { return true; }

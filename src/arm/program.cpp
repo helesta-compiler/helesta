@@ -228,7 +228,8 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(make_unique<Return>(ScalarType::Void));
       } else {
         push_back(make_unique<MoveReg>(
-            Reg{RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0]},
+            Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0],
+                ScalarType::Int),
             info->from_ir_reg(ret->s1)));
         push_back(make_unique<Return>(ScalarType::Int));
       }
@@ -238,7 +239,8 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(make_unique<Return>(ScalarType::Void));
       } else {
         push_back(make_unique<MoveReg>(
-            Reg{RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0]},
+            Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0],
+                ScalarType::Float),
             info->from_ir_reg(ret->s1)));
         push_back(make_unique<Return>(ScalarType::Float));
       }
@@ -370,7 +372,7 @@ MappingInfo::MappingInfo()
                    RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT)) {
 }
 
-Reg MappingInfo::new_reg() { return Reg{reg_n++, ScalarType::Int}; }
+Reg MappingInfo::new_reg() { return Reg(reg_n++, ScalarType::Int); }
 
 Reg MappingInfo::from_ir_reg(IR::Reg ir_reg) {
   auto it = reg_mapping.find(ir_reg.id);
@@ -379,7 +381,7 @@ Reg MappingInfo::from_ir_reg(IR::Reg ir_reg) {
     return ret;
   }
   Reg ret = new_reg();
-  reg_mapping[ir_reg.id] = ret;
+  reg_mapping.insert({ir_reg.id, ret});
   return ret;
 }
 void MappingInfo::set_float(Reg reg) {
@@ -585,8 +587,8 @@ void Func::merge_inst() {
             Del();
           } else if (v > 1) {
             auto [B, s] = div_opt(v);
-            Reg lo = Reg{r4};
-            Reg hi = Reg{r5};
+            Reg lo = Reg(r4, ScalarType::Int);
+            Reg hi = Reg(r5, ScalarType::Int);
             int32_t B0 = B & 0x7fffffff;
             Reg x = bop->lhs;
             Ins(load_imm(lo, B0));
@@ -628,8 +630,8 @@ void Func::merge_inst() {
             Del();
           } else if (v > 1) {
             auto [B, s] = div_opt(v);
-            Reg lo = Reg{r4};
-            Reg hi = Reg{r5};
+            Reg lo = Reg(r4, ScalarType::Int);
+            Reg hi = Reg(r5, ScalarType::Int);
             int32_t B0 = B & 0x7fffffff;
             Reg x = bop->lhs;
             Ins(load_imm(lo, B0));
@@ -828,12 +830,13 @@ bool Func::check_store_stack() {
         int32_t total_offset =
             store_stk->target->position + store_stk->offset - sp_offset;
         if (!load_store_offset_range(total_offset)) {
-          Reg imm{reg_n++};
+          Reg imm(reg_n++, ScalarType::Int);
           block->insts.insert(
               i, set_cond(make_unique<LoadStackOffset>(imm, store_stk->offset,
                                                        store_stk->target),
                           cond));
-          *i = set_cond(make_unique<ComplexStore>(store_stk->src, Reg{sp}, imm),
+          *i = set_cond(make_unique<ComplexStore>(
+                            store_stk->src, Reg(sp, ScalarType::Int), imm),
                         cond);
           ret = false;
         }
@@ -867,14 +870,18 @@ void Func::replace_complex_inst() {
           Reg tmp = dst;
           tmp.type = ScalarType::Int;
           insert(block->insts, i, set_cond(load_imm(tmp, total_offset), cond));
-          *i = set_cond(make_unique<ComplexLoad>(dst, Reg{sp}, tmp), cond);
+          *i = set_cond(
+              make_unique<ComplexLoad>(dst, Reg(sp, ScalarType::Int), tmp),
+              cond);
         }
       } else if (auto load_stk_addr = (*i)->as<LoadStackAddr>()) {
         int32_t total_offset =
             load_stk_addr->src->position + load_stk_addr->offset - sp_offset;
         Reg dst = load_stk_addr->dst;
-        replace(block->insts, i,
-                set_cond(reg_imm_sum(dst, Reg{sp}, total_offset), cond));
+        replace(
+            block->insts, i,
+            set_cond(reg_imm_sum(dst, Reg(sp, ScalarType::Int), total_offset),
+                     cond));
       } else if (auto load_stk_offset = (*i)->as<LoadStackOffset>()) {
         int32_t total_offset = load_stk_offset->src->position +
                                load_stk_offset->offset - sp_offset;
@@ -922,7 +929,7 @@ void Func::gen_asm(ostream &out) {
       if (RegConvention<ScalarType::Int>::REGISTER_USAGE[i] ==
               RegisterUsage::callee_save &&
           used_int[i])
-        save_int_regs.emplace_back(i);
+        save_int_regs.emplace_back(Reg(i, ScalarType::Int));
     for (int i : float_reg_alloc)
       if (i >= 0)
         used_float[i] = true;
@@ -930,7 +937,7 @@ void Func::gen_asm(ostream &out) {
       if (RegConvention<ScalarType::Float>::REGISTER_USAGE[i] ==
               RegisterUsage::callee_save &&
           used_float[i])
-        save_float_regs.emplace_back(i);
+        save_float_regs.emplace_back(Reg(i, ScalarType::Float));
     size_t save_reg_cnt = save_int_regs.size() + save_float_regs.size();
     if (save_reg_cnt)
       save_reg_cnt += 16;

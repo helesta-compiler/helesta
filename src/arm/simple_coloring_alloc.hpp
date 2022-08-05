@@ -37,11 +37,13 @@ template <ScalarType type> class SimpleColoringAllocator {
       std::set<Reg> live = block->live_out;
       temp.clear();
       for (Reg r : live)
-        if (r.is_pseudo() || RegConvention<type>::allocable(r.id))
+        if (r.type == type &&
+            (r.is_pseudo() || RegConvention<type>::allocable(r.id)))
           temp.push_back(r.id);
       if (block->insts.size() > 0)
         for (Reg r : (*block->insts.rbegin())->def_reg())
-          if (r.is_pseudo() || RegConvention<type>::allocable(r.id))
+          if (r.type == type &&
+              (r.is_pseudo() || RegConvention<type>::allocable(r.id)))
             temp.push_back(r.id);
       for (size_t idx1 = 0; idx1 < temp.size(); ++idx1)
         for (size_t idx0 = 0; idx0 < idx1; ++idx0)
@@ -52,12 +54,14 @@ template <ScalarType type> class SimpleColoringAllocator {
       for (auto i = block->insts.rbegin(); i != block->insts.rend(); ++i) {
         new_nodes.clear();
         for (Reg r : (*i)->def_reg())
-          if (r.is_pseudo() || RegConvention<type>::allocable(r.id)) {
+          if (r.type == type &&
+              (r.is_pseudo() || RegConvention<type>::allocable(r.id))) {
             occur[r.id] = 1;
             live.erase(r);
           }
         for (Reg r : (*i)->use_reg())
-          if (r.is_pseudo() || RegConvention<type>::allocable(r.id)) {
+          if (r.type == type &&
+              (r.is_pseudo() || RegConvention<type>::allocable(r.id))) {
             occur[r.id] = 1;
             if (live.find(r) == live.end()) {
               for (Reg o : live) {
@@ -70,7 +74,8 @@ template <ScalarType type> class SimpleColoringAllocator {
           }
         if (std::next(i) != block->insts.rend())
           for (Reg r : (*std::next(i))->def_reg())
-            if (r.is_pseudo() || RegConvention<type>::allocable(r.id)) {
+            if (r.type == type &&
+                (r.is_pseudo() || RegConvention<type>::allocable(r.id))) {
               new_nodes.push_back(r.id);
               if (live.find(r) == live.end())
                 for (Reg o : live) {
@@ -91,9 +96,9 @@ template <ScalarType type> class SimpleColoringAllocator {
     std::vector<StackObject *> spill_obj;
     std::set<int> constant_spilled;
     for (size_t i = 0; i < spill_nodes.size(); ++i)
-      if (func->constant_reg.find(Reg{spill_nodes[i]}) !=
+      if (func->constant_reg.find(Reg(spill_nodes[i], type)) !=
               func->constant_reg.end() ||
-          func->symbol_reg.find(Reg{spill_nodes[i]}) !=
+          func->symbol_reg.find(Reg(spill_nodes[i], type)) !=
               func->symbol_reg.end()) {
         constant_spilled.insert(spill_nodes[i]);
         spill_obj.push_back(nullptr);
@@ -119,26 +124,29 @@ template <ScalarType type> class SimpleColoringAllocator {
           continue;
         for (size_t j = 0; j < spill_nodes.size(); ++j) {
           int id = spill_nodes[j];
-          bool cur_def = (*i)->def(Reg{id}), cur_use = (*i)->use(Reg{id});
-          if (func->constant_reg.find(Reg{id}) != func->constant_reg.end()) {
+          bool cur_def = (*i)->def(Reg(id, type)),
+               cur_use = (*i)->use(Reg(id, type));
+          if (func->constant_reg.find(Reg(id, type)) !=
+              func->constant_reg.end()) {
             assert(!cur_def);
             if (cur_use) {
               Reg tmp{func->reg_n++, func->get_reg_type(id)};
               func->spilling_reg.insert(tmp);
-              func->constant_reg[tmp] = func->constant_reg[Reg(id)];
+              func->constant_reg[tmp] = func->constant_reg[Reg(id, type)];
               insert(block->insts, i,
-                     load_imm(tmp, func->constant_reg[Reg(id)]));
-              (*i)->replace_reg(Reg{id}, tmp);
+                     load_imm(tmp, func->constant_reg[Reg(id, type)]));
+              (*i)->replace_reg(Reg(id, type), tmp);
             }
-          } else if (func->symbol_reg.find(Reg{id}) != func->symbol_reg.end()) {
+          } else if (func->symbol_reg.find(Reg(id, type)) !=
+                     func->symbol_reg.end()) {
             assert(!cur_def);
             if (cur_use) {
               Reg tmp{func->reg_n++, func->get_reg_type(id)};
               func->spilling_reg.insert(tmp);
-              func->symbol_reg[tmp] = func->symbol_reg[Reg(id)];
+              func->symbol_reg[tmp] = func->symbol_reg[Reg(id, type)];
               insert(block->insts, i,
-                     load_symbol_addr(tmp, func->symbol_reg[Reg(id)]));
-              (*i)->replace_reg(Reg{id}, tmp);
+                     load_symbol_addr(tmp, func->symbol_reg[Reg(id, type)]));
+              (*i)->replace_reg(Reg(id, type), tmp);
             }
           } else {
             if (cur_def || cur_use) {
@@ -151,7 +159,7 @@ template <ScalarType type> class SimpleColoringAllocator {
               if (cur_def)
                 block->insts.insert(std::next(i), std::make_unique<StoreStack>(
                                                       tmp, 0, cur_obj));
-              (*i)->replace_reg(Reg{id}, tmp);
+              (*i)->replace_reg(Reg(id, type), tmp);
             }
           }
         }
@@ -193,15 +201,15 @@ template <ScalarType type> class SimpleColoringAllocator {
   int choose_spill() {
     int spill_node = -1;
     for (int i : remain_pesudo_nodes)
-      if (func->spilling_reg.find(Reg{i}) == func->spilling_reg.end())
-        if (func->constant_reg.find(Reg{i}) != func->constant_reg.end() ||
-            func->symbol_reg.find(Reg{i}) != func->symbol_reg.end())
+      if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end())
+        if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end() ||
+            func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end())
           if (spill_node == -1 ||
               interfere_edge[i].size() > interfere_edge[spill_node].size())
             spill_node = i;
     if (spill_node == -1) {
       for (int i : remain_pesudo_nodes)
-        if (func->spilling_reg.find(Reg{i}) == func->spilling_reg.end())
+        if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end())
           if (spill_node == -1 ||
               interfere_edge[i].size() > interfere_edge[spill_node].size())
             spill_node = i;

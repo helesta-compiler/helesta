@@ -13,7 +13,7 @@ struct Reg {
   int id;
   ScalarType type;
 
-  Reg(int _id = -1, ScalarType _type = ScalarType::Int)
+  Reg(int _id, ScalarType _type)
       : id(_id), type(_type) {}
   inline bool is_machine() const {
     if (type == ScalarType::Int) {
@@ -54,7 +54,8 @@ enum InstCond { Always, Eq, Ne, Ge, Gt, Le, Lt };
 
 struct CmpInfo {
   InstCond cond;
-  Reg lhs, rhs;
+  Reg lhs = Reg(-1, ScalarType::Int); 
+  Reg rhs = Reg(-1, ScalarType::Int);
   bool is_float;
 };
 

@@ -441,9 +441,10 @@ void Store::gen_asm(ostream &out, AsmContext *) {
 
 void ComplexLoad::gen_asm(ostream &out, AsmContext *) {
   if (dst.type == ScalarType::Float) {
-    out << "ldr" << cond << ' ' << Reg{dst.id} << ",[" << base << ',' << offset
-        << shift << "]\n";
-    out << "vmov" << cond << ' ' << dst << ',' << Reg{dst.id} << "\n";
+    out << "ldr" << cond << ' ' << Reg(dst.id, ScalarType::Float) << ",["
+        << base << ',' << offset << shift << "]\n";
+    out << "vmov" << cond << ' ' << dst << ',' << Reg(dst.id, ScalarType::Float)
+        << "\n";
   } else {
     out << "ldr" << cond << ' ' << dst << ",[" << base << ',' << offset << shift
         << "]\n";
@@ -452,9 +453,10 @@ void ComplexLoad::gen_asm(ostream &out, AsmContext *) {
 
 void ComplexStore::gen_asm(ostream &out, AsmContext *) {
   if (src.type == ScalarType::Float) {
-    out << "vmov" << cond << ' ' << Reg{src.id} << ',' << src << "\n";
-    out << "str" << cond << ' ' << Reg{src.id} << ",[" << base << ',' << offset
-        << shift << "]\n";
+    out << "vmov" << cond << ' ' << Reg(src.id, ScalarType::Float) << ',' << src
+        << "\n";
+    out << "str" << cond << ' ' << Reg(src.id, ScalarType::Float) << ",["
+        << base << ',' << offset << shift << "]\n";
   } else {
     out << "str" << cond << ' ' << src << ",[" << base << ',' << offset << shift
         << "]\n";
