@@ -75,6 +75,8 @@ void handle_params(Func *ctx, MappingInfo &info, Block *entry,
   for (int i = 0; i < arg_n; ++i) {
     Reg cur_arg = info.new_reg();
     cur_arg.type = type;
+    if (type == ScalarType::Float)
+      info.set_float(cur_arg);
     if (i < RegConvention<type>::ARGUMENT_REGISTER_COUNT) {
       entry->push_back(make_unique<MoveReg>(
           cur_arg, Reg(RegConvention<type>::ARGUMENT_REGISTERS[i], type)));
