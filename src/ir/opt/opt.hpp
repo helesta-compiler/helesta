@@ -50,6 +50,8 @@ inline void optimize_ir(IR::CompileUnit *ir) {
       gvn(ir);
       call_graph(ir);
       gvn(ir);
+      dag_ir(ir);
+      gvn(ir);
       PassEnabled("func-inline") {
         func_inline(ir);
         remove_unused_func(ir);

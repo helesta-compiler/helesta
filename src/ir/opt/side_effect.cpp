@@ -151,6 +151,8 @@ struct SideEffect : SimpleLoopVisitor {
         }
       }
     });
+    remove_if(w.may_read,
+              [&](MemObject *mem) -> bool { return mem && mem->is_const; });
     loop_info[bb] = w;
   }
   void visitMayExit(BB *, BB *) {}
@@ -208,7 +210,7 @@ struct MergePureCall
       replace_reg(x);
       Case(StoreInstr, st, x) { update(w.out, se.maybe(st->addr)); }
       else Case(CallInstr, call, x) {
-        // std::cerr << bb->name << " >>> " << *call << std::endl;
+        // dbg(bb->name, " >>> ", *call, se.may_read(call->f));
         if (call->no_store) {
           auto key = std::make_pair(call->f, call->args);
           if (w.out.count(key)) {

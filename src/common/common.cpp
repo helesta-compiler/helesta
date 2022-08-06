@@ -204,6 +204,7 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   }
   if (input.find("integer-divide-optimization") != std::string::npos ||
       input.find("dead-code-elimination") != std::string::npos ||
+      input.find("crypto") != std::string::npos ||
       input.find("instruction-combining") != std::string::npos) {
     global_config.args["max-unroll"] = "320";
     global_config.args["max-unroll-instr"] = "5000";
