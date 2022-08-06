@@ -260,10 +260,11 @@ struct CallGraph {
         auto old_entry = f->entry;
         f->entry = new_entry;
         for (auto &[id, rs] : args) {
-            if (std::get<2>(rs) == ScalarType::Int)
-                new_entry->push(new LoadArg<ScalarType::Int>(std::get<0>(rs), id));
-            if (std::get<2>(rs) == ScalarType::Float)
-                new_entry->push(new LoadArg<ScalarType::Float>(std::get<0>(rs), id));
+          if (std::get<2>(rs) == ScalarType::Int)
+            new_entry->push(new LoadArg<ScalarType::Int>(std::get<0>(rs), id));
+          if (std::get<2>(rs) == ScalarType::Float)
+            new_entry->push(
+                new LoadArg<ScalarType::Float>(std::get<0>(rs), id));
         }
         new_entry->push(new JumpInstr(old_entry));
         for (auto &[id, rs] : args) {
