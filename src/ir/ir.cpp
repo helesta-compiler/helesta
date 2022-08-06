@@ -110,7 +110,7 @@ void CallInstr::print(ostream &os) const {
   os << d1 << " = " << f->name;
   char c = '(';
   for (auto s : args) {
-    os << c << s;
+    os << c << s.first;
     c = ',';
   }
   if (c == '(')
@@ -306,7 +306,7 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
       u = new CallInstr(*w);
     f1(u->d1);
     for (auto &x : u->args)
-      f1(x);
+      f1(x.first);
     return u;
   }
   Case(PhiInstr, w, this) {
@@ -517,8 +517,8 @@ int exec(CompileUnit &c) {
         else Case(CallInstr, x, x0) {
           typeless_scalar_t ret = 0;
           std::vector<typeless_scalar_t> args;
-          for (Reg p : x->args)
-            args.push_back(rReg(p));
+          for (auto kv : x->args)
+            args.push_back(rReg(kv.first));
           Case(NormalFunc, f, x->f) {
             sp += sz;
             ret = run(f, args);

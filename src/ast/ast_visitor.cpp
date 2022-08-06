@@ -574,8 +574,7 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   cur_local_table = new_variable_table(&global_var);
   if (name == "main") {
     found_main = true;
-    cur_bb->push(new IR::CallInstr(new_reg(), init_func, vector<IR::Reg>{},
-                                   ScalarType::Void));
+    cur_bb->push(new IR::CallInstr(new_reg(), init_func, {}, ScalarType::Void));
     if (!return_value_non_void)
       _throw InvalidMainFuncInterface("main function should return int");
     if (params.size() > 0)

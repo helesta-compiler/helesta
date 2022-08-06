@@ -247,14 +247,13 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
     } else if (auto call = dynamic_cast<IR::CallInstr *>(cur)) {
       std::vector<Reg> float_args;
       std::vector<Reg> int_args;
-      for (auto reg : call->args) {
-        auto r = info->from_ir_reg(reg);
-        if (r.type == ScalarType::Float) {
+      for (auto kv : call->args) {
+        auto r = info->from_ir_reg(kv.first);
+        if (kv.second == ScalarType::Float) {
+          info->set_float(r);
           float_args.push_back(r);
-          std::cout << r << " is float" << std::endl;
         } else {
           int_args.push_back(r);
-          std::cout << r << " is int" << std::endl;
         }
       }
       for (int i = float_args.size() - 1; i >= 0; i--) {
