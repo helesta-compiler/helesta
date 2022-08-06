@@ -84,6 +84,8 @@ template <> void LoadConst<float>::print(ostream &os) const {
 }
 template <ScalarType type> void LoadArg<type>::print(ostream &os) const {
   os << d1 << " = arg" << id;
+  if (type == ScalarType::Float)
+    os << " float";
 }
 void ArrayIndex::print(ostream &os) const {
   os << d1 << " = " << s1 << " + " << s2 << " * " << size << " : " << limit;

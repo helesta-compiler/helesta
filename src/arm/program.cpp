@@ -65,8 +65,12 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
                                      func->int_arg_reg[loadarg->id]));
     } else if (auto loadarg =
                    dynamic_cast<IR::LoadArg<ScalarType::Float> *>(cur)) {
-      push_back(make_unique<MoveReg>(info->from_ir_reg(loadarg->d1),
-                                     func->float_arg_reg[loadarg->id]));
+      auto arg_reg = info->from_ir_reg(loadarg->d1);
+      arg_reg.type = ScalarType::Float;
+      info->set_float(arg_reg);
+      assert(func->float_arg_reg[loadarg->id].type == ScalarType::Float);
+      push_back(
+          make_unique<MoveReg>(arg_reg, func->float_arg_reg[loadarg->id]));
     } else if (auto unary = dynamic_cast<IR::UnaryOpInstr *>(cur)) {
       Reg dst = info->from_ir_reg(unary->d1),
           src = info->from_ir_reg(unary->s1);
@@ -406,6 +410,35 @@ void MappingInfo::set_maybe_float_assign(Reg &r1, Reg &r2) {
   }
 }
 
+template <ScalarType type>
+void handle_params(Func *ctx, MappingInfo &info, Block *entry,
+                   IR::NormalFunc *ir_func) {
+  int arg_n = 0;
+  for (auto &bb : ir_func->bbs)
+    for (auto &inst : bb->instrs)
+      if (auto *cur = dynamic_cast<IR::LoadArg<type> *>(inst.get()))
+        arg_n = std::max(arg_n, cur->id + 1);
+  for (int i = 0; i < arg_n; ++i) {
+    Reg cur_arg = info.new_reg();
+    cur_arg.type = type;
+    if (i < RegConvention<type>::ARGUMENT_REGISTER_COUNT) {
+      entry->push_back(make_unique<MoveReg>(
+          cur_arg, Reg(RegConvention<type>::ARGUMENT_REGISTERS[i], type)));
+    } else {
+      unique_ptr<StackObject> t = make_unique<StackObject>();
+      t->size = INT_SIZE;
+      t->position = -1;
+      entry->push_back(make_unique<LoadStack>(cur_arg, 0, t.get()));
+      ctx->caller_stack_object.push_back(std::move(t));
+    }
+    if constexpr (type == ScalarType::Int) {
+      ctx->int_arg_reg.push_back(cur_arg);
+    } else {
+      ctx->float_arg_reg.push_back(cur_arg);
+    }
+  }
+}
+
 Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     : name(_name), entry(nullptr), reg_n(0) {
   MappingInfo info;
@@ -429,47 +462,8 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     info.rev_block_mapping[res.get()] = cur;
     blocks.push_back(std::move(res));
   }
-  int arg_n = 0;
-  for (auto &bb : ir_func->bbs)
-    for (auto &inst : bb->instrs)
-      if (auto *cur = dynamic_cast<IR::LoadArg<ScalarType::Int> *>(inst.get()))
-        arg_n = std::max(arg_n, cur->id + 1);
-  for (int i = 0; i < arg_n; ++i) {
-    Reg cur_arg = info.new_reg();
-    if (i < RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT) {
-      entry->push_back(make_unique<MoveReg>(
-          cur_arg, Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[i],
-                       ScalarType::Int)));
-    } else {
-      unique_ptr<StackObject> t = make_unique<StackObject>();
-      t->size = INT_SIZE;
-      t->position = -1;
-      entry->push_back(make_unique<LoadStack>(cur_arg, 0, t.get()));
-      caller_stack_object.push_back(std::move(t));
-    }
-    int_arg_reg.push_back(cur_arg);
-  }
-  arg_n = 0;
-  for (auto &bb : ir_func->bbs)
-    for (auto &inst : bb->instrs)
-      if (auto *cur =
-              dynamic_cast<IR::LoadArg<ScalarType::Float> *>(inst.get()))
-        arg_n = std::max(arg_n, cur->id + 1);
-  for (int i = 0; i < arg_n; ++i) {
-    Reg cur_arg = info.new_reg();
-    if (i < RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT) {
-      entry->push_back(make_unique<MoveReg>(
-          cur_arg, Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[i],
-                       ScalarType::Float)));
-    } else {
-      unique_ptr<StackObject> t = make_unique<StackObject>();
-      t->size = INT_SIZE;
-      t->position = -1;
-      entry->push_back(make_unique<LoadStack>(cur_arg, 0, t.get()));
-      caller_stack_object.push_back(std::move(t));
-    }
-    float_arg_reg.push_back(cur_arg);
-  }
+  handle_params<ScalarType::Int>(this, info, entry, ir_func);
+  handle_params<ScalarType::Float>(this, info, entry, ir_func);
   Block *real_entry = info.block_mapping[ir_func->entry];
   if (blocks[1].get() != real_entry)
     entry->push_back(make_unique<Branch>(real_entry));
