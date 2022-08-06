@@ -49,6 +49,7 @@ struct PointerBase : InstrVisitor, Defs {
     else Case(LoadArg, la, x) {
       auto &w = info[la->d1];
       w.base = std::make_pair(f, la->id);
+      w.mustbe = std::nullopt;
     }
     else Case(LoadAddr, la, x) {
       auto &w = info[la->d1];
@@ -98,7 +99,7 @@ struct SideEffect : SimpleLoopVisitor {
   std::optional<std::pair<MemObject *, MemSize>> mustbe(Reg r) {
     if (!ptr_base.info.count(r))
       return std::nullopt;
-    return *ptr_base.info.at(r).mustbe;
+    return ptr_base.info.at(r).mustbe;
   }
   mem_set_t &maybe(Reg r) {
     if (!ptr_base.info.count(r))
@@ -154,6 +155,33 @@ struct SideEffect : SimpleLoopVisitor {
   }
   void visitMayExit(BB *, BB *) {}
   void visitEdge(BB *, BB *) {}
+  void find_constant(CompileUnit *ir) {
+    std::unordered_set<MemObject *> non_const;
+    ir->for_each([&](NormalFunc *f) {
+      auto &info = mp->at(f)->ptr_base.info;
+      auto set_non_const = [&](Reg r) {
+        if (info.count(r)) {
+          if (auto mem = std::get_if<MemObject *>(&info[r].base)) {
+            non_const.insert(*mem);
+          }
+        }
+      };
+      f->for_each([&](Instr *x) {
+        Case(StoreInstr, st, x) { set_non_const(st->addr); }
+        else Case(CallInstr, call, x) {
+          for (Reg r : call->args) {
+            set_non_const(r);
+          }
+        }
+      });
+    });
+    ir->for_each([&](MemScope &scope) {
+      scope.for_each([&](MemObject *mem) {
+        mem->is_const = !non_const.count(mem);
+        // dbg(mem->is_const ? "const " : "mut ", mem->name, '\n');
+      });
+    });
+  }
 };
 
 struct MergePureCall
@@ -200,12 +228,14 @@ struct MergePureCall
 
 struct GlobalInitProp : ForwardLoopVisitor<std::map<MemObject *, bool>> {
   SideEffect &se;
-  GlobalInitProp(SideEffect &_se, BB *bb, MemScope &scope) : se(_se) {
-    scope.for_each([&](MemObject *mem) {
-      if (mem->scalar_type == ScalarType::Int) {
-        info[bb].in[mem];
-      }
-    });
+  GlobalInitProp(SideEffect &_se, BB *bb, MemScope &scope, bool is_main)
+      : se(_se) {
+    if (is_main)
+      scope.for_each([&](MemObject *mem) {
+        if (mem->scalar_type == ScalarType::Int) {
+          info[bb].in[mem];
+        }
+      });
   }
   void update(map_t &m, mem_set_t &mw) {
     remove_if(m, [&](typename map_t::value_type &t) -> bool {
@@ -233,11 +263,11 @@ struct GlobalInitProp : ForwardLoopVisitor<std::map<MemObject *, bool>> {
       Instr *x = it->get();
       Case(LoadInstr, ld, x) {
         auto v = se.mustbe(ld->addr);
-        if (v && w.out.count(v->first)) {
+        if (v)
+          assert(v->first);
+        if (v && (v->first->is_const || w.out.count(v->first))) {
           if (v->first->scalar_type == ScalarType::Int) {
             lc<int32_t>(v, ld->d1, it);
-          } else {
-            lc<float>(v, ld->d1, it);
           }
         }
       }
@@ -641,6 +671,7 @@ DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
   });
   update_alias();
   ir->for_each([&](NormalFunc *f) { dags[f]->visit(*effect[f]); });
+  effect.at(ir->main())->find_constant(ir);
   // print();
   for (auto &[f, dag] : dags) {
     SideEffect &se = *effect[f];
@@ -661,10 +692,10 @@ DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
         RemoveUnusedStore w(se);
         dag->visit_rev(w);
       }
-      {
-        GlobalInitProp w(se, f->entry, ir->scope);
-        dag->visit(w);
-      }
+    }
+    {
+      GlobalInitProp w(se, f->entry, ir->scope, f == ir->main());
+      dag->visit(w);
     }
   }
 }
