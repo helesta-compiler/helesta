@@ -1,3 +1,4 @@
+#include "ir/opt/add_expr.hpp"
 #include "ir/opt/dom.hpp"
 #include "ir/opt/opt.hpp"
 using namespace IR;
@@ -14,112 +15,151 @@ std::map<Reg, int> build_use_count(NormalFunc *func) {
   return f;
 }
 
-struct AddExpr : Printable {
-  int32_t c = 0;
-  bool bad = 0;
-  std::map<Reg, int32_t> cs;
-  void add_eq(Reg x, int32_t a) {
-    if (bad)
-      return;
-    int32_t &v = cs[x];
-    v += a;
-    if (!v)
-      cs.erase(x);
-    if (cs.size() > 20) {
-      cs.clear();
-      bad = 1;
-    }
+void AddExpr::add_eq(Reg x, int32_t a) {
+  if (bad)
+    return;
+  int32_t &v = cs[x];
+  v += a;
+  if (!v)
+    cs.erase(x);
+  if (cs.size() > 20) {
+    cs.clear();
+    bad = 1;
   }
-  void print(std::ostream &os) const override {
-    if (bad) {
-      os << "[bad]";
-      return;
-    }
-    os << c;
-    for (auto [x, a] : cs) {
-      if (a >= 0)
-        os << '+';
-      if (a == -1)
-        os << '-';
-      else if (a != 1)
-        os << a << '*';
-      os << x;
-    }
+}
+void AddExpr::print(std::ostream &os) const {
+  if (bad) {
+    os << "[bad]";
+    return;
   }
-  void add_eq(const AddExpr &w, int32_t s) {
-    if (bad)
-      return;
-    if (w.bad) {
-      bad = 1;
-      return;
-    }
-    c += w.c * s;
-    for (auto [x, a] : w.cs) {
-      add_eq(x, a * s);
-    }
+  os << c;
+  for (auto [x, a] : cs) {
+    if (a >= 0)
+      os << '+';
+    if (a == -1)
+      os << '-';
+    else if (a != 1)
+      os << a << '*';
+    os << x;
   }
-  void set_mul(const AddExpr &w1, const AddExpr &w2) {
-    if (w1.bad | w2.bad)
-      bad = 1;
-    else if (w1.cs.empty())
-      add_eq(w2, w1.c);
-    else if (w2.cs.empty())
-      add_eq(w1, w2.c);
-    else
-      bad = 1;
-    // std::cerr << w1 << '*' << w2 << '=' << *this << '\n';
+}
+void AddExpr::add_eq(const AddExpr &w, int32_t s) {
+  if (bad)
+    return;
+  if (w.bad) {
+    bad = 1;
+    return;
   }
-  std::list<std::unique_ptr<Instr>> genIR(Reg result, NormalFunc *f) {
-    std::map<int32_t, std::vector<std::pair<Reg, int32_t>>> mp;
-    CodeGen cg(f);
-    for (auto [x, a] : cs) {
-      mp[a > 0 ? a : -a].emplace_back(x, a > 0 ? 1 : -1);
-    }
-    std::optional<CodeGen::RegRef> sum;
-    if (c) {
-      sum = cg.lc(c);
-    }
-    for (auto &[a, xs] : mp) {
-      for (auto &x : xs)
-        if (x.second == 1) {
-          std::swap(x, xs[0]);
-          break;
-        }
-      std::optional<CodeGen::RegRef> reg_xs;
-      for (auto [x, s] : xs) {
-        auto reg_x = cg.reg(x);
-        // std::cerr << "reg_x: " << reg_x.r << '\n';
-        if (!reg_xs) {
-          if (s == 1) {
-            reg_xs = reg_x;
-          } else {
-            reg_xs = -reg_x;
-          }
+  c += w.c * s;
+  for (auto [x, a] : w.cs) {
+    add_eq(x, a * s);
+  }
+}
+void AddExpr::set_mul(const AddExpr &w1, const AddExpr &w2) {
+  if (w1.bad | w2.bad)
+    bad = 1;
+  else if (w1.cs.empty())
+    add_eq(w2, w1.c);
+  else if (w2.cs.empty())
+    add_eq(w1, w2.c);
+  else
+    bad = 1;
+  // std::cerr << w1 << '*' << w2 << '=' << *this << '\n';
+}
+std::list<std::unique_ptr<Instr>> AddExpr::genIR(Reg result, NormalFunc *f) {
+  std::map<int32_t, std::vector<std::pair<Reg, int32_t>>> mp;
+  CodeGen cg(f);
+  for (auto [x, a] : cs) {
+    mp[a > 0 ? a : -a].emplace_back(x, a > 0 ? 1 : -1);
+  }
+  std::optional<CodeGen::RegRef> sum;
+  if (c) {
+    sum = cg.lc(c);
+  }
+  for (auto &[a, xs] : mp) {
+    for (auto &x : xs)
+      if (x.second == 1) {
+        std::swap(x, xs[0]);
+        break;
+      }
+    std::optional<CodeGen::RegRef> reg_xs;
+    for (auto [x, s] : xs) {
+      auto reg_x = cg.reg(x);
+      // std::cerr << "reg_x: " << reg_x.r << '\n';
+      if (!reg_xs) {
+        if (s == 1) {
+          reg_xs = reg_x;
         } else {
-          if (s == 1) {
-            reg_xs = *reg_xs + reg_x;
-          } else {
-            reg_xs = *reg_xs - reg_x;
-          }
+          reg_xs = -reg_x;
         }
-        // std::cerr << "reg_xs: " << reg_xs->r << '\n';
-      }
-      if (a != 1) {
-        reg_xs = *reg_xs * cg.lc(a);
-      }
-      if (!sum) {
-        sum = *reg_xs;
       } else {
-        sum = *sum + *reg_xs;
+        if (s == 1) {
+          reg_xs = *reg_xs + reg_x;
+        } else {
+          reg_xs = *reg_xs - reg_x;
+        }
       }
+      // std::cerr << "reg_xs: " << reg_xs->r << '\n';
+    }
+    if (a != 1) {
+      reg_xs = *reg_xs * cg.lc(a);
     }
     if (!sum) {
-      sum = cg.lc(0);
+      sum = *reg_xs;
+    } else {
+      sum = *sum + *reg_xs;
     }
-    cg.reg(result).set_last_def(*sum);
-    return std::move(cg.instrs);
   }
-};
+  if (!sum) {
+    sum = cg.lc(0);
+  }
+  cg.reg(result).set_last_def(*sum);
+  return std::move(cg.instrs);
+}
+
+void AddrExpr::add_eq(int key, const AddExpr &w) {
+  if (bad)
+    return;
+  indexs[key].add_eq(w, 1);
+  if (indexs.size() > 3) {
+    bad = 1;
+  }
+}
+void AddrExpr::print(std::ostream &os) const {
+  if (bad)
+    os << bad;
+  else {
+    os << base->name;
+    for (auto &[k, v] : indexs) {
+      os << '+' << k << "*(" << v << ')';
+    }
+  }
+}
+bool AddExpr::maybe_eq(const AddExpr &w, const EqContext &ctx) const{
+  if(bad||w.bad)return 1;
+  if(cs.size()!=w.cs.size())return 1;
+  int32_t dc=c-w.c,step_gcd=0;
+  for(auto &[k,v1]:cs){
+	if(!w.cs.count(k))return 1;
+	auto &dv=v1-w.cs[k];
+	int32_t step=ctx.step_size(eq);
+	if(!step&&&dv)return 1;
+	if(step)step_gcd=std::__gcd(step);
+  }
+  return std::abs(dc) >= std::abs(step_gcd);
+}
+bool AddrExpr::maybe_eq(const AddrExpr &w, const EqContext &ctx) const{
+  if(bad||w.bad)return 1;
+  if(base!=w.base)return 0;
+  if(indexs.size()!=w.indexs.size())return 1;
+  for(auto &[k,v1]:indexs){
+	if(!w.indexs.count(k))return 1;
+	auto &v2=w.indexs[k];
+	if(!v1.maybe_eq(v2,ctx))return 0;
+  }
+  return 0;
+}
+
 
 struct SimplifyExpr {
   NormalFunc *func;

@@ -70,7 +70,12 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
     uset<BB *> bbs;
     size_t nested_cnt = 0, instr_cnt = 0;
   };
+  struct RegInfo {
+	AddExpr add;
+	AddrExpr addr;
+  };
   umap<BB *, LoopInfo> loop_info;
+  umap<Reg, RegInfo> reg_info;
 
   FindLoopVar(NormalFunc *_f) : Defs(_f) {}
   void visitLoopTreeNode(BB *w, DAG_IR::LoopTreeNode *node) {
@@ -81,7 +86,53 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
       return;
     wi.instr_cnt += w->instrs.size();
     w->for_each([&](Instr *x) {
-      Case(RegWriteInstr, rw, x) { wi.defs[rw->d1] = rw; }
+      Case(RegWriteInstr, rw, x) {wi.defs[rw->d1] = rw; }
+	  // TODO: array read/write
+	  Case(RegWriteInstr, rw,x){
+		auto &ri=reg_info[rw->d1];
+		ri.add.bad=1;
+		ri.addr.bad=1;
+		  Case(LoadConst<int32_t>,lc,rw){
+			ri.add.bad=0;
+			ri.add.c=lc->value;
+		  }
+		  else Case(LoadAddr,la,rw){
+			ri.addr.bad=0;
+			ri.addr.base=la->offset;
+		  }
+		  else Case(ArrayIndex,ai,rw){
+			ri.addr=reg_info.at(ai->s1).addr;
+			ri.addr.add_eq(reg_info.at(ai->s2).add,ai.size);
+		  }
+		  else Case(PhiInstr,phi,rw){
+			??;
+		  }
+		  else Case(BinaryOpInstr,bop,rw){
+			switch(bop->op.type){
+			case BinaryCompute::ADD:
+			  ri.add=reg_info.at(bop->s1).add;
+			  ri.add.add_eq(reg_info.at(bop->s2).add,1);
+			  break;
+			case BinaryCompute::SUB:
+			  ri.add=reg_info.at(bop->s1).add;
+			  ri.add.add_eq(reg_info.at(bop->s2).add,-1);
+			  break;
+			case BinaryCompute::MUL:
+			  ri.add.bad=0;
+			  ri.add.set_mul(reg_info.at(bop->s1).add,reg_info.at(bop->s2).add);
+			  break;
+			default:
+			  break;
+			}
+		  }else Case(LoadInstr,ld,rw){
+			??;
+			ld->addr;
+		  }else Case(CallInstr,call,rw){
+			??;
+		  }
+	  }else Case(StoreInstr,st,x){
+		;
+	  }
     });
     if (wi.node->is_loop_head) {
       w->for_each([&](Instr *x) {
