@@ -58,12 +58,12 @@ template <> struct RegConvention<ScalarType::Int> {
 template <> struct RegConvention<ScalarType::Float> {
   static const int Count = 32;
   static constexpr int ALLOCABLE_REGISTER_COUNT = 32;
-  static constexpr int ARGUMENT_REGISTER_COUNT = 16;
-  static constexpr int ARGUMENT_REGISTERS[ARGUMENT_REGISTER_COUNT] = {
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+  static constexpr int ARGUMENT_REGISTER_COUNT = 4;
+  static constexpr int ARGUMENT_REGISTERS[ARGUMENT_REGISTER_COUNT] = {0, 1, 2,
+                                                                      3};
   static constexpr RegisterUsage REGISTER_USAGE[Count] = {
-      RegisterUsage::callee_save, RegisterUsage::callee_save,
-      RegisterUsage::callee_save, RegisterUsage::callee_save,
+      RegisterUsage::caller_save, RegisterUsage::caller_save,
+      RegisterUsage::caller_save, RegisterUsage::caller_save,
       RegisterUsage::callee_save, RegisterUsage::callee_save,
       RegisterUsage::callee_save, RegisterUsage::callee_save,
       RegisterUsage::callee_save, RegisterUsage::callee_save,
