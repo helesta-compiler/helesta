@@ -34,10 +34,26 @@ struct Reg {
       return RegConvention<ScalarType::Float>::allocable(id);
     }
   }
-  bool operator<(const Reg &rhs) const { return id < rhs.id; }
-  bool operator==(const Reg &rhs) const { return id == rhs.id; }
-  bool operator>(const Reg &rhs) const { return id > rhs.id; }
-  bool operator!=(const Reg &rhs) const { return id != rhs.id; }
+  bool operator<(const Reg &rhs) const {
+    if (type != rhs.type)
+      return type < rhs.type;
+    return id < rhs.id;
+  }
+  bool operator==(const Reg &rhs) const {
+    if (type != rhs.type)
+      return false;
+    return id == rhs.id;
+  }
+  bool operator>(const Reg &rhs) const {
+    if (type != rhs.type)
+      return type > rhs.type;
+    return id > rhs.id;
+  }
+  bool operator!=(const Reg &rhs) const {
+    if (type != rhs.type)
+      return true;
+    return id != rhs.id;
+  }
 };
 
 std::ostream &operator<<(std::ostream &os, const Reg &reg);
