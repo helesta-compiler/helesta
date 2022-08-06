@@ -3,6 +3,23 @@
 
 namespace IR {
 
+void BB::map_phi_use(std::function<void(Reg &)> f1,
+                     std::function<void(BB *&)> f2) {
+  for (auto &x : instrs) {
+    Case(PhiInstr, phi, x.get()) {
+      for (auto &[r, bb] : phi->uses) {
+        f1(r);
+        f2(bb);
+      }
+    }
+  }
+}
+
+void BB::map_use(std::function<void(Reg &)> f) {
+  for (auto &x : instrs)
+    x->map_use(f);
+}
+
 PrintContext print_ctx;
 
 ostream &operator<<(ostream &os, const Printable &r) {
@@ -322,7 +339,7 @@ void map_use(NormalFunc *f, const std::unordered_map<Reg, Reg> &mp_reg) {
   });
 }
 
-inline void compute_data_offset(CompileUnit &c) {
+void compute_data_offset(CompileUnit &c) {
   c.for_each([](MemScope &s) {
     s.size = 0;
     s.for_each([&](MemObject *x) {

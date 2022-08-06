@@ -34,6 +34,7 @@ enum class BinaryCompute {
   EQ,
   NEQ,
   MOD,
+  SHL,
   FADD,
   FSUB,
   FMUL,
@@ -113,7 +114,7 @@ template <typename Scalar>
 inline typed_scalar_t typed_compute(UnaryCompute op, const Scalar &s1) {
   union {
     double d;
-    float f0, f1;
+    float f[2];
   } f2d;
   switch (op) {
   case UnaryCompute::LNOT:
@@ -130,10 +131,10 @@ inline typed_scalar_t typed_compute(UnaryCompute op, const Scalar &s1) {
     return float(s1);
   case UnaryCompute::F2D0:
     f2d.d = s1;
-    return f2d.f0;
+    return f2d.f[0];
   case UnaryCompute::F2D1:
     f2d.d = s1;
-    return f2d.f1;
+    return f2d.f[1];
   default:
     assert(0);
     return 0;
@@ -232,6 +233,8 @@ inline typeless_scalar_t compute(BinaryCompute op, const typeless_scalar_t &s1,
     return int32_t(i1 != i2);
   case BinaryCompute::MOD:
     return (i2 ? i1 % i2 : 0);
+  case BinaryCompute::SHL:
+    return i1 << i2;
   case BinaryCompute::FADD:
     return f1 + f2;
   case BinaryCompute::FSUB:

@@ -5,7 +5,7 @@
 std::map<IR::Reg, int> build_use_count(IR::NormalFunc *func);
 std::map<IR::Reg, IR::RegWriteInstr *> build_defs(IR::NormalFunc *func);
 std::map<IR::BB *, std::vector<IR::BB *>> build_prev(IR::NormalFunc *func);
-void dag_ir(IR::CompileUnit *ir);
+void dag_ir(IR::CompileUnit *ir, bool last = 0);
 
 void mem2reg(IR::CompileUnit *);
 void ssa_construction(IR::NormalFunc *, const std::unordered_set<IR::Reg> &);
@@ -21,14 +21,19 @@ void call_graph(IR::CompileUnit *);
 void remove_unused_BB(IR::CompileUnit *ir);
 void before_backend(IR::CompileUnit *ir);
 
+void checkIR(IR::NormalFunc *f);
+void checkIR(IR::CompileUnit *ir);
+
 inline void gvn(IR::CompileUnit *ir) {
   PassEnabled("gvn") global_value_numbering(ir);
   remove_unused_def(ir);
   PassEnabled("se") simplify_expr(ir);
+  checkIR(ir);
 }
 
 inline void gcm(IR::CompileUnit *ir) {
   PassEnabled("gcm") { global_code_motion(ir); }
+  checkIR(ir);
 }
 
 inline void optimize_ir(IR::CompileUnit *ir) {
@@ -45,15 +50,23 @@ inline void optimize_ir(IR::CompileUnit *ir) {
       gvn(ir);
       call_graph(ir);
       gvn(ir);
+      dag_ir(ir);
+      gvn(ir);
       PassEnabled("func-inline") {
         func_inline(ir);
-        // PassEnabled("g2l") global_to_local(ir);
-        // mem2reg(ir);
         remove_unused_func(ir);
+        PassEnabled("g2l") PassEnabled("gvn") {
+          global_to_local(ir);
+          gvn(ir);
+          mem2reg(ir);
+        }
         gvn(ir);
         dag_ir(ir);
         gvn(ir);
+        dag_ir(ir, 1);
+        gvn(ir);
         gcm(ir);
+        gvn(ir);
       }
     }
   }
