@@ -591,8 +591,6 @@ void Func::gen_asm(ostream &out) {
           used_float[i])
         save_float_regs.emplace_back(Reg(i, ScalarType::Float));
     size_t save_reg_cnt = save_int_regs.size() + save_float_regs.size();
-    if (save_reg_cnt)
-      save_reg_cnt += 16;
     if ((stack_size + save_reg_cnt * 4) % 8)
       stack_size += 4;
     prologue = [save_int_regs, save_float_regs, stack_size](ostream &out) {
