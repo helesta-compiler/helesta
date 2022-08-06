@@ -16,13 +16,6 @@
 
 namespace ARMv7 {
 
-inline int dynamic_allocable(const Reg &r) {
-  if (r.type == ScalarType::Int)
-    return RegConvention<ScalarType::Int>::allocable(r.id);
-  else
-    return RegConvention<ScalarType::Float>::allocable(r.id);
-}
-
 struct AsmContext {
   int32_t temp_sp_offset;
   std::function<bool(std::ostream &)> epilogue;

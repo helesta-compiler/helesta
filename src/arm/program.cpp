@@ -348,7 +348,7 @@ void Func::dce() {
       bool used = cur->side_effect();
       used |= (cur->change_cpsr() && use_cpsr);
       for (Reg r : cur->def_reg())
-        if ((r.is_machine() && !dynamic_allocable(r)) || live.count(r))
+        if ((r.is_machine() && !r.is_allocable()) || live.count(r))
           used = true;
       if (!used)
         return 1;
@@ -397,12 +397,12 @@ void Func::calc_live() {
     block->def.clear();
     for (auto it = block->insts.rbegin(); it != block->insts.rend(); ++it) {
       for (Reg r : (*it)->def_reg())
-        if (r.is_pseudo() || dynamic_allocable(r)) {
+        if (r.is_pseudo() || r.is_allocable()) {
           block->live_use.erase(r);
           block->def.insert(r);
         }
       for (Reg r : (*it)->use_reg())
-        if (r.is_pseudo() || dynamic_allocable(r)) {
+        if (r.is_pseudo() || r.is_allocable()) {
           block->def.erase(r);
           block->live_use.insert(r);
         }
