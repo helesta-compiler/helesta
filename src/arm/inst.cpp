@@ -590,7 +590,7 @@ void RegImmCmp::gen_asm(ostream &out, AsmContext *) {
   default:
     unreachable();
   }
-  assert(lhs.type == ScalarType::Float);
+  assert(lhs.type != ScalarType::Float);
   out << cond << ' ' << lhs << ",#" << rhs << '\n';
 }
 
