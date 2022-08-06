@@ -130,7 +130,7 @@ struct CallGraph {
                 ++cnt;
               }
             }
-            Case(LoadArg<ScalarType::Float>, la, x) {
+            else Case(LoadArg<ScalarType::Float>, la, x) {
               auto [v, type] = args.at(la->id);
               if (type == 2) {
                 la->id = v;
