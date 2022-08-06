@@ -50,8 +50,6 @@ int main(int argc, char **argv) {
 
   optimize_ir(&ir);
 
-  std::cout << ir << std::endl;
-
   if (global_config.simulate_exec)
     IR::exec(ir);
   std::ofstream asm_out{filename.second};

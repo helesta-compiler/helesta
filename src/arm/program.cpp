@@ -326,8 +326,10 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(load_imm(step, array_index->size));
         push_back(make_unique<ML>(ML::Mla, dst, s2, step, s1));
       }
-    } else
+    } else {
+      std::cout << *cur << std::endl;
       unreachable();
+    }
   }
 }
 

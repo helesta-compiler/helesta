@@ -10,10 +10,12 @@ void dag_ir(IR::CompileUnit *ir);
 void mem2reg(IR::CompileUnit *);
 void ssa_construction(IR::NormalFunc *, const std::unordered_set<IR::Reg> &);
 void remove_unused_def(IR::CompileUnit *);
+void remove_unused_def_func(IR::NormalFunc *);
 void func_inline(IR::CompileUnit *);
 void global_code_motion(IR::CompileUnit *);
 void global_value_numbering(IR::CompileUnit *);
 void global_to_local(IR::CompileUnit *);
+void before_backend(IR::CompileUnit *ir);
 
 inline void gvn(IR::CompileUnit *ir) {
   PassEnabled("gvn") global_value_numbering(ir);
@@ -32,4 +34,5 @@ inline void optimize_ir(IR::CompileUnit *ir) {
     gcm(ir);
     gvn(ir);
   }
+  PassEnabled("del-phi") before_backend(ir);
 }
