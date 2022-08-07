@@ -100,7 +100,10 @@ struct TypeCheck : InstrVisitor {
       (void)w;
     }
     else Case(CallInstr, w, w0) {
-      (void)w;
+      if (w->return_type == ScalarType::Float)
+        merge(w->d1, Float);
+      else if (w->return_type == ScalarType::Int)
+        merge(w->d1, Int);
     }
     else Case(PhiInstr, w, w0) {
       for (auto &kv : w->uses) {
