@@ -2,12 +2,12 @@
 #include "ir/ir.hpp"
 using namespace IR;
 
-struct EqContext{
-  std::map<Reg,int> mp;
-  int32_t step_size(Reg r){
-	if(mp.count(r))return mp[r];
-	return 0;
-  }
+struct EqContext {
+  enum Type {
+    IND, // a-b == k*step, k:int, k>0
+    ANY  // a-b == ?
+  };
+  std::function<std::pair<Type, int32_t>(Reg)> at;
 };
 
 struct AddExpr : Printable {
@@ -30,3 +30,33 @@ struct AddrExpr : Printable {
   void print(std::ostream &os) const override;
   bool maybe_eq(const AddrExpr &w, const EqContext &ctx) const;
 };
+
+struct SimpleIndVar {
+  Reg init, step;
+  BinaryCompute op;
+};
+
+std::ostream &operator<<(std::ostream &os, const SimpleIndVar &w);
+
+struct CmpOp {
+  bool less, eq;
+  void neg() {
+    less = !less;
+    eq = !eq;
+  }
+  const char *name() { return less ? (eq ? "<=" : "<") : (eq ? ">=" : ">"); }
+  bool compute(int32_t x, int32_t y) {
+    return less ? (eq ? x <= y : x < y) : (eq ? x >= y : x > y);
+  }
+};
+
+struct CmpExpr : CmpOp {
+  Reg s1, s2;
+  void swap() {
+    std::swap(s1, s2);
+    less = !less;
+  }
+  static std::optional<CmpExpr> make(BinaryOpInstr *bop);
+  CmpOp op() { return *this; }
+};
+std::ostream &operator<<(std::ostream &os, const CmpExpr &w);

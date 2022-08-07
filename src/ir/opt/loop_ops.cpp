@@ -1,3 +1,4 @@
+#include "add_expr.hpp"
 #include "ir/opt/dag_ir.hpp"
 
 template <class K> using uset = std::unordered_set<K>;
@@ -5,55 +6,35 @@ template <class K, class V> using umap = std::unordered_map<K, V>;
 
 #define BE(x) (x).begin(), (x).end()
 
-struct CmpExpr {
-  Reg s1, s2;
-  bool less, eq;
-  void neg() {
-    less = !less;
-    eq = !eq;
+std::ostream &operator<<(std::ostream &os, const SimpleIndVar &w) {
+  os << "i=" << w.init << "; i" << BinaryOp(w.op) << "=" << w.step << "; ";
+  return os;
+}
+
+std::optional<CmpExpr> CmpExpr::make(BinaryOpInstr *bop) {
+  CmpExpr e;
+  e.s1 = bop->s1;
+  e.s2 = bop->s2;
+  e.less = 1;
+  switch (bop->op.type) {
+  case BinaryCompute::LESS:
+    e.eq = 0;
+    break;
+  case BinaryCompute::LEQ:
+    e.eq = 1;
+    break;
+  default:
+    return std::nullopt;
   }
-  void swap() {
-    std::swap(s1, s2);
-    less = !less;
-  }
-  static std::optional<CmpExpr> make(BinaryOpInstr *bop) {
-    CmpExpr e;
-    e.s1 = bop->s1;
-    e.s2 = bop->s2;
-    e.less = 1;
-    switch (bop->op.type) {
-    case BinaryCompute::LESS:
-      e.eq = 0;
-      break;
-    case BinaryCompute::LEQ:
-      e.eq = 1;
-      break;
-    default:
-      return std::nullopt;
-    }
-    return e;
-  }
-  const char *name() { return less ? (eq ? "<=" : "<") : (eq ? ">=" : ">"); }
-  bool compute(int32_t x, int32_t y) {
-    return less ? (eq ? x <= y : x < y) : (eq ? x >= y : x > y);
-  }
-};
+  return e;
+}
+
 std::ostream &operator<<(std::ostream &os, const CmpExpr &w) {
   os << w.s1;
   os << (w.less ? '<' : '>');
   if (w.eq)
     os << '=';
   os << w.s2;
-  return os;
-}
-
-struct SimpleIndVar {
-  Reg init, step;
-  BinaryCompute op;
-};
-
-std::ostream &operator<<(std::ostream &os, const SimpleIndVar &w) {
-  os << "i=" << w.init << "; i" << BinaryOp(w.op) << "=" << w.step << "; ";
   return os;
 }
 
@@ -68,16 +49,60 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
     umap<Reg, LoopVarInfo> vars;
     std::optional<CmpExpr> cond;
     uset<BB *> bbs;
+    umap<Reg, int> use_count;
     size_t nested_cnt = 0, instr_cnt = 0;
   };
-  struct RegInfo {
-	AddExpr add;
-	AddrExpr addr;
-  };
   umap<BB *, LoopInfo> loop_info;
-  umap<Reg, RegInfo> reg_info;
+  std::map<IR::Reg, int> use_count;
 
-  FindLoopVar(NormalFunc *_f) : Defs(_f) {}
+  std::optional<std::tuple<Reg, Reg, Reg, CmpOp>>
+  get_ilr(BB *w, bool no_export_var = 0) {
+    auto &wi = loop_info.at(w);
+    if (!wi.node->is_loop_head)
+      return std::nullopt;
+    if (!wi.cond)
+      return std::nullopt;
+    Reg i = wi.cond->s1;
+    if (!wi.vars.count(i))
+      return std::nullopt;
+    auto ind = wi.vars[i].ind;
+    if (!ind)
+      return std::nullopt;
+    auto step = get_const(ind->step);
+    if (!step || *step != 1)
+      return std::nullopt;
+    auto op = ind->op;
+    if (op != BinaryCompute::ADD)
+      return std::nullopt;
+    bool pure = 1;
+    w->for_each([&](Instr *x) {
+      Case(RegWriteInstr, rw, x) {
+        /*if (no_export_var && (wi.use_count[rw->d1] != use_count[rw->d1])) {
+          dbg(*x, '\n');
+          dbg(wi.use_count[rw->d1], " != ", use_count[rw->d1], '\n');
+        }*/
+        if (no_export_var)
+          pure &= (wi.use_count[rw->d1] == use_count[rw->d1]);
+      }
+      else Case(StoreInstr, _, x) {
+        (void)_;
+        pure = 0;
+      }
+      else Case(CallInstr, _, x) {
+        (void)_;
+        pure = 0;
+      }
+    });
+    if (!pure)
+      return std::nullopt;
+    Reg l = ind->init;
+    Reg r = wi.cond->s2;
+    dbg("for(i=", l, ";i", wi.cond->name(), r, ";i=i", BinaryOp(op), *step,
+        "){...}  i:", i, "\n");
+    return std::make_tuple(i, l, r, wi.cond->op());
+  }
+
+  FindLoopVar(NormalFunc *_f) : Defs(_f) { use_count = build_use_count(f); }
   void visitLoopTreeNode(BB *w, DAG_IR::LoopTreeNode *node) {
     assert(node);
     auto &wi = loop_info[w];
@@ -86,53 +111,7 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
       return;
     wi.instr_cnt += w->instrs.size();
     w->for_each([&](Instr *x) {
-      Case(RegWriteInstr, rw, x) {wi.defs[rw->d1] = rw; }
-	  // TODO: array read/write
-	  Case(RegWriteInstr, rw,x){
-		auto &ri=reg_info[rw->d1];
-		ri.add.bad=1;
-		ri.addr.bad=1;
-		  Case(LoadConst<int32_t>,lc,rw){
-			ri.add.bad=0;
-			ri.add.c=lc->value;
-		  }
-		  else Case(LoadAddr,la,rw){
-			ri.addr.bad=0;
-			ri.addr.base=la->offset;
-		  }
-		  else Case(ArrayIndex,ai,rw){
-			ri.addr=reg_info.at(ai->s1).addr;
-			ri.addr.add_eq(reg_info.at(ai->s2).add,ai.size);
-		  }
-		  else Case(PhiInstr,phi,rw){
-			??;
-		  }
-		  else Case(BinaryOpInstr,bop,rw){
-			switch(bop->op.type){
-			case BinaryCompute::ADD:
-			  ri.add=reg_info.at(bop->s1).add;
-			  ri.add.add_eq(reg_info.at(bop->s2).add,1);
-			  break;
-			case BinaryCompute::SUB:
-			  ri.add=reg_info.at(bop->s1).add;
-			  ri.add.add_eq(reg_info.at(bop->s2).add,-1);
-			  break;
-			case BinaryCompute::MUL:
-			  ri.add.bad=0;
-			  ri.add.set_mul(reg_info.at(bop->s1).add,reg_info.at(bop->s2).add);
-			  break;
-			default:
-			  break;
-			}
-		  }else Case(LoadInstr,ld,rw){
-			??;
-			ld->addr;
-		  }else Case(CallInstr,call,rw){
-			??;
-		  }
-	  }else Case(StoreInstr,st,x){
-		;
-	  }
+      Case(RegWriteInstr, rw, x) { wi.defs[rw->d1] = rw; }
     });
     if (wi.node->is_loop_head) {
       w->for_each([&](Instr *x) {
@@ -140,12 +119,16 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
       });
     }
   }
+
   void end(BB *w) {
     if (!w)
       return;
 
     auto &wi = loop_info.at(w);
     wi.bbs.insert(w);
+    for (BB *bb : wi.bbs) {
+      bb->map_use([&](Reg &r) { ++wi.use_count[r]; });
+    }
 
     BB *h = wi.node->loop_head;
     auto &hi = loop_info.at(h);
@@ -238,6 +221,135 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
   }
 };
 
+struct ArrayReadWrite : SimpleLoopVisitor {
+  struct LoopInfo {
+    uset<Reg> rs, ws;
+    bool call = 0;
+    void operator|=(LoopInfo &x) {
+      rs.insert(BE(x.rs));
+      ws.insert(BE(x.ws));
+      call |= x.call;
+    }
+  };
+  struct RegInfo {
+    AddExpr add;
+    AddrExpr addr;
+  };
+  umap<Reg, RegInfo> reg_info;
+  umap<BB *, LoopInfo> loop_info;
+  FindLoopVar &S;
+  ArrayReadWrite(FindLoopVar &_S) : S(_S) {}
+  bool dependent(const EqContext &ctx, Reg r1, Reg r2) {
+    auto &v1 = reg_info.at(r1).addr;
+    auto &v2 = reg_info.at(r2).addr;
+    if (v1.maybe_eq(v2, ctx)) {
+      // dbg("### dependent: ", v1, "  ", v2, '\n');
+      return 1;
+    }
+    return 0;
+  }
+  bool dependent(BB *bb) {
+    auto &wi = loop_info.at(bb);
+    if (wi.call)
+      return 1;
+    if ((wi.rs.size() + wi.ws.size()) * wi.ws.size() >= 100)
+      return 1;
+    auto &wi0 = S.loop_info.at(bb);
+    if (wi0.vars.size() != 1)
+      return 1;
+    EqContext ctx{[&](Reg r) -> std::pair<EqContext::Type, int32_t> {
+      if (!wi0.defs.count(r)) {
+        return {EqContext::IND, 0};
+      }
+      if (wi0.vars.count(r)) {
+        auto &ind = wi0.vars.at(r).ind;
+        if (ind) {
+          const auto &c = S.get_const(ind->step);
+          if (c)
+            return {EqContext::IND, *c};
+        }
+      }
+      return {EqContext::ANY, 0};
+    }};
+    for (Reg w : wi.ws) {
+      for (Reg r : wi.rs) {
+        if (dependent(ctx, w, r))
+          return 1;
+      }
+      for (Reg w2 : wi.ws) {
+        if (w < w2 && dependent(ctx, w, w2))
+          return 1;
+      }
+    }
+    return 0;
+  }
+  void visitLoopTreeNode(BB *w, DAG_IR::LoopTreeNode *) { loop_info[w]; }
+  void visitBB(BB *w) {
+    auto &wi = loop_info.at(w);
+    w->for_each([&](Instr *x) {
+      Case(RegWriteInstr, rw, x) {
+        auto &ri = reg_info[rw->d1];
+        ri.add.bad = 1;
+        ri.addr.bad = 1;
+        Case(LoadConst<int32_t>, lc, rw) {
+          ri.add.bad = 0;
+          ri.add.c = lc->value;
+        }
+        Case(PhiInstr, phi, rw) {
+          ri.add.bad = 0;
+          ri.add.add_eq(phi->d1, 1);
+        }
+        else Case(LoadAddr, la, rw) {
+          ri.addr.bad = 0;
+          ri.addr.base = la->offset;
+        }
+        else Case(ArrayIndex, ai, rw) {
+          ri.addr = reg_info.at(ai->s1).addr;
+          ri.addr.add_eq(ai->size, reg_info.at(ai->s2).add);
+        }
+        else Case(BinaryOpInstr, bop, rw) {
+          switch (bop->op.type) {
+          case BinaryCompute::ADD:
+            ri.add = reg_info.at(bop->s1).add;
+            ri.add.add_eq(reg_info.at(bop->s2).add, 1);
+            break;
+          case BinaryCompute::SUB:
+            ri.add = reg_info.at(bop->s1).add;
+            ri.add.add_eq(reg_info.at(bop->s2).add, -1);
+            break;
+          case BinaryCompute::MUL:
+            ri.add.bad = 0;
+            ri.add.set_mul(reg_info.at(bop->s1).add, reg_info.at(bop->s2).add);
+            break;
+          default:
+            break;
+          }
+        }
+        else Case(LoadInstr, ld, rw) {
+          wi.rs.insert(ld->addr);
+        }
+        else Case(CallInstr, call, rw) {
+          (void)call;
+          wi.call = 1;
+        }
+      }
+      else Case(StoreInstr, st, x) {
+        wi.ws.insert(st->addr);
+      }
+    });
+  }
+  void end(BB *w) {
+    if (!w)
+      return;
+    auto &wi0 = S.loop_info.at(w);
+    auto &wi = loop_info.at(w);
+    BB *h = wi0.node->loop_head;
+    auto &hi = loop_info.at(h);
+    hi |= wi;
+  }
+  bool loop_parallel(BB *w, CompileUnit *ir);
+};
+
 struct LoopCopyTool {
   BB *entry, *exit;
   NormalFunc *f;
@@ -267,6 +379,8 @@ struct LoopCopyTool {
     for (auto &[k, v] : bbs) {
       v = f->new_BB(k->name + name_suffix);
       bbs_rev[v] = k;
+      v->disable_parallel = k->disable_parallel;
+      v->disable_unroll = k->disable_unroll;
     }
     auto mp_regs = partial_map(regs);
     auto mp_bbs = partial_map(bbs);
@@ -292,6 +406,21 @@ struct LoopCopyTool {
   void exit_to(BB *w) {
     exit->pop();
     exit->push(new JumpInstr(w));
+  }
+  BB *get_entry_prev() {
+    BB *ans = nullptr;
+    entry->for_each([&](Instr *x) {
+      Case(PhiInstr, phi, x) {
+        for (auto [r, bb] : phi->uses) {
+          if (!bbs_rev.count(bb)) {
+            assert(!ans || ans == bb);
+            ans = bb;
+          }
+        }
+      }
+    });
+    assert(ans);
+    return ans;
   }
   BB *get_exit_next(bool tp = 0) {
     Case(BranchInstr, br, exit->back()) {
@@ -343,26 +472,177 @@ int parseIntArg(int v, std::string s) {
   return v;
 }
 
+bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
+  if (w->disable_parallel)
+    return 0;
+  auto &wi0 = S.loop_info.at(w);
+  auto &wi = loop_info.at(w);
+  bool dbg_on = (global_config.args["dbg-par"] == "1");
+  if (auto ilr = S.get_ilr(w, 1)) {
+    bool flag = dependent(w);
+    if (dbg_on) {
+      for (BB *bb : wi0.node->dfn) {
+        if (bb != w && S.loop_info.at(bb).node->is_loop_head) {
+          dbg('[', bb->name, ']', ' ');
+        } else {
+          dbg(bb->name, ' ');
+        }
+      }
+      dbg('\n');
+      // for (BB *bb : wi0.node->dfn)
+      //   dbg(*bb);
+      dbg(">>> data ", (flag ? "" : "in"), "dependent for each i\n");
+      for (Reg r : wi.rs) {
+        dbg("R: ", reg_info.at(r).addr, '\n');
+      }
+      for (Reg r : wi.ws) {
+        dbg("W: ", reg_info.at(r).addr, '\n');
+      }
+    }
+    auto [i_, l, r, op] = *ilr;
+    if (!(op.less))
+      return 0;
+    if (!flag) {
+      dbg(">>> loop_parallel\n");
+      if (dbg_on)
+        print_cfg(S.f);
+
+      std::deque<LoopCopyTool> loops;
+      loops.emplace_back(wi0.bbs, w, w, S.f);
+      size_t cnt = parseIntArg(4, "num-threads");
+      for (size_t i = 1; i <= cnt; ++i) {
+        loops.emplace_back(loops[0]);
+        loops.back().copy(std::string(":") + std::to_string(i) + ":");
+      }
+      auto &p0 = loops[0];
+      p0.entry->disable_parallel = 1;
+
+      BB *prev = p0.get_entry_prev();
+      BB *next = p0.get_exit_next();
+
+      BB *head = S.f->new_BB();
+      BB *bb1 = S.f->new_BB();
+      BB *tail = S.f->new_BB();
+      CodeGen cg(S.f);
+
+      auto n = cg.reg(r) - cg.reg(l);
+      int min_par_loop_cnt = 4;
+      min_par_loop_cnt = wi0.nested_cnt == 1 ? (1 << 12) : (1 << 6);
+      cg.branch(n < cg.lc(min_par_loop_cnt), p0.entry, bb1);
+      head->push(std::move(cg.instrs));
+
+      prev->map_BB(partial_map(p0.entry, head));
+
+      auto fork = ir->lib_funcs.at("__create_threads").get();
+      auto join = ir->lib_funcs.at("__join_threads").get();
+
+      auto l0 = cg.reg(l);
+      auto step = n / cg.lc(cnt);
+
+      p0.entry->map_phi_use([&](Reg &, BB *&bb) {
+        if (bb == prev)
+          bb = head;
+      });
+
+      for (size_t i = 1; i <= cnt; ++i) {
+        auto &p1 = loops[i];
+        auto l0_0 = l0.r;
+        BB *bb1_0 = bb1;
+
+        if (i < cnt) {
+          BB *bb2 = S.f->new_BB();
+          auto r0 = l0 + step;
+          cg.branch(cg.call(fork), p1.entry, bb2);
+          bb1->push(std::move(cg.instrs));
+          bb1 = bb2;
+          l0 = r0;
+          Case(BranchInstr, br, p1.exit->back()) {
+            auto tg1 = br->target1, tg0 = br->target0;
+            cg.branch(cg.reg(p1.regs.at(i_)) < r0, tg1, tg0);
+            p1.exit->pop();
+            p1.exit->push(std::move(cg.instrs));
+          }
+          else assert(0);
+        } else {
+          cg.jump(p1.entry);
+          bb1->push(std::move(cg.instrs));
+        }
+
+        p1.entry->map_phi_use([&](Reg &r, BB *&bb) {
+          if (bb == prev) {
+            r = l0_0;
+            bb = bb1_0;
+          }
+        });
+      }
+      std::vector<BB *> joins;
+      for (size_t i = 1; i <= cnt; ++i) {
+        BB *bb = S.f->new_BB();
+        auto &p1 = loops[i];
+        p1.exit->map_BB(partial_map(next, bb));
+        if (i != cnt)
+          cg.call(join, {cg.lc(0)}); // wait
+        if (i != 1)
+          cg.call(join, {cg.lc(1)}); // exit
+        cg.jump(tail);
+        bb->push(std::move(cg.instrs));
+      }
+
+      for (size_t i = 0; i <= cnt; ++i) {
+        loops[i].exit->map_BB(partial_map(next, tail));
+      }
+      next->map_BB(partial_map(p0.exit, tail));
+
+      cg.jump(next);
+      tail->push(std::move(cg.instrs));
+
+      for (size_t i = 0; i <= cnt; ++i) {
+        for (auto &kv : loops[i].bbs) {
+          kv.second->disable_parallel = 1;
+        }
+      }
+
+      if (dbg_on) {
+        print_cfg(S.f);
+        dbg("\n```cpp\n", *S.f, "\n```\n");
+      }
+
+      return 1;
+    }
+  }
+  return 0;
+}
+
 struct UnrollLoop {
   FindLoopVar &S;
-  uset<BB *> &disable_unroll;
+  ArrayReadWrite &arw;
   bool last;
-  UnrollLoop(FindLoopVar &_S, uset<BB *> &_d, bool _last)
-      : S(_S), disable_unroll(_d), last(_last) {}
+  CompileUnit *ir;
+  UnrollLoop(FindLoopVar &_S, ArrayReadWrite &_arw, bool _last,
+             CompileUnit *_ir)
+      : S(_S), arw(_arw), last(_last), ir(_ir) {}
   bool apply() { return dfs(nullptr); }
   bool dfs(BB *w) {
     auto &wi = S.loop_info.at(w);
+    if (w && loop_parallel(w))
+      return 1;
     for (BB *u : wi.node->dfn) {
       if (u == w)
         continue;
       if (dfs(u))
         return 1;
     }
-    if (unroll_fixed(w))
+    if (w && unroll_fixed(w))
       return 1;
-    if (unroll_simple_for_loop(w))
+    if (w && unroll_simple_for_loop(w))
       return 1;
     return 0;
+  }
+  bool loop_parallel(BB *w) {
+    PassDisabled("par") return 0;
+    if (!last)
+      return 0;
+    return arw.loop_parallel(w, ir);
   }
   void _unroll_simple_for_loop(BB *w, size_t cnt, Reg i, Reg l, Reg r) {
     assert(cnt >= 2);
@@ -416,8 +696,9 @@ struct UnrollLoop {
         bb->map_use(partial_map(p4.regs));
       }
     });
-    disable_unroll.insert(p0.entry);
-    disable_unroll.insert(p4.entry);
+    p0.entry->disable_unroll = 1;
+    p4.entry->disable_unroll = 1;
+    p4.entry->disable_parallel = 1;
 
     size_t n = 0;
     w->for_each([&](Instr *x) {
@@ -466,7 +747,7 @@ struct UnrollLoop {
     });
   }
   bool unroll_fixed(BB *w) {
-    if (disable_unroll.count(w))
+    if (w->disable_unroll)
       return 0;
     auto &wi = S.loop_info.at(w);
     if (wi.nested_cnt != 1)
@@ -488,6 +769,7 @@ struct UnrollLoop {
     auto step = S.get_const(ind->step);
     if (!step)
       return 0;
+    PassDisabled("unroll-fixed") return 0;
     auto op = ind->op;
     // for(i=l;i<r;i{op}=step);
     int32_t i0 = *l, i1 = *r, i2 = *step;
@@ -519,47 +801,21 @@ struct UnrollLoop {
   }
   bool unroll_simple_for_loop(BB *w) {
     constexpr size_t MAX_UNROLL_SIMPLE_FOR_INSTR = 32;
-    if (disable_unroll.count(w) || !last)
+    if (w->disable_unroll || !last)
       return 0;
     auto &wi = S.loop_info.at(w);
     if (wi.nested_cnt != 1)
       return 0;
-    if (!wi.cond)
-      return 0;
     if (wi.instr_cnt > MAX_UNROLL_SIMPLE_FOR_INSTR)
       return 0;
-    if (!(wi.cond->less && !wi.cond->eq))
+    auto ilr = S.get_ilr(w);
+    if (!ilr)
       return 0;
-    Reg i = wi.cond->s1;
-    if (!wi.vars.count(i))
+    auto [i, l, r, op] = *ilr;
+    if (!(op.less && !op.eq))
       return 0;
-    auto ind = wi.vars[i].ind;
-    if (!ind)
-      return 0;
-    auto step = S.get_const(ind->step);
-    if (!step || *step != 1)
-      return 0;
-    auto op = ind->op;
-    if (op != BinaryCompute::ADD)
-      return 0;
-    bool pure = 1;
-    w->for_each([&](Instr *x) {
-      Case(StoreInstr, _, x) {
-        (void)_;
-        pure = 0;
-      }
-      else Case(CallInstr, _, x) {
-        (void)_;
-        pure = 0;
-      }
-    });
-    if (!pure)
-      return 0;
-    Reg l = ind->init;
-    Reg r = wi.cond->s2;
-    // for(i=l;i<r;++i);
-    dbg("for(i=", l, ";i", wi.cond->name(), r, ";i=i", BinaryOp(op), *step,
-        "){...}\n");
+    // for(i=l;i op r;++i);
+    PassDisabled("unroll-for") return 0;
     bool dbg_on(global_config.args["dbg-unroll"] == "1");
     if (dbg_on)
       print_cfg(S.f);
@@ -577,18 +833,29 @@ struct UnrollLoop {
   }
 };
 
-bool unroll_loop(FindLoopVar &S, uset<BB *> &disable_unroll, bool last) {
-  UnrollLoop w(S, disable_unroll, last);
-  return w.apply();
-}
-void loop_ops(NormalFunc *f, bool last) {
-  PassDisabled("loop-ops") return;
-  uset<BB *> disable_unroll;
-  for (int T = 0; T < 10; ++T) {
+struct LoopOps {
+  NormalFunc *f;
+  bool last;
+  CompileUnit *ir;
+  LoopOps(NormalFunc *_f, bool _last, CompileUnit *_ir)
+      : f(_f), last(_last), ir(_ir) {}
+  bool run() {
     DAG_IR dag(f);
-    FindLoopVar w(f);
-    dag.visit(w);
-    if (!unroll_loop(w, disable_unroll, last))
+    FindLoopVar S(f);
+    dag.visit(S);
+    ArrayReadWrite a(S);
+    dag.visit(a);
+    UnrollLoop w(S, a, last, ir);
+    return w.apply();
+  }
+};
+
+void loop_ops(CompileUnit *ir, NormalFunc *f, bool last) {
+  PassDisabled("loop-ops") return;
+  LoopOps ops(f, last, ir);
+  int LOOP_OPS_ITER = parseIntArg(10, "loop-ops-iter");
+  for (int T = 0; T < LOOP_OPS_ITER; ++T) {
+    if (!ops.run())
       break;
   }
 }

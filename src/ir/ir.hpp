@@ -208,7 +208,8 @@ struct BB : Printable, Traversable<BB> {
   string name;
   list<unique_ptr<Instr>> instrs;
   int id;
-  bool disable_schedule_early = 0;
+  bool disable_unroll = 0;
+  bool disable_parallel = 0;
   // list of instructions in this basic block
   // the last one is ControlInstr, others are RegWriteInstr or StoreInstr
   void print(ostream &os) const override;
@@ -232,6 +233,13 @@ struct BB : Printable, Traversable<BB> {
     for (auto &x : ls) {
       ins(x.release());
     }
+    ls.clear();
+  }
+  void push(decltype(instrs) &&ls) {
+    for (auto &x : ls) {
+      push(x.release());
+    }
+    ls.clear();
   }
   void replace(decltype(instrs) &&ls) {
     ins(std::move(ls));
@@ -264,6 +272,7 @@ struct BB : Printable, Traversable<BB> {
   void map_use(std::function<void(Reg &)> f);
   void map_phi_use(std::function<void(Reg &)> f1,
                    std::function<void(BB *&)> f2);
+  void map_phi_use(std::function<void(Reg &, BB *&)> f);
 
   const std::vector<BB *> getOutNodes() const override;
   void addOutNode(BB *) override {
@@ -751,6 +760,18 @@ struct CodeGen {
   RegRef lc(int32_t x) {
     Reg r = f->new_Reg();
     instrs.emplace_back(new LoadConst<int32_t>(r, x));
+    return reg(r);
+  }
+  void branch(RegRef cond, BB *target1, BB *target0) {
+    instrs.emplace_back(new BranchInstr(cond.r, target1, target0));
+  }
+  void jump(BB *target) { instrs.emplace_back(new JumpInstr(target)); }
+  RegRef call(Func *f0, std::vector<RegRef> args_ref = {}) {
+    Reg r = f->new_Reg();
+    std::vector<Reg> args;
+    for (auto x : args_ref)
+      args.push_back(x.r);
+    instrs.emplace_back(new CallInstr(r, f0, args, 0));
     return reg(r);
   }
 };

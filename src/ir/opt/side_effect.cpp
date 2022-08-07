@@ -726,7 +726,7 @@ void dag_ir(CompileUnit *ir, bool last) {
   dbg("DAG IR Round ", ++round, "\n");
   ir->for_each([&](NormalFunc *f) { local_init_to_global(ir, f); });
   DAG_IR_ALL _(ir, NORMAL);
-  ir->for_each([&](NormalFunc *f) { loop_ops(f, last); });
+  ir->for_each([&](NormalFunc *f) { loop_ops(ir, f, last); });
   ir->for_each([&](NormalFunc *f) { local_init_to_global(ir, f); });
   arith(ir);
 }

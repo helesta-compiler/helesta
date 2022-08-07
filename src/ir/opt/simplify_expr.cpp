@@ -32,7 +32,9 @@ void AddExpr::print(std::ostream &os) const {
     os << "[bad]";
     return;
   }
-  os << c;
+  if (c) {
+    os << c;
+  }
   for (auto [x, a] : cs) {
     if (a >= 0)
       os << '+';
@@ -135,31 +137,50 @@ void AddrExpr::print(std::ostream &os) const {
     }
   }
 }
-bool AddExpr::maybe_eq(const AddExpr &w, const EqContext &ctx) const{
-  if(bad||w.bad)return 1;
-  if(cs.size()!=w.cs.size())return 1;
-  int32_t dc=c-w.c,step_gcd=0;
-  for(auto &[k,v1]:cs){
-	if(!w.cs.count(k))return 1;
-	auto &dv=v1-w.cs[k];
-	int32_t step=ctx.step_size(eq);
-	if(!step&&&dv)return 1;
-	if(step)step_gcd=std::__gcd(step);
+bool AddExpr::maybe_eq(const AddExpr &w, const EqContext &ctx) const {
+  if (bad || w.bad)
+    return 1;
+  if (cs.size() != w.cs.size())
+    return 1;
+  int32_t dc = std::abs(c - w.c);
+  int32_t step_gcd = 0;
+  // dbg(*this, " =? ", w, '\n');
+  for (auto &[k, v1] : cs) {
+    if (!w.cs.count(k))
+      return 1;
+    auto [type, step] = ctx.at(k);
+    switch (type) {
+    case EqContext::IND:
+      if (v1 != w.cs.at(k))
+        return 1;
+      if (step) {
+        step_gcd = std::__gcd(step_gcd, std::abs(step));
+      }
+      break;
+    case EqContext::ANY:
+      return 1;
+    }
   }
+  // dbg("dc=", dc, "  step_gcd=", step_gcd, '\n');
   return std::abs(dc) >= std::abs(step_gcd);
 }
-bool AddrExpr::maybe_eq(const AddrExpr &w, const EqContext &ctx) const{
-  if(bad||w.bad)return 1;
-  if(base!=w.base)return 0;
-  if(indexs.size()!=w.indexs.size())return 1;
-  for(auto &[k,v1]:indexs){
-	if(!w.indexs.count(k))return 1;
-	auto &v2=w.indexs[k];
-	if(!v1.maybe_eq(v2,ctx))return 0;
+bool AddrExpr::maybe_eq(const AddrExpr &w, const EqContext &ctx) const {
+  if (bad || w.bad)
+    return 1;
+  if (base != w.base)
+    return 0;
+  if (indexs.size() != w.indexs.size())
+    return 1;
+  // dbg(*this, " =? ", w, '\n');
+  for (auto &[k, v1] : indexs) {
+    if (!w.indexs.count(k))
+      return 1;
+    auto &v2 = w.indexs.at(k);
+    if (!v1.maybe_eq(v2, ctx))
+      return 0;
   }
-  return 0;
+  return 1;
 }
-
 
 struct SimplifyExpr {
   NormalFunc *func;
