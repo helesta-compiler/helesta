@@ -43,15 +43,15 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
     } else if (auto loadarg =
                    dynamic_cast<IR::LoadArg<ScalarType::Int> *>(cur)) {
       push_back(std::make_unique<MoveReg>(info->from_ir_reg(loadarg->d1),
-                                          func->int_arg_reg[loadarg->id]));
+                                          func->args[loadarg->id]));
     } else if (auto loadarg =
                    dynamic_cast<IR::LoadArg<ScalarType::Float> *>(cur)) {
       auto arg_reg = info->from_ir_reg(loadarg->d1);
       arg_reg.type = ScalarType::Float;
       info->set_float(arg_reg);
-      assert(func->float_arg_reg[loadarg->id].type == ScalarType::Float);
+      assert(func->args[loadarg->id].type == ScalarType::Float);
       push_back(
-          std::make_unique<MoveReg>(arg_reg, func->float_arg_reg[loadarg->id]));
+          std::make_unique<MoveReg>(arg_reg, func->args[loadarg->id]));
     } else if (auto unary = dynamic_cast<IR::UnaryOpInstr *>(cur)) {
       Reg dst = info->from_ir_reg(unary->d1),
           src = info->from_ir_reg(unary->s1);
