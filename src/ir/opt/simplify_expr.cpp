@@ -154,7 +154,7 @@ bool AddExpr::maybe_eq(const AddExpr &w, const EqContext &ctx) const {
       if (v1 != w.cs.at(k))
         return 1;
       if (step) {
-        step_gcd = std::__gcd(step_gcd, std::abs(step));
+        step_gcd = std::__gcd(step_gcd, std::abs(step * v1));
       }
       break;
     case EqContext::ANY:

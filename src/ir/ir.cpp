@@ -604,6 +604,8 @@ int exec(CompileUnit &c) {
                 dbg(cur_thread.id, " fork ", fork_cnt, "\n");
               wReg(x->d1, 1);
               time_to_last_schedule = 0;
+              // return 1: wait on join
+              // return 0: exit on join
               continue;
               // std::cerr<<">>> fork"<<std::endl;
             } else if (x->f->name == "__join_threads") {

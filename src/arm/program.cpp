@@ -736,6 +736,46 @@ void Program::gen_asm(ostream &out) {
   gen_global_var_asm(out);
   out << ".global main\n";
   out << ".section .text\n";
+  out << R"(
+SYS_clone = 120
+CLONE_VM = 256
+SIGCHLD = 17
+__create_threads:
+    push {r4, r5, r6, r7}
+    mov r0, #(CLONE_VM | SIGCHLD)
+    mov r1, sp
+    mov r2, #0
+    mov r3, #0
+    mov r4, #0
+    mov r6, #0
+    mov r7, #SYS_clone
+    swi #0
+    pop {r4, r5, r6, r7}
+    bx lr
+
+SYS_waitid = 280
+SYS_exit = 1
+P_ALL = 0
+WEXITED = 4
+__join_threads:
+    sub sp, sp, #16
+    cmp r0, #0
+	bne .L01
+    push {r4, r5, r6, r7}
+    mov r0, #P_ALL
+    mov r1, #0
+    mov r2, #0
+    mov r3, #WEXITED
+    mov r7, #SYS_waitid
+    swi #0
+    pop {r4, r5, r6, r7}
+    add sp, sp, #16
+    bx lr
+.L01:
+    mov r0, #0
+    mov r7, #SYS_exit
+    swi #0
+)";
   for (auto &func : funcs)
     func->gen_asm(out);
 }

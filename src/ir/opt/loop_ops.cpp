@@ -527,7 +527,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 
       auto n = cg.reg(r) - cg.reg(l);
       int min_par_loop_cnt = 4;
-      // min_par_loop_cnt = wi0.nested_cnt == 1 ? (1 << 12) : (1 << 6);
+      min_par_loop_cnt = wi0.nested_cnt == 1 ? (1 << 12) : (1 << 6);
       cg.branch(n < cg.lc(min_par_loop_cnt), p0.entry, bb1);
       head->push(std::move(cg.instrs));
 
@@ -623,10 +623,14 @@ struct UnrollLoop {
   UnrollLoop(FindLoopVar &_S, ArrayReadWrite &_arw, bool _last,
              CompileUnit *_ir)
       : S(_S), arw(_arw), last(_last), ir(_ir) {}
-  bool apply() { return dfs(nullptr); }
+  bool parallel_only;
+  bool apply(bool _parallel_only) {
+    parallel_only = _parallel_only;
+    return dfs(nullptr);
+  }
   bool dfs(BB *w) {
     auto &wi = S.loop_info.at(w);
-    if (w && loop_parallel(w))
+    if (w && parallel_only && loop_parallel(w))
       return 1;
     for (BB *u : wi.node->dfn) {
       if (u == w)
@@ -634,9 +638,9 @@ struct UnrollLoop {
       if (dfs(u))
         return 1;
     }
-    if (w && unroll_fixed(w))
+    if (w && !parallel_only && unroll_fixed(w))
       return 1;
-    if (w && unroll_simple_for_loop(w))
+    if (w && !parallel_only && unroll_simple_for_loop(w))
       return 1;
     return 0;
   }
@@ -840,7 +844,10 @@ struct LoopOps {
   bool last;
   CompileUnit *ir;
   LoopOps(NormalFunc *_f, bool _last, CompileUnit *_ir)
-      : f(_f), last(_last), ir(_ir) {}
+      : f(_f), last(_last), ir(_ir) {
+    parallel_only = last;
+  }
+  bool parallel_only;
   bool run() {
     DAG_IR dag(f);
     FindLoopVar S(f);
@@ -848,16 +855,26 @@ struct LoopOps {
     ArrayReadWrite a(S);
     dag.visit(a);
     UnrollLoop w(S, a, last, ir);
-    return w.apply();
+    if (w.apply(parallel_only))
+      return 1;
+    if (parallel_only) {
+      parallel_only = 0;
+      return 1;
+    }
+    return 0;
   }
 };
 
 void loop_ops(CompileUnit *ir, NormalFunc *f, bool last) {
   PassDisabled("loop-ops") return;
   LoopOps ops(f, last, ir);
-  int LOOP_OPS_ITER = parseIntArg(10, "loop-ops-iter");
+  int LOOP_OPS_ITER = parseIntArg(16, "loop-ops-iter");
+  if (last)
+    LOOP_OPS_ITER *= 10;
   for (int T = 0; T < LOOP_OPS_ITER; ++T) {
-    if (!ops.run())
+    if (!ops.run()) {
+      dbg("T = ", T, '\n');
       break;
+    }
   }
 }

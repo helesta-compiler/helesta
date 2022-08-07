@@ -58,7 +58,7 @@ struct TypeCheck : InstrVisitor {
       merge(w->d1, Float);
     }
     else Case(LoadArg<ScalarType::Int>, w, w0) {
-      merge(w->d1, Int);
+      (void)w;
     }
     else Case(LoadArg<ScalarType::Float>, w, w0) {
       merge(w->d1, Float);
@@ -100,7 +100,7 @@ struct TypeCheck : InstrVisitor {
       merge(w->s1, Float);
     }
     else Case(CallInstr, w, w0) {
-      (void)w;
+      merge(w->d1, w->return_type == ScalarType::Float ? Float : Int);
     }
     else Case(PhiInstr, w, w0) {
       for (auto &kv : w->uses) {
