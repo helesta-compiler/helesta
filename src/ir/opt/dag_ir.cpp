@@ -198,7 +198,11 @@ DAG_IR::DAG_IR(NormalFunc *_func) : func(_func) {
     }
   }
   func->for_each([&](BB *bb) {
-    Case(ReturnInstr, _, bb->back()) {
+    Case(ReturnInstr<ScalarType::Int>, _, bb->back()) {
+      (void)_;
+      rev_traverse(bb);
+    }
+    Case(ReturnInstr<ScalarType::Float>, _, bb->back()) {
       (void)_;
       rev_traverse(bb);
     }

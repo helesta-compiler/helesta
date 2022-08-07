@@ -46,7 +46,12 @@ struct PointerBase : InstrVisitor, Defs {
         }
       }
     }
-    else Case(LoadArg, la, x) {
+    else Case(LoadArg<ScalarType::Int>, la, x) {
+      auto &w = info[la->d1];
+      w.base = std::make_pair(f, la->id);
+      w.mustbe = std::nullopt;
+    }
+    else Case(LoadArg<ScalarType::Float>, la, x) {
       auto &w = info[la->d1];
       w.base = std::make_pair(f, la->id);
       w.mustbe = std::nullopt;
@@ -141,9 +146,9 @@ struct SideEffect : SimpleLoopVisitor {
           }
         }
         else {
-          for (Reg r : call->args) {
-            if (ptr_base.info.count(r)) {
-              auto &ls = *ptr_base.info.at(r).maybe;
+          for (auto kv : call->args) {
+            if (ptr_base.info.count(kv.first)) {
+              auto &ls = *ptr_base.info.at(kv.first).maybe;
               ins(w.may_read, ls);
               ins(w.may_write, ls);
             }
@@ -171,8 +176,8 @@ struct SideEffect : SimpleLoopVisitor {
       f->for_each([&](Instr *x) {
         Case(StoreInstr, st, x) { set_non_const(st->addr); }
         else Case(CallInstr, call, x) {
-          for (Reg r : call->args) {
-            set_non_const(r);
+          for (auto kv : call->args) {
+            set_non_const(kv.first);
           }
         }
       });
@@ -187,7 +192,8 @@ struct SideEffect : SimpleLoopVisitor {
 };
 
 struct MergePureCall
-    : ForwardLoopVisitor<std::map<std::pair<Func *, std::vector<Reg>>, Reg>>,
+    : ForwardLoopVisitor<std::map<
+          std::pair<Func *, std::vector<std::pair<Reg, ScalarType>>>, Reg>>,
       CounterOutput {
   using ForwardLoopVisitor::map_t;
   SideEffect &se;
@@ -279,8 +285,8 @@ struct GlobalInitProp : ForwardLoopVisitor<std::map<MemObject *, bool>> {
       else Case(CallInstr, call, x) {
         Case(NormalFunc, f, call->f) { update(w.out, se.may_write(f)); }
         else {
-          for (Reg r : call->args) {
-            update(w.out, se.maybe(r));
+          for (auto kv : call->args) {
+            update(w.out, se.maybe(kv.first));
           }
         }
       }
@@ -446,10 +452,10 @@ struct LocalInitToGlobalConst : InstrVisitor {
       }
     }
     else Case(CallInstr, call, x) {
-      for (Reg r : call->args) {
-        if (!pb.info.count(r))
+      for (auto kv : call->args) {
+        if (!pb.info.count(kv.first))
           continue;
-        if (auto base = std::get_if<MemObject *>(&pb.info[r].base)) {
+        if (auto base = std::get_if<MemObject *>(&pb.info[kv.first].base)) {
           init.erase(*base);
         }
       }
@@ -561,14 +567,14 @@ struct RemoveUnusedStore : BackwardLoopVisitor<mem_set_t>, CounterOutput {
       else Case(CallInstr, call, x) {
         Case(NormalFunc, f, call->f) { update(w.in, se.may_read(f)); }
         else {
-          for (Reg r : call->args) {
-            update(w.in, se.maybe(r));
+          for (auto kv : call->args) {
+            update(w.in, se.maybe(kv.first));
           }
         }
       }
     }
   }
-  virtual void visitBackEdge(BB *bb1, BB *bb2) {
+  virtual void visitBackEdge(BB *bb1, BB *bb2) override {
     auto &w1 = info[bb1]; // loop head
     auto &w2 = info[bb2]; // node before exit (in the view of DAG for loop bb1)
     bool flag = 0;
@@ -583,8 +589,8 @@ void DAG_IR_ALL::update_alias() {
       Case(CallInstr, call, x) {
         Case(NormalFunc, f, call->f) {
           for (auto [r, id] : enumerate(call->args)) {
-            if (info.count(r)) {
-              alias.emplace(info[r].base, arg_name_t{f, id});
+            if (info.count(r.first)) {
+              alias.emplace(info[r.first].base, arg_name_t{f, id});
             }
           }
         }

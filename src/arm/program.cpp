@@ -28,299 +28,11 @@ using std::vector;
 
 namespace ARMv7 {
 
-Block::Block(string _name) : name(_name), label_used(false) {}
+MappingInfo::MappingInfo()
+    : reg_n(std::max(RegConvention<ScalarType::Int>::Count,
+                     RegConvention<ScalarType::Float>::Count)) {}
 
-void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
-                      Block *next_block, map<Reg, CmpInfo> &cmp_info) {
-  for (auto &i : ir_bb->instrs) {
-    IR::Instr *cur = i.get();
-    // std::cerr << *cur << std::endl;
-    if (auto loadaddr = dynamic_cast<IR::LoadAddr *>(cur)) {
-      Reg dst = info->from_ir_reg(loadaddr->d1);
-      if (loadaddr->offset->global) {
-        push_back(load_symbol_addr(
-            dst, mangle_global_var_name(loadaddr->offset->name)));
-        func->symbol_reg[dst] = mangle_global_var_name(loadaddr->offset->name);
-      } else {
-        push_back(make_unique<LoadStackAddr>(
-            dst, 0, info->obj_mapping[loadaddr->offset]));
-        func->stack_addr_reg[dst] = std::pair<StackObject *, int32_t>{
-            info->obj_mapping[loadaddr->offset], 0};
-      }
-    } else if (auto loadconst = dynamic_cast<IR::LoadConst<int32_t> *>(cur)) {
-      Reg dst = info->from_ir_reg(loadconst->d1);
-      func->constant_reg[dst] = loadconst->value;
-      push_back(load_imm(dst, loadconst->value));
-    } else if (auto loadconst = dynamic_cast<IR::LoadConst<float> *>(cur)) {
-      int as_int;
-      memcpy(&as_int, &loadconst->value, sizeof(float));
-      auto tmp = info->new_reg();
-      Reg dst = info->from_ir_reg(loadconst->d1);
-      func->constant_reg[tmp] = as_int;
-      push_back(load_imm(tmp, as_int));
-      push_back(std::make_unique<MoveReg>(dst, tmp));
-    } else if (auto loadarg = dynamic_cast<IR::LoadArg *>(cur)) {
-      push_back(make_unique<MoveReg>(info->from_ir_reg(loadarg->d1),
-                                     func->arg_reg[loadarg->id]));
-    } else if (auto unary = dynamic_cast<IR::UnaryOpInstr *>(cur)) {
-      Reg dst = info->from_ir_reg(unary->d1),
-          src = info->from_ir_reg(unary->s1);
-      switch (unary->op.type) {
-      case IR::UnaryCompute::LNOT:
-        push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
-        push_back(make_unique<RegImmCmp>(RegImmCmp::Cmp, src, 0));
-        push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1), Eq));
-        // TODO: this can be done better with "rsbs dst, src, #0; adc dst,
-        // src, dst" or "clz dst, src; lsr dst, dst, #5"
-        break;
-      case IR::UnaryCompute::NEG:
-        push_back(make_unique<RegImmInst>(RegImmInst::RevSub, dst, src, 0));
-        break;
-      case IR::UnaryCompute::FNEG:
-        info->set_float(dst);
-        info->set_float(src);
-        push_back(make_unique<FRegInst>(FRegInst::Neg, dst, src));
-        break;
-      case IR::UnaryCompute::ID:
-        info->set_maybe_float_assign(dst, src);
-        push_back(make_unique<MoveReg>(dst, src));
-        break;
-      case IR::UnaryCompute::I2F: {
-        Reg tmp = info->new_reg();
-        info->set_float(dst);
-        info->set_float(tmp);
-        push_back(make_unique<MoveReg>(tmp, src));
-        push_back(make_unique<FRegInst>(FRegInst::I2F, dst, tmp));
-        break;
-      }
-      case IR::UnaryCompute::F2I: {
-        Reg tmp = info->new_reg();
-        info->set_float(src);
-        info->set_float(tmp);
-        push_back(make_unique<FRegInst>(FRegInst::F2I, tmp, src));
-        push_back(make_unique<MoveReg>(dst, tmp));
-        break;
-      }
-      case IR::UnaryCompute::F2D0:
-        info->set_float(dst);
-        info->set_float(src);
-        push_back(make_unique<FRegInst>(FRegInst::F2D0, dst, src));
-        break;
-      case IR::UnaryCompute::F2D1:
-        info->set_float(dst);
-        info->set_float(src);
-        push_back(make_unique<FRegInst>(FRegInst::F2D1, dst, src));
-        break;
-      default:
-        unreachable();
-      }
-    } else if (auto binary = dynamic_cast<IR::BinaryOpInstr *>(cur)) {
-      Reg dst = info->from_ir_reg(binary->d1),
-          s1 = info->from_ir_reg(binary->s1),
-          s2 = info->from_ir_reg(binary->s2);
-      if (binary->op.type == IR::BinaryCompute::ADD ||
-          binary->op.type == IR::BinaryCompute::SUB ||
-          binary->op.type == IR::BinaryCompute::MUL ||
-          binary->op.type == IR::BinaryCompute::DIV) {
-        push_back(make_unique<RegRegInst>(
-            RegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
-      } else if (binary->op.type == IR::BinaryCompute::FADD ||
-                 binary->op.type == IR::BinaryCompute::FSUB ||
-                 binary->op.type == IR::BinaryCompute::FMUL ||
-                 binary->op.type == IR::BinaryCompute::FDIV) {
-        info->set_float(dst);
-        info->set_float(s1);
-        info->set_float(s2);
-        push_back(make_unique<FRegRegInst>(
-            FRegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
-      } else if (binary->op.type == IR::BinaryCompute::LESS ||
-                 binary->op.type == IR::BinaryCompute::LEQ ||
-                 binary->op.type == IR::BinaryCompute::EQ ||
-                 binary->op.type == IR::BinaryCompute::NEQ) {
-        push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
-        push_back(make_unique<RegRegCmp>(RegRegCmp::Cmp, s1, s2));
-        push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1),
-                           from_ir_binary_op(binary->op.type)));
-        cmp_info[dst].cond = from_ir_binary_op(binary->op.type);
-        cmp_info[dst].lhs = s1;
-        cmp_info[dst].rhs = s2;
-        cmp_info[dst].is_float = 0;
-      } else if (binary->op.type == IR::BinaryCompute::FLESS ||
-                 binary->op.type == IR::BinaryCompute::FLEQ ||
-                 binary->op.type == IR::BinaryCompute::FEQ ||
-                 binary->op.type == IR::BinaryCompute::FNEQ) {
-        info->set_float(s1);
-        info->set_float(s2);
-        push_back(make_unique<MoveImm>(MoveImm::Mov, dst, 0));
-        push_back(make_unique<FRegRegCmp>(s1, s2));
-        push_back(set_cond(make_unique<MoveImm>(MoveImm::Mov, dst, 1),
-                           from_ir_binary_op(binary->op.type)));
-        cmp_info[dst].cond = from_ir_binary_op(binary->op.type);
-        cmp_info[dst].lhs = s1;
-        cmp_info[dst].rhs = s2;
-        cmp_info[dst].is_float = 1;
-      } else if (binary->op.type == IR::BinaryCompute::MOD) {
-        Reg k = info->new_reg();
-        push_back(make_unique<RegRegInst>(RegRegInst::Div, k, s1, s2));
-        push_back(make_unique<ML>(ML::Mls, dst, s2, k, s1));
-      } else
-        unreachable();
-    } else if (auto load = dynamic_cast<IR::LoadInstr *>(cur)) {
-      Reg dst = info->from_ir_reg(load->d1),
-          addr = info->from_ir_reg(load->addr);
-      push_back(make_unique<Load>(dst, addr, 0));
-    } else if (auto store = dynamic_cast<IR::StoreInstr *>(cur)) {
-      Reg addr = info->from_ir_reg(store->addr),
-          src = info->from_ir_reg(store->s1);
-      push_back(make_unique<Store>(src, addr, 0));
-    } else if (auto jump = dynamic_cast<IR::JumpInstr *>(cur)) {
-      Block *jump_target = info->block_mapping[jump->target];
-      if (jump_target != next_block)
-        push_back(make_unique<Branch>(jump_target));
-      out_edge.push_back(jump_target);
-      jump_target->in_edge.push_back(this);
-    } else if (auto branch = dynamic_cast<IR::BranchInstr *>(cur)) {
-      Reg cond = info->from_ir_reg(branch->cond);
-      Block *true_target = info->block_mapping[branch->target1],
-            *false_target = info->block_mapping[branch->target0];
-      if (cmp_info.find(cond) != cmp_info.end()) {
-        if (cmp_info[cond].is_float) {
-          push_back(
-              make_unique<FRegRegCmp>(cmp_info[cond].lhs, cmp_info[cond].rhs));
-        } else {
-          push_back(make_unique<RegRegCmp>(RegRegCmp::Cmp, cmp_info[cond].lhs,
-                                           cmp_info[cond].rhs));
-        }
-        if (false_target == next_block)
-          push_back(
-              set_cond(make_unique<Branch>(true_target), cmp_info[cond].cond));
-        else if (true_target == next_block)
-          push_back(set_cond(make_unique<Branch>(false_target),
-                             logical_not(cmp_info[cond].cond)));
-        else {
-          push_back(
-              set_cond(make_unique<Branch>(true_target), cmp_info[cond].cond));
-          push_back(make_unique<Branch>(false_target));
-        }
-      } else {
-        push_back(make_unique<RegImmCmp>(RegImmCmp::Cmp, cond, 0));
-        if (false_target == next_block)
-          push_back(set_cond(make_unique<Branch>(true_target), Ne));
-        else if (true_target == next_block)
-          push_back(set_cond(make_unique<Branch>(false_target), Eq));
-        else {
-          push_back(set_cond(make_unique<Branch>(true_target), Ne));
-          push_back(make_unique<Branch>(false_target));
-        }
-      }
-      out_edge.push_back(true_target);
-      out_edge.push_back(false_target);
-      true_target->in_edge.push_back(this);
-      false_target->in_edge.push_back(this);
-    } else if (auto ret = dynamic_cast<IR::ReturnInstr *>(cur)) {
-      if (ret->ignore_return_value) {
-        push_back(make_unique<Return>(false));
-      } else {
-        push_back(make_unique<MoveReg>(Reg{ARGUMENT_REGISTERS[0]},
-                                       info->from_ir_reg(ret->s1)));
-        push_back(make_unique<Return>(true));
-      }
-    } else if (auto call = dynamic_cast<IR::CallInstr *>(cur)) {
-      for (size_t i = call->args.size() - 1; i < call->args.size(); --i)
-        if (static_cast<int>(i) >= ARGUMENT_REGISTER_COUNT) {
-          push_back(
-              make_unique<Push>(vector<Reg>{info->from_ir_reg(call->args[i])}));
-        } else {
-          push_back(make_unique<MoveReg>(Reg{ARGUMENT_REGISTERS[i]},
-                                         info->from_ir_reg(call->args[i])));
-        }
-      if (call->f->name == "putfloat") {
-        push_back(make_unique<MoveReg>(Reg(0, 1), Reg{ARGUMENT_REGISTERS[0]}));
-      }
-      push_back(make_unique<FuncCall>(call->f->name,
-                                      static_cast<int>(call->args.size())));
-      if (static_cast<int>(call->args.size()) > ARGUMENT_REGISTER_COUNT)
-        push_back(sp_move(
-            (static_cast<int>(call->args.size()) - ARGUMENT_REGISTER_COUNT) *
-            INT_SIZE));
-      if (!call->ignore_return_value) {
-        Reg ret{ARGUMENT_REGISTERS[0]};
-        if (call->f->name == "getfloat") {
-          ret = Reg(0, 1);
-        }
-        push_back(make_unique<MoveReg>(info->from_ir_reg(call->d1), ret));
-      }
-      if (call->f->name == "__create_threads") {
-        func->spilling_reg.insert(info->from_ir_reg(call->d1));
-        debug << "thread_id: " << call->d1 << " -> "
-              << info->from_ir_reg(call->d1) << " is forbidden to be spilled\n";
-      }
-    } else if (auto array_index = dynamic_cast<IR::ArrayIndex *>(cur)) {
-      Reg dst = info->from_ir_reg(array_index->d1),
-          s1 = info->from_ir_reg(array_index->s1),
-          s2 = info->from_ir_reg(array_index->s2);
-      // TODO: optimize when size=2^k
-      if (func->constant_reg.count(s2)) {
-        int32_t v2 = func->constant_reg[s2] * array_index->size;
-        if (is_legal_immediate(v2)) {
-          push_back(make_unique<RegImmInst>(RegImmInst::Add, dst, s1, v2));
-          continue;
-        }
-      }
-
-      if (array_index->size == 4) {
-        push_back(make_unique<RegRegInst>(RegRegInst::Add, dst, s1, s2,
-                                          Shift(Shift::LSL, 2)));
-      } else {
-        Reg step = info->new_reg();
-        push_back(load_imm(step, array_index->size));
-        push_back(make_unique<ML>(ML::Mla, dst, s2, step, s1));
-      }
-    } else
-      unreachable();
-  }
-}
-
-void Block::push_back(unique_ptr<Inst> inst) {
-  insts.push_back(std::move(inst));
-}
-
-void Block::push_back(std::list<unique_ptr<Inst>> inst_list) {
-  for (auto &i : inst_list) {
-    insts.push_back(std::move(i));
-  }
-}
-
-void Block::insert_before_jump(unique_ptr<Inst> inst) {
-  auto i = insts.end();
-  while (i != insts.begin()) {
-    auto prev_i = std::prev(i);
-    if ((*prev_i)->as<Branch>()) {
-      i = prev_i;
-    } else {
-      break;
-    }
-  }
-  insts.insert(i, std::move(inst));
-}
-
-void Block::gen_asm(ostream &out, AsmContext *ctx) {
-  ctx->temp_sp_offset = 0;
-  if (label_used)
-    out << name << ":\n";
-  for (auto &i : insts)
-    i->gen_asm(out, ctx);
-}
-
-void Block::print(ostream &out) {
-  out << '\n' << name << ":\n";
-  for (auto &i : insts)
-    i->print(out);
-}
-
-MappingInfo::MappingInfo() : reg_n(RegCount) {}
-
-Reg MappingInfo::new_reg() { return Reg{reg_n++, 0}; }
+Reg MappingInfo::new_reg() { return Reg(reg_n++, ScalarType::Int); }
 
 Reg MappingInfo::from_ir_reg(IR::Reg ir_reg) {
   auto it = reg_mapping.find(ir_reg.id);
@@ -329,7 +41,7 @@ Reg MappingInfo::from_ir_reg(IR::Reg ir_reg) {
     return ret;
   }
   Reg ret = new_reg();
-  reg_mapping[ir_reg.id] = ret;
+  reg_mapping.insert({ir_reg.id, ret});
   return ret;
 }
 void MappingInfo::set_float(Reg reg) {
@@ -349,6 +61,37 @@ void MappingInfo::set_maybe_float_assign(Reg &r1, Reg &r2) {
   } else {
     maybe_float_assign[r1].push_back(r2);
     maybe_float_assign[r2].push_back(r1);
+  }
+}
+
+template <ScalarType type>
+void handle_params(Func *ctx, MappingInfo &info, Block *entry,
+                   IR::NormalFunc *ir_func) {
+  int arg_n = 0;
+  for (auto &bb : ir_func->bbs)
+    for (auto &inst : bb->instrs)
+      if (auto *cur = dynamic_cast<IR::LoadArg<type> *>(inst.get()))
+        arg_n = std::max(arg_n, cur->id + 1);
+  for (int i = 0; i < arg_n; ++i) {
+    Reg cur_arg = info.new_reg();
+    cur_arg.type = type;
+    if (type == ScalarType::Float)
+      info.set_float(cur_arg);
+    if (i < RegConvention<type>::ARGUMENT_REGISTER_COUNT) {
+      entry->push_back(make_unique<MoveReg>(
+          cur_arg, Reg(RegConvention<type>::ARGUMENT_REGISTERS[i], type)));
+    } else {
+      unique_ptr<StackObject> t = make_unique<StackObject>();
+      t->size = INT_SIZE;
+      t->position = -1;
+      entry->push_back(make_unique<LoadStack>(cur_arg, 0, t.get()));
+      ctx->caller_stack_object.push_back(std::move(t));
+    }
+    if constexpr (type == ScalarType::Int) {
+      ctx->int_arg_reg.push_back(cur_arg);
+    } else {
+      ctx->float_arg_reg.push_back(cur_arg);
+    }
   }
 }
 
@@ -375,25 +118,8 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     info.rev_block_mapping[res.get()] = cur;
     blocks.push_back(std::move(res));
   }
-  int arg_n = 0;
-  for (auto &bb : ir_func->bbs)
-    for (auto &inst : bb->instrs)
-      if (auto *cur = dynamic_cast<IR::LoadArg *>(inst.get()))
-        arg_n = std::max(arg_n, cur->id + 1);
-  for (int i = 0; i < arg_n; ++i) {
-    Reg cur_arg = info.new_reg();
-    if (i < ARGUMENT_REGISTER_COUNT) {
-      entry->push_back(
-          make_unique<MoveReg>(cur_arg, Reg{ARGUMENT_REGISTERS[i]}));
-    } else {
-      unique_ptr<StackObject> t = make_unique<StackObject>();
-      t->size = INT_SIZE;
-      t->position = -1;
-      entry->push_back(make_unique<LoadStack>(cur_arg, 0, t.get()));
-      caller_stack_object.push_back(std::move(t));
-    }
-    arg_reg.push_back(cur_arg);
-  }
+  handle_params<ScalarType::Int>(this, info, entry, ir_func);
+  handle_params<ScalarType::Float>(this, info, entry, ir_func);
   Block *real_entry = info.block_mapping[ir_func->entry];
   if (blocks[1].get() != real_entry)
     entry->push_back(make_unique<Branch>(real_entry));
@@ -416,7 +142,7 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     for (auto &inst : block->insts) {
       for (Reg *r : inst->regs()) {
         if (r->is_pseudo())
-          r->is_float = float_regs.count(*r);
+          r->type = float_regs.count(*r) ? ScalarType::Float : ScalarType::Int;
       }
     }
   }
@@ -513,8 +239,8 @@ void Func::merge_inst() {
             Del();
           } else if (v > 1) {
             auto [B, s] = div_opt(v);
-            Reg lo = Reg{r4};
-            Reg hi = Reg{r5};
+            Reg lo = Reg(r4, ScalarType::Int);
+            Reg hi = Reg(r5, ScalarType::Int);
             int32_t B0 = B & 0x7fffffff;
             Reg x = bop->lhs;
             Ins(load_imm(lo, B0));
@@ -556,8 +282,8 @@ void Func::merge_inst() {
             Del();
           } else if (v > 1) {
             auto [B, s] = div_opt(v);
-            Reg lo = Reg{r4};
-            Reg hi = Reg{r5};
+            Reg lo = Reg(r4, ScalarType::Int);
+            Reg hi = Reg(r5, ScalarType::Int);
             int32_t B0 = B & 0x7fffffff;
             Reg x = bop->lhs;
             Ins(load_imm(lo, B0));
@@ -622,7 +348,7 @@ void Func::dce() {
       bool used = cur->side_effect();
       used |= (cur->change_cpsr() && use_cpsr);
       for (Reg r : cur->def_reg())
-        if ((r.is_machine() && !allocable(r.id)) || live.count(r))
+        if ((r.is_machine() && !r.is_allocable()) || live.count(r))
           used = true;
       if (!used)
         return 1;
@@ -671,12 +397,12 @@ void Func::calc_live() {
     block->def.clear();
     for (auto it = block->insts.rbegin(); it != block->insts.rend(); ++it) {
       for (Reg r : (*it)->def_reg())
-        if (r.is_pseudo() || allocable(r.id)) {
+        if (r.is_pseudo() || r.is_allocable()) {
           block->live_use.erase(r);
           block->def.insert(r);
         }
       for (Reg r : (*it)->use_reg())
-        if (r.is_pseudo() || allocable(r.id)) {
+        if (r.is_pseudo() || r.is_allocable()) {
           block->def.erase(r);
           block->live_use.insert(r);
         }
@@ -745,19 +471,6 @@ vector<int> Func::get_branch_in_deg() {
   return ret;
 }
 
-vector<int> Func::reg_allocate(RegAllocStat *stat) {
-  info << "register allocation for function: " << name << '\n';
-  info << "reg_n = " << reg_n << '\n';
-  stat->spill_cnt = 0;
-  info << "using SimpleColoringAllocator\n";
-  while (true) {
-    SimpleColoringAllocator allocator(this);
-    vector<int> ret = allocator.run(stat);
-    if (stat->succeed)
-      return ret;
-  }
-}
-
 bool Func::check_store_stack() {
   bool ret = true;
   for (auto &block : blocks) {
@@ -769,12 +482,13 @@ bool Func::check_store_stack() {
         int32_t total_offset =
             store_stk->target->position + store_stk->offset - sp_offset;
         if (!load_store_offset_range(total_offset)) {
-          Reg imm{reg_n++};
+          Reg imm(reg_n++, ScalarType::Int);
           block->insts.insert(
               i, set_cond(make_unique<LoadStackOffset>(imm, store_stk->offset,
                                                        store_stk->target),
                           cond));
-          *i = set_cond(make_unique<ComplexStore>(store_stk->src, Reg{sp}, imm),
+          *i = set_cond(make_unique<ComplexStore>(
+                            store_stk->src, Reg(sp, ScalarType::Int), imm),
                         cond);
           ret = false;
         }
@@ -784,12 +498,14 @@ bool Func::check_store_stack() {
   return ret;
 }
 
-void Func::replace_with_reg_alloc(const vector<int> &reg_alloc) {
+void Func::replace_with_reg_alloc(const vector<int> &int_reg_alloc,
+                                  const vector<int> &float_reg_alloc) {
   for (auto &block : blocks)
     for (auto &inst : block->insts)
       for (Reg *i : inst->regs())
         if (i->is_pseudo())
-          i->id = reg_alloc[i->id];
+          i->id = i->type == ScalarType::Int ? int_reg_alloc[i->id]
+                                             : float_reg_alloc[i->id];
 }
 
 void Func::replace_complex_inst() {
@@ -804,16 +520,20 @@ void Func::replace_complex_inst() {
         if (!load_store_offset_range(total_offset)) {
           Reg dst = load_stk->dst;
           Reg tmp = dst;
-          tmp.is_float = 0;
+          tmp.type = ScalarType::Int;
           insert(block->insts, i, set_cond(load_imm(tmp, total_offset), cond));
-          *i = set_cond(make_unique<ComplexLoad>(dst, Reg{sp}, tmp), cond);
+          *i = set_cond(
+              make_unique<ComplexLoad>(dst, Reg(sp, ScalarType::Int), tmp),
+              cond);
         }
       } else if (auto load_stk_addr = (*i)->as<LoadStackAddr>()) {
         int32_t total_offset =
             load_stk_addr->src->position + load_stk_addr->offset - sp_offset;
         Reg dst = load_stk_addr->dst;
-        replace(block->insts, i,
-                set_cond(reg_imm_sum(dst, Reg{sp}, total_offset), cond));
+        replace(
+            block->insts, i,
+            set_cond(reg_imm_sum(dst, Reg(sp, ScalarType::Int), total_offset),
+                     cond));
       } else if (auto load_stk_offset = (*i)->as<LoadStackOffset>()) {
         int32_t total_offset = load_stk_offset->src->position +
                                load_stk_offset->offset - sp_offset;
@@ -824,60 +544,91 @@ void Func::replace_complex_inst() {
   }
 }
 
+template <ScalarType type>
+std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
+  info << "register allocation for function: " << ctx->name << '\n';
+  info << "reg_n = " << ctx->reg_n << '\n';
+  stat->spill_cnt = 0;
+  info << "using SimpleColoringAllocator\n";
+  while (true) {
+    SimpleColoringAllocator<type> allocator(ctx);
+    std::vector<int> ret = allocator.run(stat);
+    if (stat->succeed)
+      return ret;
+  }
+}
+
 void Func::gen_asm(ostream &out) {
-  RegAllocStat stat;
-  vector<int> reg_alloc;
+  RegAllocStat int_stat, float_stat;
+  vector<int> int_reg_alloc, float_reg_alloc;
   AsmContext ctx;
   std::function<void(ostream & out)> prologue;
   while (true) {
-    reg_alloc = reg_allocate(&stat);
+    int_reg_alloc = reg_allocate<ScalarType::Int>(&int_stat, this);
+    float_reg_alloc = reg_allocate<ScalarType::Float>(&float_stat, this);
     int32_t stack_size = 0;
     for (auto i = stack_objects.rbegin(); i != stack_objects.rend(); ++i) {
       (*i)->position = stack_size;
       stack_size += (*i)->size;
     }
-    vector<Reg> save_regs;
-    bool used[RegCount] = {};
-    for (int i : reg_alloc)
+    vector<Reg> save_int_regs, save_float_regs;
+    bool used_int[RegConvention<ScalarType::Int>::Count] = {};
+    bool used_float[RegConvention<ScalarType::Float>::Count] = {};
+    for (int i : int_reg_alloc)
       if (i >= 0)
-        used[i] = true;
-    for (int i = 0; i < RegCount; ++i)
-      if (REGISTER_USAGE[i] == callee_save && used[i])
-        save_regs.emplace_back(i);
-    size_t save_reg_cnt = save_regs.size();
-    if (save_reg_cnt)
-      save_reg_cnt += 16;
+        used_int[i] = true;
+    for (int i = 0; i < RegConvention<ScalarType::Int>::Count; ++i)
+      if (RegConvention<ScalarType::Int>::REGISTER_USAGE[i] ==
+              RegisterUsage::callee_save &&
+          used_int[i])
+        save_int_regs.emplace_back(Reg(i, ScalarType::Int));
+    for (int i : float_reg_alloc)
+      if (i >= 0)
+        used_float[i] = true;
+    for (int i = 0; i < RegConvention<ScalarType::Float>::Count; ++i)
+      if (RegConvention<ScalarType::Float>::REGISTER_USAGE[i] ==
+              RegisterUsage::callee_save &&
+          used_float[i])
+        save_float_regs.emplace_back(Reg(i, ScalarType::Float));
+    size_t save_reg_cnt = save_int_regs.size() + save_float_regs.size();
     if ((stack_size + save_reg_cnt * 4) % 8)
       stack_size += 4;
-    prologue = [save_regs, stack_size](ostream &out) {
-      if (save_regs.size()) {
+    prologue = [save_int_regs, save_float_regs, stack_size](ostream &out) {
+      if (save_int_regs.size()) {
         out << "push {";
-        for (size_t i = 0; i < save_regs.size(); ++i) {
+        for (size_t i = 0; i < save_int_regs.size(); ++i) {
           if (i > 0)
             out << ',';
-          out << save_regs[i];
+          out << save_int_regs[i];
         }
         out << "}\n";
-        out << "vpush {d0,d1,d2,d3,d4,d5,d6,d7}\n";
+      }
+      for (auto reg : save_float_regs) {
+        out << "vpush {" << reg << "}" << std::endl;
       }
       if (stack_size != 0)
         sp_move_asm(-stack_size, out);
     };
-    ctx.epilogue = [save_regs, stack_size](ostream &out) -> bool {
+    ctx.epilogue = [save_int_regs, save_float_regs,
+                    stack_size](ostream &out) -> bool {
       if (stack_size != 0)
         sp_move_asm(stack_size, out);
+      for (auto it = save_float_regs.rbegin(); it != save_float_regs.rend();
+           it++) {
+        auto reg = *it;
+        out << "vpop {" << reg << "}" << std::endl;
+      }
       bool pop_lr = false;
-      if (save_regs.size()) {
-        out << "vpop {d0,d1,d2,d3,d4,d5,d6,d7}\n";
+      if (save_int_regs.size()) {
         out << "pop {";
-        for (size_t i = 0; i < save_regs.size(); ++i) {
+        for (size_t i = 0; i < save_int_regs.size(); ++i) {
           if (i > 0)
             out << ',';
-          if (save_regs[i].id == lr) {
+          if (save_int_regs[i].id == lr) {
             pop_lr = true;
             out << "pc";
           } else
-            out << save_regs[i];
+            out << save_int_regs[i];
         }
         out << "}\n";
       }
@@ -891,11 +642,7 @@ void Func::gen_asm(ostream &out) {
     if (check_store_stack())
       break;
   }
-  info << "Register allocation:\n"
-       << "spill: " << stat.spill_cnt << '\n'
-       << "move instructions eliminated: " << stat.move_eliminated << '\n'
-       << "callee-save registers used: " << stat.callee_save_used << '\n';
-  replace_with_reg_alloc(reg_alloc);
+  replace_with_reg_alloc(int_reg_alloc, float_reg_alloc);
   replace_complex_inst();
   out << '\n' << name << ":\n";
   prologue(out);

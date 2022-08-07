@@ -97,17 +97,17 @@ struct CallGraph {
         size_t used_arg = 0;
         bool flag = 0;
         for (auto [r, id] : enumerate(call->args)) {
-          auto rw = defs.at(r);
+          auto rw = defs.at(r.first);
           Case(LoadConst<int32_t>, lc, rw) {
             flag = 1;
             args[id] = {lc->value, 1};
           }
-          else if (same_arg.count(r)) {
+          else if (same_arg.count(r.first)) {
             flag = 1;
-            args[id] = {same_arg[r], 2};
+            args[id] = {same_arg[r.first], 2};
           }
           else {
-            same_arg[r] = id;
+            same_arg[r.first] = id;
             args[id] = {id, 0};
             used_arg = id + 1;
           }
@@ -117,7 +117,7 @@ struct CallGraph {
         call->args.resize(used_arg);
         f->for_each([&](BB *bb) {
           bb->for_each([&](Instr *x) {
-            Case(LoadArg, la, x) {
+            Case(LoadArg<ScalarType::Int>, la, x) {
               auto [v, type] = args.at(la->id);
               if (type == 2) {
                 la->id = v;
@@ -125,6 +125,19 @@ struct CallGraph {
               } else if (type == 1) {
                 Reg d1 = la->d1;
                 auto lc = new LoadConst<int32_t>(d1, v);
+                bb->replace(lc);
+                info[f].defs.at(d1) = lc;
+                ++cnt;
+              }
+            }
+            else Case(LoadArg<ScalarType::Float>, la, x) {
+              auto [v, type] = args.at(la->id);
+              if (type == 2) {
+                la->id = v;
+                ++cnt;
+              } else if (type == 1) {
+                Reg d1 = la->d1;
+                auto lc = new LoadConst<float>(d1, v);
                 bb->replace(lc);
                 info[f].defs.at(d1) = lc;
                 ++cnt;
@@ -153,8 +166,19 @@ struct CallGraph {
       if (!fi.ret_used) {
         bool flag = 0;
         f->for_each([&](BB *bb) {
-          Case(ReturnInstr, ret, bb->back()) {
+          Case(ReturnInstr<ScalarType::Int>, ret, bb->back()) {
             Case(LoadConst<int32_t>, _, fi.defs.at(ret->s1)) {
+              (void)_;
+              return;
+            }
+            Reg r = ret->s1 = f->new_Reg();
+            auto lc = new LoadConst(r, 0);
+            bb->push1(lc);
+            fi.defs[r] = lc;
+            flag = 1;
+          }
+          else Case(ReturnInstr<ScalarType::Float>, ret, bb->back()) {
+            Case(LoadConst<float>, _, fi.defs.at(ret->s1)) {
               (void)_;
               return;
             }
@@ -179,7 +203,12 @@ struct CallGraph {
     size_t cnt = 0;
     BB *bb = nullptr;
     f->for_each([&](BB *bb0) {
-      Case(ReturnInstr, _, bb0->back()) {
+      Case(ReturnInstr<ScalarType::Int>, _, bb0->back()) {
+        (void)_;
+        assert(!bb);
+        bb = bb0;
+      }
+      Case(ReturnInstr<ScalarType::Float>, _, bb0->back()) {
         (void)_;
         assert(!bb);
         bb = bb0;
@@ -208,31 +237,43 @@ struct CallGraph {
       if (tail_rec.size()) {
         ++cnt;
         std::unordered_map<Reg, Reg> mp;
-        std::map<int, std::pair<Reg, Reg>> args;
+        std::map<int, std::tuple<Reg, Reg, ScalarType>> args;
         f->for_each([&](Instr *x) {
-          Case(LoadArg, la, x) {
+          Case(LoadArg<ScalarType::Int>, la, x) {
             if (!args.count(la->id)) {
               Reg r1 = f->new_Reg();
               Reg r2 = f->new_Reg();
-              args[la->id] = {r1, r2};
+              args[la->id] = {r1, r2, ScalarType::Int};
             }
-            mp[la->d1] = args[la->id].second;
+            mp[la->d1] = std::get<1>(args[la->id]);
+          }
+          Case(LoadArg<ScalarType::Float>, la, x) {
+            if (!args.count(la->id)) {
+              Reg r1 = f->new_Reg();
+              Reg r2 = f->new_Reg();
+              args[la->id] = {r1, r2, ScalarType::Float};
+            }
+            mp[la->d1] = std::get<1>(args[la->id]);
           }
         });
         auto new_entry = f->new_BB();
         auto old_entry = f->entry;
         f->entry = new_entry;
         for (auto &[id, rs] : args) {
-          new_entry->push(new LoadArg(rs.first, id));
+          if (std::get<2>(rs) == ScalarType::Int)
+            new_entry->push(new LoadArg<ScalarType::Int>(std::get<0>(rs), id));
+          if (std::get<2>(rs) == ScalarType::Float)
+            new_entry->push(
+                new LoadArg<ScalarType::Float>(std::get<0>(rs), id));
         }
         new_entry->push(new JumpInstr(old_entry));
         for (auto &[id, rs] : args) {
-          auto phi = new PhiInstr(rs.second);
+          auto phi = new PhiInstr(std::get<1>(rs));
           old_entry->push_front(phi);
-          phi->add_use(rs.first, new_entry);
+          phi->add_use(std::get<0>(rs), new_entry);
           for (BB *bb0 : tail_rec) {
             Case(CallInstr, call, bb0->back1()) {
-              phi->add_use(call->args.at(id), bb0);
+              phi->add_use(call->args.at(id).first, bb0);
             }
             else assert(0);
           }

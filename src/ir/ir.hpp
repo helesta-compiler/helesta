@@ -223,7 +223,7 @@ struct BB : Printable, Traversable<BB> {
   void replace(Instr *x) { *std::prev(_it) = unique_ptr<Instr>(x); }
   bool _del = 0;
   void move() {
-    std::prev(_it)->release();
+    (void)std::prev(_it)->release();
     del();
   }
   void del() { _del = 1; }
@@ -529,7 +529,7 @@ template <typename Scalar> struct LoadConst : RegWriteInstr {
   void print(ostream &os) const override;
 };
 
-struct LoadArg : RegWriteInstr {
+template <ScalarType type> struct LoadArg : RegWriteInstr {
   // load arg with arg_id=id to d1
   // d1 = arg
   int id;
@@ -594,7 +594,7 @@ struct BranchInstr : ControlInstr {
   void print(ostream &os) const override;
 };
 
-struct ReturnInstr : ControlInstr {
+template <ScalarType type> struct ReturnInstr : ControlInstr {
   // return s1
   Reg s1;
   bool ignore_return_value;
@@ -605,12 +605,13 @@ struct ReturnInstr : ControlInstr {
 
 struct CallInstr : RegWriteInstr {
   // d1 = f(args[0],args[1],...)
-  vector<Reg> args;
+  vector<std::pair<Reg, ScalarType>> args;
   Func *f;
-  bool ignore_return_value, no_store = 0, no_load = 0;
-  CallInstr(Reg d1, Func *f, vector<Reg> args, bool ignore_return_value)
-      : RegWriteInstr(d1), args(args), f(f),
-        ignore_return_value(ignore_return_value) {}
+  ScalarType return_type;
+  bool no_store = 0, no_load = 0;
+  CallInstr(Reg d1, Func *f, vector<std::pair<Reg, ScalarType>> args,
+            ScalarType return_type_)
+      : RegWriteInstr(d1), args(args), f(f), return_type(return_type_) {}
   void print(ostream &os) const override;
 };
 

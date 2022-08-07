@@ -5,7 +5,7 @@ struct CodeReorder : SimpleLoopVisitor {
   void visitBB(BB *bb) { bbs.emplace_back(bb); }
   void apply(NormalFunc *f) {
     for (auto &x : f->bbs)
-      x.release();
+      (void)x.release();
     f->bbs = std::move(bbs);
   }
 };
@@ -243,7 +243,7 @@ void remove_unused_BB(NormalFunc *f) {
     Reg r = f->new_Reg();
     BB *bb = f->entry = f->new_BB();
     bb->push(new LoadConst<int32_t>(r, 0));
-    bb->push(new ReturnInstr(r, 1));
+    bb->push(new ReturnInstr<ScalarType::Int>(r, 1));
   }
 }
 

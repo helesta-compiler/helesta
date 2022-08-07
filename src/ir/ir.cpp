@@ -56,7 +56,8 @@ const std::vector<BB *> BB::getOutNodes() const {
   } else if (auto branch_instr = dynamic_cast<BranchInstr *>(last)) {
     return {branch_instr->target0, branch_instr->target1};
   } else {
-    assert(dynamic_cast<ReturnInstr *>(last) != nullptr);
+    assert(dynamic_cast<ReturnInstr<ScalarType::Int> *>(last) != nullptr ||
+           dynamic_cast<ReturnInstr<ScalarType::Float> *>(last) != nullptr);
   }
   return {};
 }
@@ -98,7 +99,11 @@ template <> void LoadConst<int32_t>::print(ostream &os) const {
 template <> void LoadConst<float>::print(ostream &os) const {
   os << d1 << " = " << value << 'f';
 }
-void LoadArg::print(ostream &os) const { os << d1 << " = arg" << id; }
+template <ScalarType type> void LoadArg<type>::print(ostream &os) const {
+  os << d1 << " = arg" << id;
+  if (type == ScalarType::Float)
+    os << " float";
+}
 void ArrayIndex::print(ostream &os) const {
   os << d1 << " = " << s1 << " + " << s2 << " * " << size << " : " << limit;
 }
@@ -116,13 +121,15 @@ void JumpInstr::print(ostream &os) const { os << "goto " << target->name; }
 void BranchInstr::print(ostream &os) const {
   os << "goto " << cond << " ? " << target1->name << " : " << target0->name;
 }
-void ReturnInstr::print(ostream &os) const { os << "return " << s1; }
+template <ScalarType type> void ReturnInstr<type>::print(ostream &os) const {
+  os << "return " << s1;
+}
 
 void CallInstr::print(ostream &os) const {
   os << d1 << " = " << f->name;
   char c = '(';
   for (auto s : args) {
-    os << c << s;
+    os << c << s.first;
     c = ',';
   }
   if (c == '(')
@@ -226,7 +233,14 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
     f1(u->d1);
     return u;
   }
-  Case(LoadArg, w, this) {
+  Case(LoadArg<ScalarType::Int>, w, this) {
+    auto u = w;
+    if (copy)
+      u = new LoadArg(*w);
+    f1(u->d1);
+    return u;
+  }
+  Case(LoadArg<ScalarType::Float>, w, this) {
     auto u = w;
     if (copy)
       u = new LoadArg(*w);
@@ -291,10 +305,17 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
     f2(u->target0);
     return u;
   }
-  Case(ReturnInstr, w, this) {
+  Case(ReturnInstr<ScalarType::Int>, w, this) {
     auto u = w;
     if (copy)
-      u = new ReturnInstr(*w);
+      u = new ReturnInstr<ScalarType::Int>(*w);
+    f1(u->s1);
+    return u;
+  }
+  Case(ReturnInstr<ScalarType::Float>, w, this) {
+    auto u = w;
+    if (copy)
+      u = new ReturnInstr<ScalarType::Float>(*w);
     f1(u->s1);
     return u;
   }
@@ -304,7 +325,7 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
       u = new CallInstr(*w);
     f1(u->d1);
     for (auto &x : u->args)
-      f1(x);
+      f1(x.first);
     return u;
   }
   Case(PhiInstr, w, this) {
@@ -458,7 +479,10 @@ int exec(CompileUnit &c) {
         else Case(LoadConst<float>, x, x0) {
           wReg(x->d1, x->value);
         }
-        else Case(LoadArg, x, x0) {
+        else Case(LoadArg<ScalarType::Int>, x, x0) {
+          wReg(x->d1, args.at(x->id));
+        }
+        else Case(LoadArg<ScalarType::Float>, x, x0) {
           wReg(x->d1, args.at(x->id));
         }
         else Case(UnaryOpInstr, x, x0) {
@@ -495,7 +519,14 @@ int exec(CompileUnit &c) {
             ++jump_cnt;
           break;
         }
-        else Case(ReturnInstr, x, x0) {
+        else Case(ReturnInstr<ScalarType::Int>, x, x0) {
+          _ret = rReg(x->s1);
+          last_bb = cur;
+          cur = NULL;
+          jump_cnt += 2;
+          break;
+        }
+        else Case(ReturnInstr<ScalarType::Float>, x, x0) {
           _ret = rReg(x->s1);
           last_bb = cur;
           cur = NULL;
@@ -505,8 +536,8 @@ int exec(CompileUnit &c) {
         else Case(CallInstr, x, x0) {
           typeless_scalar_t ret = 0;
           std::vector<typeless_scalar_t> args;
-          for (Reg p : x->args)
-            args.push_back(rReg(p));
+          for (auto kv : x->args)
+            args.push_back(rReg(kv.first));
           Case(NormalFunc, f, x->f) {
             sp += sz;
             ret = run(f, args);
@@ -625,7 +656,7 @@ int exec(CompileUnit &c) {
               assert(0);
             }
           }
-          if (!x->f->ignore_return_value && !x->ignore_return_value)
+          if (!x->f->ignore_return_value && x->return_type != ScalarType::Void)
             wReg(x->d1, ret);
         }
         else assert(0);
