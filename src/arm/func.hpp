@@ -53,13 +53,6 @@ struct Func {
   void gen_asm(std::ostream &out);
   void print(std::ostream &out);
 
-  inline ScalarType get_reg_type(const int reg_id) const {
-    if (float_regs.find(Reg(reg_id, ScalarType::Float)) != float_regs.end()) {
-      return ScalarType::Float;
-    }
-    return ScalarType::Int;
-  }
-
 private:
   bool check_store_stack(); // if a StoreStack instruction immediate offset is
                             // out of range, replace with load_imm +

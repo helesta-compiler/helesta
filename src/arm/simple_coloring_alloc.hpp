@@ -136,9 +136,11 @@ template <ScalarType type> class SimpleColoringAllocator {
                cur_use = (*i)->use(Reg(id, type));
           if (func->constant_reg.find(Reg(id, type)) !=
               func->constant_reg.end()) {
+            assert(type == ScalarType::Int);
             assert(!cur_def);
             if (cur_use) {
-              Reg tmp{func->reg_n++, func->get_reg_type(id)};
+              Reg tmp{func->reg_n++, type};
+              assert(tmp.type == type);
               func->spilling_reg.insert(tmp);
               func->constant_reg[tmp] = func->constant_reg[Reg(id, type)];
               insert(block->insts, i,
@@ -149,7 +151,8 @@ template <ScalarType type> class SimpleColoringAllocator {
                      func->symbol_reg.end()) {
             assert(!cur_def);
             if (cur_use) {
-              Reg tmp{func->reg_n++, func->get_reg_type(id)};
+              Reg tmp{func->reg_n++, type};
+              assert(tmp.type == type);
               func->spilling_reg.insert(tmp);
               func->symbol_reg[tmp] = func->symbol_reg[Reg(id, type)];
               insert(block->insts, i,
@@ -159,7 +162,10 @@ template <ScalarType type> class SimpleColoringAllocator {
           } else {
             if (cur_def || cur_use) {
               StackObject *cur_obj = spill_obj[j];
-              Reg tmp{func->reg_n++, func->get_reg_type(id)};
+              Reg tmp{func->reg_n++, type};
+              if (type == ScalarType::Float)
+                func->float_regs.insert(tmp);
+              assert(tmp.type == type);
               func->spilling_reg.insert(tmp);
               if (cur_use)
                 block->insts.insert(

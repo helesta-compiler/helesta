@@ -56,7 +56,7 @@ template <> struct RegConvention<ScalarType::Int> {
 };
 
 template <> struct RegConvention<ScalarType::Float> {
-  static const int Count = 32;
+  static constexpr int Count = 32;
   static constexpr int ALLOCABLE_REGISTER_COUNT = 32;
   static constexpr int ARGUMENT_REGISTER_COUNT = 4;
   static constexpr int ARGUMENT_REGISTERS[ARGUMENT_REGISTER_COUNT] = {0, 1, 2,
