@@ -238,7 +238,7 @@ struct CallGraph {
         ++cnt;
         std::unordered_map<Reg, Reg> mp;
         std::map<int, std::tuple<Reg, Reg, ScalarType>> args;
-        f->for_each([&](Instr *x) {
+        f->for_each([&args, &f, &mp](Instr *x) {
           Case(LoadArg<ScalarType::Int>, la, x) {
             if (!args.count(la->id)) {
               Reg r1 = f->new_Reg();
