@@ -5,6 +5,7 @@ import time
 import tempfile
 import pandas as pd
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--testcase_path", default="testcases")
@@ -14,8 +15,10 @@ def parse_args():
     parser.add_argument("--benchmark", action='store_true')
     parser.add_argument("--benchmark_summary_path", default='/home/pi/github-action/summary.md')
     parser.add_argument("--benchmark_data_path", default='/home/pi/data/performance/')
+    parser.add_argument('--koba_path', default='/home/pi/kobayashi-compiler/build/compiler')
     args = parser.parse_args()
     return args
+
 
 def run(exe_path, in_path):
     child = None
@@ -32,6 +35,23 @@ def run(exe_path, in_path):
     out += "\n" + str(child.returncode)
     return out, end - start
 
+
+def run_koba(koba_path, src_path, in_path, lib_path):
+    print("benchmark {} with {}".format(src_path, koba_path))
+    asm_path = os.path.join(tempfile.mkdtemp(), "exe.s")
+    exe_path = os.path.join(tempfile.mkdtemp(), "exe")
+    compile_cmd = "{} {} -o {}".format(koba_path, src_path, asm_path)
+    child = subprocess.Popen(compile_cmd.split(), stdout=subprocess.PIPE)
+    child.communicate()
+    if os.path.exists(asm_path):
+        link_cmd = "gcc {} {} -o {}".format(asm_path, lib_path, exe_path)
+        child = subprocess.Popen(link_cmd.split(), stdout=subprocess.PIPE)
+        child.communicate()
+        return run(exe_path, in_path)
+    else:
+        return None
+
+
 def run_with(compiler, src_path, in_path, lib_src_path, include_path):
     print("benchmark {} with {}".format(src_file, compiler))
     exe_path = os.path.join(tempfile.mkdtemp(), "exe")
@@ -39,6 +59,7 @@ def run_with(compiler, src_path, in_path, lib_src_path, include_path):
     child = subprocess.Popen(compile_cmd.split(), stdout=subprocess.PIPE)
     child.communicate()
     return run(exe_path, in_path)
+
 
 if __name__ == '__main__':
     args = parse_args()
@@ -106,6 +127,11 @@ if __name__ == '__main__':
                 _, elapsed = run_with('clang++', src_file, in_file, args.lib_src_path, args.include_path)
                 clang_sum += elapsed
                 result['clang elapsed'] = elapsed
+                res = run_koba(args.koba_path, src_file, in_file, args.lib_path)
+                if res is None:
+                    result['koba elapsed'] = "N/A"
+                else:
+                    result['koba elapsed'] = res[1]
                 results.append(result)
     if not args.benchmark:
         exit(0)

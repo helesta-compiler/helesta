@@ -40,7 +40,8 @@ struct GVNNode : Traversable<GVNNode>, TreeNode<GVNNode> {
   std::vector<std::pair<IR::UnaryCompute, int>> new_unaries;
   std::vector<std::tuple<IR::BinaryCompute, int, int>> new_binaries;
   std::vector<std::tuple<int, int, int>> new_array_indexs;
-  std::vector<int> new_args;
+  std::vector<int> new_int_args;
+  std::vector<int> new_float_args;
   std::vector<IR::MemObject *> new_addrs;
   bool visited = false;
 
@@ -66,7 +67,8 @@ struct GVNContext {
   // <reg> + <reg> * <scalar> -> <reg>
   std::map<std::tuple<int, int, int>, int> array_index_values;
   // <scalar> -> <reg>
-  std::map<int, int> arg_values;
+  std::map<int, int> int_arg_values;
+  std::map<int, float> float_arg_values;
   // <IR::MemObject*> -> <reg>
   std::map<IR::MemObject *, int> addr_values;
   GVNNode *entry;
@@ -259,15 +261,26 @@ struct GVNContext {
             node->new_array_indexs.push_back(key);
           }
         }
-      } else if (auto la = dynamic_cast<IR::LoadArg *>(i->i)) {
+      } else if (auto la = dynamic_cast<IR::LoadArg<ScalarType::Int> *>(i->i)) {
         auto key = la->id;
-        if (arg_values.count(key)) {
+        if (int_arg_values.count(key)) {
           i->removed = true;
-          assert(arg_values[key] != 0);
-          replace_same_value(la->d1.id, arg_values[key]);
+          assert(int_arg_values[key] != 0);
+          replace_same_value(la->d1.id, int_arg_values[key]);
         } else {
-          arg_values[key] = la->d1.id;
-          node->new_args.push_back(key);
+          int_arg_values[key] = la->d1.id;
+          node->new_int_args.push_back(key);
+        }
+      } else if (auto la =
+                     dynamic_cast<IR::LoadArg<ScalarType::Float> *>(i->i)) {
+        auto key = la->id;
+        if (float_arg_values.count(key)) {
+          i->removed = true;
+          assert(float_arg_values[key] != 0);
+          replace_same_value(la->d1.id, float_arg_values[key]);
+        } else {
+          float_arg_values[key] = la->d1.id;
+          node->new_float_args.push_back(key);
         }
       } else if (auto la = dynamic_cast<IR::LoadAddr *>(i->i)) {
         auto key = la->offset;
@@ -304,8 +317,11 @@ struct GVNContext {
     for (auto new_array_index : node->new_array_indexs) {
       assert(array_index_values.erase(new_array_index) == 1);
     }
-    for (auto new_arg : node->new_args) {
-      assert(arg_values.erase(new_arg) == 1);
+    for (auto new_arg : node->new_int_args) {
+      assert(int_arg_values.erase(new_arg) == 1);
+    }
+    for (auto new_arg : node->new_float_args) {
+      assert(float_arg_values.erase(new_arg) == 1);
     }
     for (auto new_addr : node->new_addrs) {
       assert(addr_values.erase(new_addr) == 1);

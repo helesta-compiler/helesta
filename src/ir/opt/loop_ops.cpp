@@ -527,7 +527,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 
       auto n = cg.reg(r) - cg.reg(l);
       int min_par_loop_cnt = 4;
-      min_par_loop_cnt = wi0.nested_cnt == 1 ? (1 << 12) : (1 << 6);
+      // min_par_loop_cnt = wi0.nested_cnt == 1 ? (1 << 12) : (1 << 6);
       cg.branch(n < cg.lc(min_par_loop_cnt), p0.entry, bb1);
       head->push(std::move(cg.instrs));
 
@@ -552,7 +552,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
         if (i < cnt) {
           BB *bb2 = S.f->new_BB();
           auto r0 = l0 + step;
-          cg.branch(cg.call(fork), p1.entry, bb2);
+          cg.branch(cg.call(fork, ScalarType::Int), p1.entry, bb2);
           bb1->push(std::move(cg.instrs));
           bb1 = bb2;
           l0 = r0;
@@ -581,9 +581,11 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
         auto &p1 = loops[i];
         p1.exit->map_BB(partial_map(next, bb));
         if (i != cnt)
-          cg.call(join, {cg.lc(0)}); // wait
+          cg.call(join, ScalarType::Void,
+                  {{cg.lc(0), ScalarType::Int}}); // wait
         if (i != 1)
-          cg.call(join, {cg.lc(1)}); // exit
+          cg.call(join, ScalarType::Void,
+                  {{cg.lc(1), ScalarType::Int}}); // exit
         cg.jump(tail);
         bb->push(std::move(cg.instrs));
       }

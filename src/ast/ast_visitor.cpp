@@ -249,7 +249,7 @@ antlrcpp::Any ASTVisitor::visitCompUnit(SysYParser::CompUnitContext *ctx) {
   visitChildren(ctx);
   auto r = init_func->new_Reg();
   init_bb->push(new IR::LoadConst(r, static_cast<int32_t>(0)));
-  init_bb->push(new IR::ReturnInstr(r, true));
+  init_bb->push(new IR::ReturnInstr<ScalarType::Int>(r, true));
   return found_main;
 }
 
@@ -574,8 +574,7 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   cur_local_table = new_variable_table(&global_var);
   if (name == "main") {
     found_main = true;
-    cur_bb->push(
-        new IR::CallInstr(new_reg(), init_func, vector<IR::Reg>{}, true));
+    cur_bb->push(new IR::CallInstr(new_reg(), init_func, {}, ScalarType::Void));
     if (!return_value_non_void)
       _throw InvalidMainFuncInterface("main function should return int");
     if (params.size() > 0)
@@ -583,6 +582,7 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
           "main function should have no parameters");
   }
   return_bb = cur_func->new_BB();
+  int int_arg_cnt = 0, float_arg_cnt = 0;
   for (int i = 0; i < static_cast<int>(params.size()); ++i) {
     if (params[i].second.is_array()) {
       IR::MemObject *obj =
@@ -593,16 +593,22 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
       obj->dims.push_back(-1);
       for (MemSize i : params[i].second.array_dims)
         obj->dims.push_back(static_cast<int>(i));
-      cur_func->scope.set_arg(i, obj);
+      cur_func->scope.set_arg(int_arg_cnt, obj);
       cur_local_table->register_var(params[i].first, nullptr, params[i].second);
-      cur_local_table->resolve(params[i].first)->arg_id = i;
+      cur_local_table->resolve(params[i].first)->arg_id = int_arg_cnt;
+      int_arg_cnt += 1;
     } else {
       IR::MemObject *obj = cur_func->scope.new_MemObject(params[i].first);
       obj->size = params[i].second.size();
       obj->scalar_type = params[i].second.scalar_type;
       cur_local_table->register_var(params[i].first, obj, params[i].second);
       IR::Reg value = new_reg(), addr = new_reg();
-      cur_bb->push(new IR::LoadArg(value, i));
+      if (params[i].second.scalar_type == ScalarType::Int) {
+        cur_bb->push(new IR::LoadArg<ScalarType::Int>(value, int_arg_cnt++));
+      } else {
+        cur_bb->push(
+            new IR::LoadArg<ScalarType::Float>(value, float_arg_cnt++));
+      }
       cur_bb->push(new IR::LoadAddr(addr, obj));
       cur_bb->push(new IR::StoreInstr(addr, value));
     }
@@ -624,12 +630,15 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     IR::PhiInstr *inst = new IR::PhiInstr(ret_value);
     inst->uses = return_value;
     return_bb->push(inst);
-    return_bb->push(new IR::ReturnInstr(ret_value, false));
+    if (return_value_is_float)
+      return_bb->push(new IR::ReturnInstr<ScalarType::Float>(ret_value, false));
+    else
+      return_bb->push(new IR::ReturnInstr<ScalarType::Int>(ret_value, false));
   } else {
     cur_bb->push(new IR::JumpInstr(return_bb));
     IR::Reg ret_value = cur_func->new_Reg();
     return_bb->push(new IR::LoadConst(ret_value, static_cast<int32_t>(0)));
-    return_bb->push(new IR::ReturnInstr(ret_value, true));
+    return_bb->push(new IR::ReturnInstr<ScalarType::Int>(ret_value, true));
   }
   cur_func = nullptr;
   cur_bb = nullptr;
@@ -864,7 +873,7 @@ antlrcpp::Any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
   } else {
     IR::Reg addr = new_reg();
     if (entry->arg_id >= 0) {
-      cur_bb->push(new IR::LoadArg(addr, entry->arg_id));
+      cur_bb->push(new IR::LoadArg<ScalarType::Int>(addr, entry->arg_id));
     } else {
       cur_bb->push(new IR::LoadAddr(addr, entry->ir_obj));
     }
@@ -963,7 +972,7 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
   if (args.size() > entry->interface.args_type.size() &&
       !entry->interface.variadic)
     _throw InvalidFuncCallArg("wrong number of function arguments");
-  vector<IR::Reg> arg_regs;
+  vector<std::pair<IR::Reg, ScalarType>> arg_regs;
   size_t offset = 0;
   for (size_t i = 0; i < args.size(); ++i) {
     if (IRValue *cur = std::get_if<IRValue>(&args[i])) {
@@ -973,9 +982,10 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
           if (!interface_type->check_assign(cur->type))
             _throw InvalidFuncCallArg("type error on function argument");
           if (interface_type->is_array())
-            arg_regs.push_back(cur->reg);
+            arg_regs.push_back({cur->reg, ScalarType::Int});
           else
-            arg_regs.push_back(_get_value(interface_type->scalar_type, *cur));
+            arg_regs.push_back({_get_value(interface_type->scalar_type, *cur),
+                                interface_type->scalar_type});
         } else
           _throw InvalidFuncCallArg("type error on function argument");
       } else {
@@ -983,17 +993,17 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
         IR::Reg arg_reg = _get_value(type, *cur);
         if (type == ScalarType::Float) {
           if (offset % 2) {
-            arg_regs.push_back(IR::Reg{});
+            arg_regs.push_back({IR::Reg{}, ScalarType::Float});
             offset += 1;
           }
           for (auto op : {IR::UnaryCompute::F2D0, IR::UnaryCompute::F2D1}) {
             IR::Reg reg1 = new_reg();
             cur_bb->push(new IR::UnaryOpInstr(reg1, arg_reg, op));
-            arg_regs.push_back(reg1);
+            arg_regs.push_back({reg1, ScalarType::Float});
           }
           offset += 1;
         } else if (type == ScalarType::Int) {
-          arg_regs.push_back(arg_reg);
+          arg_regs.push_back({arg_reg, ScalarType::Int});
         } else {
           assert(0);
         }
@@ -1004,14 +1014,14 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
         if (std::get_if<StringType>(&entry->interface.args_type[i])) {
           IR::Reg addr = new_reg();
           cur_bb->push(new IR::LoadAddr(addr, cur_str));
-          arg_regs.push_back(addr);
+          arg_regs.push_back({addr, ScalarType::Int});
         } else
           _throw InvalidFuncCallArg("type error on function argument");
       } else {
         assert(0);
         IR::Reg addr = new_reg();
         cur_bb->push(new IR::LoadAddr(addr, cur_str));
-        arg_regs.push_back(addr);
+        arg_regs.push_back({addr, ScalarType::Int});
       }
     }
     offset += 1;
@@ -1020,19 +1030,20 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
     int32_t line_no = static_cast<int32_t>(ctx->start->getLine());
     IR::Reg line_no_reg = new_reg();
     cur_bb->push(new IR::LoadConst(line_no_reg, line_no));
-    arg_regs.push_back(line_no_reg);
+    arg_regs.push_back({line_no_reg, ScalarType::Int});
   }
   if (entry->interface.return_type != ScalarType::Void) {
     IR::Reg return_value = new_reg();
-    cur_bb->push(
-        new IR::CallInstr(return_value, entry->ir_func, arg_regs, false));
+    cur_bb->push(new IR::CallInstr(return_value, entry->ir_func, arg_regs,
+                                   entry->interface.return_type));
     auto interface = functions.resolve(entry->ir_func->name)->interface;
     IRValue ret(interface.return_type);
     ret.is_left_value = false;
     ret.reg = return_value;
     return ret;
   } else {
-    cur_bb->push(new IR::CallInstr(new_reg(), entry->ir_func, arg_regs, true));
+    cur_bb->push(new IR::CallInstr(new_reg(), entry->ir_func, arg_regs,
+                                   ScalarType::Void));
     return nullptr;
   }
 }

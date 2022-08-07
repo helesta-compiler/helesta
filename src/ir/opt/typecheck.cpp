@@ -57,8 +57,11 @@ struct TypeCheck : InstrVisitor {
     else Case(LoadConst<float>, w, w0) {
       merge(w->d1, Float);
     }
-    else Case(LoadArg, w, w0) {
-      (void)w;
+    else Case(LoadArg<ScalarType::Int>, w, w0) {
+      merge(w->d1, Int);
+    }
+    else Case(LoadArg<ScalarType::Float>, w, w0) {
+      merge(w->d1, Float);
     }
     else Case(UnaryOpInstr, w, w0) {
       if (w->op.type == UnaryCompute::ID) {
@@ -90,8 +93,11 @@ struct TypeCheck : InstrVisitor {
     else Case(BranchInstr, w, w0) {
       merge(w->cond, Int);
     }
-    else Case(ReturnInstr, w, w0) {
-      (void)w;
+    else Case(ReturnInstr<ScalarType::Int>, w, w0) {
+      merge(w->s1, Int);
+    }
+    else Case(ReturnInstr<ScalarType::Float>, w, w0) {
+      merge(w->s1, Float);
     }
     else Case(CallInstr, w, w0) {
       (void)w;
