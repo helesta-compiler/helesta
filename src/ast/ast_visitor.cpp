@@ -895,17 +895,21 @@ antlrcpp::Any ASTVisitor::visitLVal(SysYParser::LValContext *ctx) {
       --cur;
     for (size_t i = cur + 1; i < entry->type.array_dims.size(); ++i)
       step_size *= entry->type.array_dims[i];
+    std::vector<std::pair<IR::Reg, MemSize>> tmp;
     for (size_t i = ctx->exp().size() - 1; i < ctx->exp().size(); --i) {
       new_type = new_type.deref_one_dim();
       IR::Reg cur_index =
           _get_value(ScalarType::Int, to_IRValue(ctx->exp()[i]->accept(this)));
-      IR::Reg new_addr = new_reg();
-      cur_bb->push(
-          new IR::ArrayIndex(new_addr, addr, cur_index, step_size, -1));
+      tmp.emplace_back(cur_index, step_size);
       if (cur < entry->type.array_dims.size()) {
         step_size *= entry->type.array_dims[cur];
         --cur;
       }
+    }
+    for (auto [cur_index, step_size] : reverse_view(tmp)) {
+      IR::Reg new_addr = new_reg();
+      cur_bb->push(
+          new IR::ArrayIndex(new_addr, addr, cur_index, step_size, -1));
       addr = new_addr;
     }
     IRValue ret(entry->type.scalar_type);

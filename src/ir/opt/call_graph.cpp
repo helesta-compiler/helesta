@@ -177,7 +177,7 @@ struct CallGraph {
             fi.defs[r] = lc;
             flag = 1;
           }
-          Case(ReturnInstr<ScalarType::Float>, ret, bb->back()) {
+          else Case(ReturnInstr<ScalarType::Float>, ret, bb->back()) {
             Case(LoadConst<float>, _, fi.defs.at(ret->s1)) {
               (void)_;
               return;
@@ -322,9 +322,11 @@ void call_graph(CompileUnit *ir) {
   PassEnabled("pure") cg.build_pure();
   PassEnabled("rur") cg.remove_unused_ret();
   PassEnabled("trtl") cg.tail_rec_to_loop();
+  checkIR(ir);
 }
 void remove_unused_func(CompileUnit *ir) {
   PassDisabled("ruf") return;
   CallGraph cg(ir);
   cg.remove_unused_func();
+  checkIR(ir);
 }

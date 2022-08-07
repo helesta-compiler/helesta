@@ -14,50 +14,6 @@ std::map<Reg, int> build_use_count(NormalFunc *func) {
   return f;
 }
 
-struct CodeGen {
-  std::list<std::unique_ptr<Instr>> instrs;
-  NormalFunc *f;
-  CodeGen(NormalFunc *_f) : f(_f) {}
-  struct RegRef {
-    Reg r;
-    CodeGen *cg;
-    friend RegRef operator-(RegRef a) {
-      Reg r = a.cg->f->new_Reg();
-      a.cg->instrs.emplace_back(new UnaryOpInstr(r, a.r, UnaryCompute::NEG));
-      return a.cg->reg(r);
-    }
-    void assign(RegRef a) {
-      cg->instrs.emplace_back(new UnaryOpInstr(r, a.r, UnaryCompute::ID));
-    }
-    void set_last_def(RegRef a) {
-      if (cg->instrs.size()) {
-        Case(RegWriteInstr, rw, cg->instrs.back().get()) {
-          if (rw->d1 == a.r) {
-            rw->d1 = r;
-          }
-          return;
-        }
-      }
-      assign(a);
-    }
-#define bop(op, name)                                                          \
-  friend RegRef operator op(RegRef a, RegRef b) {                              \
-    Reg r = a.cg->f->new_Reg();                                                \
-    a.cg->instrs.emplace_back(                                                 \
-        new BinaryOpInstr(r, a.r, b.r, BinaryCompute::name));                  \
-    return a.cg->reg(r);                                                       \
-  }
-    bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD)
-#undef bop
-  };
-  RegRef reg(Reg r) { return RegRef{r, this}; }
-  RegRef lc(int32_t x) {
-    Reg r = f->new_Reg();
-    instrs.emplace_back(new LoadConst<int32_t>(r, x));
-    return reg(r);
-  }
-};
-
 struct AddExpr : Printable {
   int32_t c = 0;
   bool bad = 0;

@@ -72,9 +72,9 @@ namespace IR {
 struct MemObject : Printable {
   // data stored in memory
   string name;
-  int size = 0;   // number of bytes, size%4==0
-  int offset = 0; // offset from gp or sp, computed after machine irrelavant
-                  // optimization
+  MemSize size = 0; // number of bytes, size%4==0
+  int offset = 0;   // offset from gp or sp, computed after machine irrelavant
+                    // optimization
   bool global;
   bool arg = 0;
   // global=0 arg=0: local variable, but not arg
@@ -88,34 +88,44 @@ struct MemObject : Printable {
   bool is_const = 0;
   // computed in optimize_passes
 
-  std::vector<int> dims;
+  std::vector<MemSize> dims;
   // only for int array, array dim size
 
-  void init(float *x, int size) {
+  void init(float *x, MemSize size) {
     initial_value = x;
     scalar_type = ScalarType::Float;
     this->size = size;
   }
-  void init(int32_t *x, int size) {
+  void init(int32_t *x, MemSize size) {
     initial_value = x;
     scalar_type = ScalarType::Int;
     this->size = size;
   }
-  void init(char *x, int size) {
+  void init(char *x, MemSize size) {
     initial_value = x;
     scalar_type = ScalarType::Char;
     this->size = size;
   }
   bool is_single_var() { return !arg && size == 4 && dims.empty(); }
   void print(ostream &os) const override;
-  int at(int x) {
-    if (!(0 <= x && x + 4 <= size))
+  template <class T> T at(MemSize x, T _ = 0) {
+    (void)_;
+    if (!(x <= size && x + sizeof(T) <= size))
       return 0; // assert
-    if (x % 4 != 0)
+    if (x % sizeof(T) != 0)
       return 0; // assert
-    if (!initial_value)
-      return 0;
-    return ((int *)initial_value)[x / 4];
+    T v = 0;
+    if (initial_value)
+      v = ((T *)initial_value)[x / sizeof(T)];
+    return v;
+  }
+  template <class T> void set(MemSize x, T y) {
+    if (!(x <= size && x + sizeof(T) <= size))
+      return; // assert
+    if (x % sizeof(T) != 0)
+      return; // assert
+    assert(initial_value);
+    ((T *)initial_value)[x / sizeof(T)] = y;
   }
 
 private:
@@ -217,6 +227,16 @@ struct BB : Printable, Traversable<BB> {
     del();
   }
   void del() { _del = 1; }
+  void ins(Instr *x) { instrs.insert(std::prev(_it), unique_ptr<Instr>(x)); }
+  void ins(decltype(instrs) &&ls) {
+    for (auto &x : ls) {
+      ins(x.release());
+    }
+  }
+  void replace(decltype(instrs) &&ls) {
+    ins(std::move(ls));
+    del();
+  }
   bool for_each_until(function<bool(Instr *)> f) {
     for (_it = instrs.begin(); _it != instrs.end();) {
       auto it0 = _it;
@@ -241,6 +261,9 @@ struct BB : Printable, Traversable<BB> {
     for (auto &x : instrs)
       x->map_BB(f);
   }
+  void map_use(std::function<void(Reg &)> f);
+  void map_phi_use(std::function<void(Reg &)> f1,
+                   std::function<void(BB *&)> f2);
 
   const std::vector<BB *> getOutNodes() const override;
   void addOutNode(BB *) override {
@@ -296,7 +319,7 @@ struct NormalFunc : Func {
     return Reg(++max_reg_id);
   }
   BB *new_BB(string _name = "BB") {
-    BB *bb = new BB(name + "::" + _name + to_string(++max_bb_id));
+    BB *bb = new BB(name + "::" + _name + std::to_string(++max_bb_id));
     bbs.emplace_back(bb);
     return bb;
   }
@@ -472,10 +495,10 @@ struct BinaryOp : Printable {
            type == BinaryCompute::EQ || type == BinaryCompute::NEQ;
   }
   const char *get_name() const {
-    static const char *names[] = {"+",      "-",     "*",     "/",     "<",
-                                  "<=",     "==",    "!=",    "%",     "(F+F)",
-                                  "(F-F)",  "(F*F)", "(F/F)", "(F<F)", "(F<=F)",
-                                  "(F==F)", "(F!=F)"};
+    static const char *names[] = {"+",      "-",      "*",     "/",     "<",
+                                  "<=",     "==",     "!=",    "%",     "<<",
+                                  "(F+F)",  "(F-F)",  "(F*F)", "(F/F)", "(F<F)",
+                                  "(F<=F)", "(F==F)", "(F!=F)"};
     return names[(int)type];
   }
   void print(ostream &os) const override { os << get_name(); }
@@ -643,6 +666,14 @@ std::function<void(T &)> partial_map(std::unordered_map<T, T> &mp) {
       x = it->second;
   };
 }
+template <class T>
+std::function<void(T &)> sequential(std::function<void(T &)> a,
+                                    std::function<void(T &)> b) {
+  return [a, b](T &x) {
+    a(x);
+    b(x);
+  };
+}
 
 int exec(CompileUnit &c);
 
@@ -680,4 +711,49 @@ struct SetPrintContext {
   }
   ~SetPrintContext() { print_ctx.f = f0; }
 };
+struct CodeGen {
+  std::list<std::unique_ptr<Instr>> instrs;
+  NormalFunc *f;
+  CodeGen(NormalFunc *_f) : f(_f) {}
+  struct RegRef {
+    Reg r;
+    CodeGen *cg;
+    friend RegRef operator-(RegRef a) {
+      Reg r = a.cg->f->new_Reg();
+      a.cg->instrs.emplace_back(new UnaryOpInstr(r, a.r, UnaryCompute::NEG));
+      return a.cg->reg(r);
+    }
+    void assign(RegRef a) {
+      cg->instrs.emplace_back(new UnaryOpInstr(r, a.r, UnaryCompute::ID));
+    }
+    void set_last_def(RegRef a) {
+      if (cg->instrs.size()) {
+        Case(RegWriteInstr, rw, cg->instrs.back().get()) {
+          if (rw->d1 == a.r) {
+            rw->d1 = r;
+          }
+          return;
+        }
+      }
+      assign(a);
+    }
+#define bop(op, name)                                                          \
+  friend RegRef operator op(RegRef a, RegRef b) {                              \
+    Reg r = a.cg->f->new_Reg();                                                \
+    a.cg->instrs.emplace_back(                                                 \
+        new BinaryOpInstr(r, a.r, b.r, BinaryCompute::name));                  \
+    return a.cg->reg(r);                                                       \
+  }
+    bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD) bop(<, LESS)
+        bop(<=, LEQ)
+#undef bop
+  };
+  RegRef reg(Reg r) { return RegRef{r, this}; }
+  RegRef lc(int32_t x) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadConst<int32_t>(r, x));
+    return reg(r);
+  }
+};
+
 } // namespace IR
