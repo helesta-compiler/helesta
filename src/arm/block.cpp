@@ -281,10 +281,11 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(sp_move(stack_passed * INT_SIZE));
       }
       if (call->return_type == ScalarType::Float) {
+        auto ret = info->from_ir_reg(call->d1);
+        info->set_float(ret);
         push_back(std::make_unique<MoveReg>(
-            info->from_ir_reg(call->d1),
-            Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0],
-                ScalarType::Float)));
+            ret, Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0],
+                     ScalarType::Float)));
       } else if (call->return_type == ScalarType::Int) {
         push_back(std::make_unique<MoveReg>(
             info->from_ir_reg(call->d1),
