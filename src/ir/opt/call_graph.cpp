@@ -51,6 +51,10 @@ struct CallGraph {
           call->no_load = fi.no_load;
         }
       }
+      else Case(LibFunc, f0, call->f) {
+        call->no_load = call->no_store = f0->pure;
+      }
+      else assert(0);
     }
     // std::cerr << f->name << "  pure?  " << fi.no_store << fi.no_load << '\n';
     return {fi.no_store, fi.no_load};

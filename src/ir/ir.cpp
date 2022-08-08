@@ -166,11 +166,16 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   f = new_LibFunc("__join_threads", 1);
   f->in = 1;
   f->out = 1;
-  new_LibFunc("__umulmod", 0);
-  new_LibFunc("__u_c_np1_2_mod", 0);
-  new_LibFunc("__s_c_np1_2", 0);
-  new_LibFunc("__umod", 0);
-  new_LibFunc("__fixmod", 0);
+  f = new_LibFunc("__umulmod", 0);
+  f->pure = 1;
+  f = new_LibFunc("__u_c_np1_2_mod", 0);
+  f->pure = 1;
+  f = new_LibFunc("__s_c_np1_2", 0);
+  f->pure = 1;
+  f = new_LibFunc("__umod", 0);
+  f->pure = 1;
+  f = new_LibFunc("__fixmod", 0);
+  f->pure = 1;
 
   for (auto name : {"getint", "getch", "getfloat"}) {
     f = new_LibFunc(name, 0);

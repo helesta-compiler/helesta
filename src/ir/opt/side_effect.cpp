@@ -116,6 +116,10 @@ struct SideEffect : SimpleLoopVisitor {
       return mp->at(f0)->loop_info.at(nullptr).may_read;
     }
     else {
+      Case(LibFunc, f0, f) {
+        if (f0->pure)
+          return no_mem;
+      }
       return any_mem;
     }
   }
@@ -124,6 +128,10 @@ struct SideEffect : SimpleLoopVisitor {
       return mp->at(f0)->loop_info.at(nullptr).may_write;
     }
     else {
+      Case(LibFunc, f0, f) {
+        if (f0->pure)
+          return no_mem;
+      }
       return any_mem;
     }
   }

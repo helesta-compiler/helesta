@@ -98,8 +98,8 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
       return std::nullopt;
     Reg l = ind->init;
     Reg r = wi.cond->s2;
-    dbg("for(i=", l, ";i", wi.cond->name(), r, ";i=i", BinaryOp(op), *step,
-        "){...}  i:", i, "\n");
+    // dbg("for(i=", l, ";i", wi.cond->name(), r, ";i=i", BinaryOp(op), *step,
+    //  "){...}  i:", i, "\n");
     return std::make_tuple(i, l, r, wi.cond->op());
   }
 

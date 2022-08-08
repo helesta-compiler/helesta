@@ -304,6 +304,8 @@ struct LibFunc : Func {
   // (arg_id,0): read only
   bool in = 0,
        out = 0; // IO side effect, in: stdin changed, out: stdout changed
+  bool pure = 0;
+
 private:
   friend struct CompileUnit;
   LibFunc(string name) : Func(name) {}
