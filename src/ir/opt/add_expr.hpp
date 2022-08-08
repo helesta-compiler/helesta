@@ -1,13 +1,14 @@
 #pragma once
 #include "ir/ir.hpp"
 using namespace IR;
-
+struct MulAddExpr;
 struct EqContext {
   enum Type {
-    IND, // a-b == k*step, k:int, k>0
-    ANY  // a-b == ?
+    IND,   // a-b == k*step, k:int, k>0
+    RANGE, // |a-b| <= step
+    ANY    // a-b == ?
   };
-  std::function<std::pair<Type, int32_t>(Reg)> at;
+  std::function<std::pair<Type, const MulAddExpr &>(Reg)> at;
 };
 
 struct AddExpr : Printable {
@@ -19,14 +20,35 @@ struct AddExpr : Printable {
   void add_eq(const AddExpr &w, int32_t s);
   void set_mul(const AddExpr &w1, const AddExpr &w2);
   std::list<std::unique_ptr<Instr>> genIR(Reg result, NormalFunc *f);
-  bool maybe_eq(const AddExpr &w, const EqContext &ctx) const;
+};
+
+struct MulAddExpr : Printable {
+  typedef std::map<Reg, int32_t> MulExpr;
+  std::map<MulExpr, int32_t> cs;
+  bool bad = 0;
+  int32_t get_c() const;
+  void add_eq(int32_t a);
+  void add_eq(Reg x, int32_t a, int32_t b);
+  void add_eq(const MulExpr &w, int32_t a);
+  void add_eq(const MulAddExpr &w, int32_t a);
+  void set_mul(const MulAddExpr &w1, const MulAddExpr &w2, int32_t a);
+  void mul_eq(Reg x, int32_t a);
+  void mul_eq(const MulExpr &w, int32_t a);
+  void mul_eq(const MulAddExpr &w, int32_t a);
+  static int32_t gcd(int32_t w1, int32_t w2);
+  static MulExpr gcd(const MulExpr &w1, const MulExpr &w2);
+  void gcd_eq(const MulAddExpr &w);
+  void print(std::ostream &os) const override;
+  bool maybe_eq(const MulAddExpr &w, const EqContext &ctx) const;
+  static MulExpr mul(const MulExpr &w1, const MulExpr &w2);
+  bool may_gt(const MulAddExpr &w);
 };
 
 struct AddrExpr : Printable {
   MemObject *base;
   bool bad = 0;
-  std::map<int, AddExpr> indexs;
-  void add_eq(int key, const AddExpr &w);
+  std::map<int, MulAddExpr> indexs;
+  void add_eq(int key, const MulAddExpr &w);
   void print(std::ostream &os) const override;
   bool maybe_eq(const AddrExpr &w, const EqContext &ctx) const;
 };

@@ -232,7 +232,7 @@ struct ArrayReadWrite : SimpleLoopVisitor {
     }
   };
   struct RegInfo {
-    AddExpr add;
+    MulAddExpr add;
     AddrExpr addr;
   };
   umap<Reg, RegInfo> reg_info;
@@ -257,19 +257,26 @@ struct ArrayReadWrite : SimpleLoopVisitor {
     auto &wi0 = S.loop_info.at(bb);
     if (wi0.vars.size() != 1)
       return 1;
-    EqContext ctx{[&](Reg r) -> std::pair<EqContext::Type, int32_t> {
+    MulAddExpr zero;
+    umap<Reg, MulAddExpr> mp;
+    EqContext ctx{[&](Reg r) -> std::pair<EqContext::Type, MulAddExpr &> {
       if (!wi0.defs.count(r)) {
-        return {EqContext::IND, 0};
+        return {EqContext::IND, zero};
       }
       if (wi0.vars.count(r)) {
+        if (mp.count(r))
+          return {EqContext::IND, mp.at(r)};
         auto &ind = wi0.vars.at(r).ind;
         if (ind) {
           const auto &c = S.get_const(ind->step);
-          if (c)
-            return {EqContext::IND, *c};
+          if (c) {
+            auto &w = mp[r];
+            w.add_eq(*c);
+            return {EqContext::IND, w};
+          }
         }
       }
-      return {EqContext::ANY, 0};
+      return {EqContext::ANY, zero};
     }};
     for (Reg w : wi.ws) {
       for (Reg r : wi.rs) {
@@ -293,11 +300,11 @@ struct ArrayReadWrite : SimpleLoopVisitor {
         ri.addr.bad = 1;
         Case(LoadConst<int32_t>, lc, rw) {
           ri.add.bad = 0;
-          ri.add.c = lc->value;
+          ri.add.add_eq(lc->value);
         }
         Case(PhiInstr, phi, rw) {
           ri.add.bad = 0;
-          ri.add.add_eq(phi->d1, 1);
+          ri.add.add_eq(phi->d1, 1, 1);
         }
         else Case(LoadAddr, la, rw) {
           ri.addr.bad = 0;
@@ -319,7 +326,8 @@ struct ArrayReadWrite : SimpleLoopVisitor {
             break;
           case BinaryCompute::MUL:
             ri.add.bad = 0;
-            ri.add.set_mul(reg_info.at(bop->s1).add, reg_info.at(bop->s2).add);
+            ri.add.set_mul(reg_info.at(bop->s1).add, reg_info.at(bop->s2).add,
+                           1);
             break;
           default:
             break;
