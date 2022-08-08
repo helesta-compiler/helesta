@@ -256,6 +256,29 @@ void remove_unused_BB(NormalFunc *f) {
   }
 }
 
+void before_gcm_func(NormalFunc *f) {
+  auto prev = build_prev(f);
+  std::vector<std::pair<BB *, BB *>> edges;
+  f->for_each([&](BB *bb) {
+    auto out = bb->getOutNodes();
+    if (out.size() > 1) {
+      for (BB *next : out) {
+        if (prev[next].size() > 1) {
+          edges.emplace_back(bb, next);
+        }
+      }
+    }
+  });
+  for (auto &[x, y] : edges) {
+    BB *z = f->new_BB();
+    z->push(new JumpInstr(y));
+    x->back()->map_BB(partial_map(y, z));
+    y->map_phi_use([](auto &) {}, partial_map(x, z));
+  }
+}
+
+void before_gcm(CompileUnit *ir) { ir->for_each(before_gcm_func); }
+
 void checkIR(NormalFunc *f) {
   auto prev = build_prev(f);
   auto defs = build_defs(f);
