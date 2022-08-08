@@ -200,7 +200,6 @@ GCMNode *schedule_late(GCMInstr *i, GCMContext *ctx) {
     return i->node;
   }
   assert(lca != nullptr);
-  std::cout << "lca = " << lca->bb->name << std::endl;
   auto best = lca;
   auto cur = lca;
   while (cur != i->node) {
