@@ -154,58 +154,67 @@ void remove_trivial_BB(NormalFunc *f) {
   });
 }
 void remove_phi(NormalFunc *f) {
-  std::unordered_map<std::pair<BB *, BB *>, std::vector<std::pair<Reg, Reg>>>
-      movs;
+  struct Movs {
+    std::vector<std::pair<Reg, Reg>> a[2];
+  };
+  std::unordered_map<std::pair<BB *, BB *>, Movs> movs;
+  auto float_regs = get_float_regs(f);
   f->for_each([&](BB *bb) {
     bb->for_each([&](Instr *x) {
       Case(PhiInstr, phi, x) {
         for (auto &[r, bb0] : phi->uses) {
-          if (r != phi->d1)
-            movs[{bb0, bb}].emplace_back(r, phi->d1);
+          if (r != phi->d1) {
+            bool t1 = float_regs.count(r);
+            bool t2 = float_regs.count(phi->d1);
+            assert(t1 == t2);
+            movs[{bb0, bb}].a[t1].emplace_back(r, phi->d1);
+          }
         }
         bb->move();
       }
     });
   });
-  for (auto &[edge, P] : movs) {
+  for (auto &[edge, Ps] : movs) {
     auto [bb0, bb] = edge;
     BB *bb1 = f->new_BB();
     bb0->back()->map_BB(partial_map(bb, bb1));
     bb1->push(new JumpInstr(bb));
-    auto emit_copy = [&](Reg a, Reg b) {
-      if (b != a)
-        bb1->push1(new UnaryOpInstr(b, a, UnaryCompute::ID));
-    };
-    Reg n = f->new_Reg();
-    std::vector<std::pair<Reg, Reg>> res;
-    std::map<Reg, std::optional<Reg>> loc, pred;
-    std::vector<Reg> to_do, ready;
-    for (auto [a, b] : P) {
-      loc[a] = a;
-      pred[b] = a;
-      to_do.push_back(b);
-    }
-    for (auto [a, b] : P) {
-      if (!loc[b])
-        ready.push_back(b);
-    }
-    while (!to_do.empty()) {
-      while (!ready.empty()) {
-        Reg b = ready.back();
-        ready.pop_back();
-        Reg a = pred[b].value();
-        Reg c = loc[a].value();
-        emit_copy(c, b);
-        loc[a] = b;
-        if (a == c && pred[a])
-          ready.push_back(a);
+    for (auto &P : Ps.a) {
+      auto emit_copy = [&](Reg a, Reg b) {
+        if (b != a)
+          bb1->push1(new UnaryOpInstr(b, a, UnaryCompute::ID));
+      };
+      Reg n = f->new_Reg();
+      std::vector<std::pair<Reg, Reg>> res;
+      std::map<Reg, std::optional<Reg>> loc, pred;
+      std::vector<Reg> to_do, ready;
+      for (auto [a, b] : P) {
+        loc[a] = a;
+        pred[b] = a;
+        to_do.push_back(b);
       }
-      Reg b = to_do.back();
-      to_do.pop_back();
-      if (b == loc[pred[b].value()].value()) {
-        emit_copy(b, n);
-        loc[b] = n;
-        ready.push_back(b);
+      for (auto [a, b] : P) {
+        if (!loc[b])
+          ready.push_back(b);
+      }
+      while (!to_do.empty()) {
+        while (!ready.empty()) {
+          Reg b = ready.back();
+          ready.pop_back();
+          Reg a = pred[b].value();
+          Reg c = loc[a].value();
+          emit_copy(c, b);
+          loc[a] = b;
+          if (a == c && pred[a])
+            ready.push_back(a);
+        }
+        Reg b = to_do.back();
+        to_do.pop_back();
+        if (b == loc[pred[b].value()].value()) {
+          emit_copy(b, n);
+          loc[b] = n;
+          ready.push_back(b);
+        }
       }
     }
   }
