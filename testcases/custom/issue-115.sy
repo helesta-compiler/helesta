@@ -1,0 +1,15 @@
+float foo(float x, int y, float z) {
+    return x + y + z;
+}
+
+int main() {
+    float x = getfloat();
+    int y = getint();
+    float z = getfloat();
+    float res = foo(x, y, z);
+    if (res == x + y + z)
+        putint(1);
+    else
+        putint(0);
+    return 0;
+}
