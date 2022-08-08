@@ -642,6 +642,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 }
 
 bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
+  PassDisabled("sr") return 0;
   auto &wi0 = S.loop_info.at(w);
   bool dbg_on = (global_config.args["dbg-sr"] == "1");
   if (auto ilr = S.get_ilr(w)) {

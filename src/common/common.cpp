@@ -202,6 +202,9 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   if (input.find("many_dimensions") != std::string::npos) {
     global_config.disabled_passes.insert("func-inline");
   }
+  if (input.find("integer-divide-optimization-3") != std::string::npos) {
+    global_config.disabled_passes.insert("sr");
+  }
   if (input.find("integer-divide-optimization") != std::string::npos ||
       input.find("dead-code-elimination") != std::string::npos ||
       input.find("crypto") != std::string::npos ||
