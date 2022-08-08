@@ -262,5 +262,6 @@ struct CounterOutput {
   }
 };
 
+std::unordered_set<Reg> get_float_regs(NormalFunc *f);
 bool type_check(NormalFunc *f);
 void loop_ops(NormalFunc *f, bool last);
