@@ -724,8 +724,11 @@ void local_init_to_global(CompileUnit *ir, NormalFunc *f) {
   }
 }
 
+void global_value_numbering_func(IR::NormalFunc *func);
+
 void arith(CompileUnit *ir) {
   ir->for_each([&](NormalFunc *f) {
+    global_value_numbering_func(f);
     mod2div(f);
     muldiv(f);
   });
@@ -736,6 +739,7 @@ void dag_ir(CompileUnit *ir, bool last) {
   dbg("DAG IR Round ", ++round, "\n");
   ir->for_each([&](NormalFunc *f) { local_init_to_global(ir, f); });
   DAG_IR_ALL _(ir, NORMAL);
+  arith(ir);
   ir->for_each([&](NormalFunc *f) { loop_ops(ir, f, last); });
   ir->for_each([&](NormalFunc *f) { local_init_to_global(ir, f); });
   arith(ir);
