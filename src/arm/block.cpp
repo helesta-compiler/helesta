@@ -49,7 +49,6 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       auto arg_reg = info->from_ir_reg(loadarg->d1);
       arg_reg.type = ScalarType::Float;
       info->set_float(arg_reg);
-      assert(func->args[loadarg->id].type == ScalarType::Float);
       push_back(std::make_unique<MoveReg>(arg_reg, func->args[loadarg->id]));
     } else if (auto unary = dynamic_cast<IR::UnaryOpInstr *>(cur)) {
       Reg dst = info->from_ir_reg(unary->d1),
@@ -281,10 +280,11 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(sp_move(stack_passed * INT_SIZE));
       }
       if (call->return_type == ScalarType::Float) {
+        auto ret = info->from_ir_reg(call->d1);
+        info->set_float(ret);
         push_back(std::make_unique<MoveReg>(
-            info->from_ir_reg(call->d1),
-            Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0],
-                ScalarType::Float)));
+            ret, Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0],
+                     ScalarType::Float)));
       } else if (call->return_type == ScalarType::Int) {
         auto r0 = RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0];
         if (call->f->name == "__create_threads") {

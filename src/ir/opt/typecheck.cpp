@@ -114,6 +114,19 @@ struct TypeCheck : InstrVisitor {
   }
 };
 
+std::unordered_set<Reg> get_float_regs(NormalFunc *f) {
+  DAG_IR dag(f);
+  TypeCheck w(f);
+  dag.visit(w);
+  std::unordered_set<Reg> regs;
+  for (auto &kv : build_defs(f)) {
+    if (w.mp[kv.first] == w.mp[TypeCheck::Float]) {
+      regs.insert(kv.first);
+    }
+  }
+  return regs;
+}
+
 bool type_check(NormalFunc *f) {
   DAG_IR dag(f);
   TypeCheck w(f);
