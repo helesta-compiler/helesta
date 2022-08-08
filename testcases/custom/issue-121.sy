@@ -1,0 +1,18 @@
+float sum(int a, float s0, float s1, float s2, float s3, float s4, float s5) {
+    if (a > 0 && a % 2 == 0)
+        return sum(a - 1, s0, s1, s2, s3, s4, s5);
+    if (a > 0 && a % 2 == 1)
+        return sum(a - 1, s0, s1, s2, s3, s4, s5);
+    return s0 + s1 + s2 + s3 + s4 + s5;
+}
+
+int main() {
+    float s0 = getfloat();
+    float s1 = getfloat();
+    float s2 = getfloat();
+    float s3 = getfloat();
+    float s4 = getfloat();
+    float s5 = getfloat();
+    putfloat(sum(10, s0, s1, s2, s3, s4, s5));
+    return 0;
+}
