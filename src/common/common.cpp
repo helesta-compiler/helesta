@@ -217,6 +217,8 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       global_config.disabled_passes.insert("opt");
     }
   }
+  global_config.args["input"] = input;
+  global_config.args["output"] = output;
   return pair{input, output};
 }
 
