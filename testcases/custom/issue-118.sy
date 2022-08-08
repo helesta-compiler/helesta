@@ -1,0 +1,23 @@
+float foo(int a, int b, int c, float fa, float fb, float fc) {
+    if (a == 0)
+        return fc;
+    fa = fa + a;
+    fb = fb + b;
+    fc = fc + c;
+    return foo(a - 1, b, c, fa, fb, fc);
+}
+
+int main() {
+    int a = getint();
+    int b = getint();
+    int c = getint();
+    float fa = getfloat();
+    float fb = getfloat();
+    float fc = getfloat();
+    putfloat(foo(a, b, c, fa, fb, fc));
+    putch(10);
+    putfloat(fc + c * a);
+    putch(10);
+    return 0;
+}
+
