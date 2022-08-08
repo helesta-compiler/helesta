@@ -20,6 +20,7 @@ void simplify_expr(IR::CompileUnit *ir);
 void call_graph(IR::CompileUnit *);
 void remove_unused_BB(IR::CompileUnit *ir);
 void before_backend(IR::CompileUnit *ir);
+void before_gcm(IR::CompileUnit *ir);
 
 void checkIR(IR::NormalFunc *f);
 void checkIR(IR::CompileUnit *ir);
@@ -32,7 +33,10 @@ inline void gvn(IR::CompileUnit *ir) {
 }
 
 inline void gcm(IR::CompileUnit *ir) {
-  PassEnabled("gcm") { global_code_motion(ir); }
+  PassEnabled("gcm") {
+    PassEnabled("before-gcm") before_gcm(ir);
+    global_code_motion(ir);
+  }
   checkIR(ir);
 }
 
