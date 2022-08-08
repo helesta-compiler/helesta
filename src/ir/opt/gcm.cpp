@@ -172,25 +172,28 @@ GCMNode *schedule_late(GCMInstr *i, GCMContext *ctx) {
   if (reg_write_instr == nullptr)
     return i->node;
   for (auto use : ctx->uses[reg_write_instr->d1.id]) {
-    auto res = schedule_late(use, ctx);
+    std::vector<GCMNode *> res = {schedule_late(use, ctx)};
     if (auto phi_instr = dynamic_cast<IR::PhiInstr *>(use->i)) {
-      IR::BB *pre_bb = nullptr;
+      res.clear();
+      std::set<IR::BB *> pre_bbs;
       for (auto kv : phi_instr->uses) {
         if (kv.first == reg_write_instr->d1) {
-          pre_bb = kv.second;
+          pre_bbs.insert(kv.second);
         }
       }
-      assert(pre_bb != nullptr);
+      assert(!pre_bbs.empty());
       for (auto in : use->node->ins) {
-        if (in->bb == pre_bb) {
-          res = in;
+        if (pre_bbs.find(in->bb) != pre_bbs.end()) {
+          res.push_back(in);
         }
       }
     }
-    if (lca == nullptr) {
-      lca = res;
-    } else {
-      lca = LCA(lca, res);
+    for (auto u : res) {
+      if (lca == nullptr) {
+        lca = u;
+      } else {
+        lca = LCA(lca, u);
+      }
     }
   }
   if (i->pinned()) {
@@ -250,5 +253,5 @@ void global_code_motion_func(IR::NormalFunc *func) {
 }
 
 void global_code_motion(IR::CompileUnit *ir) {
-  ir->for_each(global_code_motion_func);
+  ir->for_each([&](IR::NormalFunc *func) { global_code_motion_func(func); });
 }
