@@ -841,6 +841,8 @@ struct UnrollLoop {
   }
   bool dfs(BB *w) {
     auto &wi = S.loop_info.at(w);
+    if (w && remove_unused_loop(w))
+      return 1;
     if (w && parallel_only && loop_parallel(w))
       return 1;
     for (BB *u : wi.node->dfn) {
@@ -856,6 +858,31 @@ struct UnrollLoop {
         return 1;
       if (unroll_simple_for_loop(w))
         return 1;
+    }
+    return 0;
+  }
+  bool remove_unused_loop(BB *w) {
+    auto &wi0 = S.loop_info.at(w);
+    auto &wi = arw.loop_info.at(w);
+    if (wi.call || wi.ws.size())
+      return 0;
+    if (!S.get_ilr(w))
+      return 0;
+    bool flag = 1;
+    w->for_each([&](Instr *x) {
+      Case(RegWriteInstr, rw, x) {
+        flag &= (wi0.use_count[rw->d1] == S.use_count[rw->d1]);
+      }
+    });
+    if (flag) {
+      LoopCopyTool p0(wi0.bbs, w, w, S.f);
+      BB *prev = p0.get_entry_prev();
+      BB *next = p0.get_exit_next();
+      prev->map_BB(partial_map(p0.entry, next));
+      next->map_BB(partial_map(p0.exit, prev));
+      dbg(">>> remove unused loop\n");
+      after_unroll(S.f);
+      return 1;
     }
     return 0;
   }
