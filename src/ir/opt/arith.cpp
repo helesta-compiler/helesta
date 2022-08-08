@@ -37,3 +37,31 @@ void mod2div(NormalFunc *f) {
   Mod2Div w(f);
   dag.visit(w);
 }
+
+struct MulDiv : ForwardLoopVisitor<std::map<std::pair<Reg, Reg>, Reg>>,
+                Defs,
+                CounterOutput {
+  MulDiv(NormalFunc *_f) : Defs(_f), CounterOutput("MulDiv") {}
+  void visitBB(BB *bb) {
+    auto &w = info[bb];
+    w.out = w.in;
+    bb->for_each([&](Instr *x) {
+      replace_reg(x);
+      Case(BinaryOpInstr, bop, x) {
+        if (bop->op.type == BinaryCompute::DIV) {
+          Case(BinaryOpInstr, bop2, defs.at(bop->s2)) {
+            if (bop2->op.type == BinaryCompute::MUL && bop2->s2 == bop->s2) {
+              replace_reg(bb->cur_iter(), bop->d1, bop2->s1);
+            }
+          }
+        }
+      }
+    });
+  }
+};
+
+void muldiv(NormalFunc *f) {
+  DAG_IR dag(f);
+  MulDiv w(f);
+  dag.visit(w);
+}

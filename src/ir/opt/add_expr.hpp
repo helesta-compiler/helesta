@@ -58,6 +58,12 @@ struct SimpleIndVar {
   BinaryCompute op;
 };
 
+struct SimpleReductionVar {
+  Reg init, step;
+  BinaryCompute op;
+  std::optional<int32_t> mod;
+};
+
 std::ostream &operator<<(std::ostream &os, const SimpleIndVar &w);
 
 struct CmpOp {

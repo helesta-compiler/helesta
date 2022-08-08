@@ -42,6 +42,7 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
   struct LoopVarInfo {
     RegWriteInstr *def;
     std::optional<SimpleIndVar> ind;
+    std::optional<SimpleReductionVar> reduce;
   };
   struct LoopInfo {
     DAG_IR::LoopTreeNode *node;
@@ -180,9 +181,23 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
             auto def = wi.defs[r2];
             Case(BinaryOpInstr, bop, def) {
               // dbg(*bop, '\n');
-              if (bop->s1 == phi->d1 && !wi.defs.count(bop->s2)) {
-                ri.ind = SimpleIndVar{r1, bop->s2, bop->op.type};
+              if (bop->s1 == phi->d1) {
+                if (!wi.defs.count(bop->s2)) {
+                  ri.ind = SimpleIndVar{r1, bop->s2, bop->op.type};
+                } else {
+                  ri.reduce = SimpleReductionVar{r1, bop->s2, bop->op.type,
+                                                 std::nullopt};
+                }
                 // dbg(w->name, ": ", r, " ind ", *ri.ind, '\n');
+              } else if (bop->op.type == BinaryCompute::MOD) {
+                if (auto mod = get_const(bop->s2)) {
+                  Case(BinaryOpInstr, bop2, defs.at(bop->s1)) {
+                    if (bop2->s1 == phi->d1) {
+                      ri.reduce =
+                          SimpleReductionVar{r1, bop2->s2, bop2->op.type, mod};
+                    }
+                  }
+                }
               }
             }
           }
@@ -356,6 +371,7 @@ struct ArrayReadWrite : SimpleLoopVisitor {
     hi |= wi;
   }
   bool loop_parallel(BB *w, CompileUnit *ir);
+  bool simplify_reduction_var(BB *w, CompileUnit *ir);
 };
 
 struct LoopCopyTool {
@@ -460,6 +476,7 @@ struct LoopCopyTool {
 void code_reorder(NormalFunc *f);
 void remove_unused_BB(NormalFunc *f);
 void global_value_numbering_func(IR::NormalFunc *func);
+void remove_unused_def_func(IR::NormalFunc *func);
 void remove_trivial_BB(NormalFunc *f);
 
 void after_unroll(NormalFunc *f) {
@@ -609,6 +626,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       for (size_t i = 0; i <= cnt; ++i) {
         for (auto &kv : loops[i].bbs) {
           kv.second->disable_parallel = 1;
+          kv.second->thread_id = i;
         }
       }
 
@@ -617,6 +635,191 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
         dbg("\n```cpp\n", *S.f, "\n```\n");
       }
 
+      return 1;
+    }
+  }
+  return 0;
+}
+
+bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
+  auto &wi0 = S.loop_info.at(w);
+  bool dbg_on = (global_config.args["dbg-sr"] == "1");
+  if (auto ilr = S.get_ilr(w)) {
+    auto [i, i1, i2, op] = *ilr;
+    auto i0 = S.get_const(i1);
+    CodeGen cg(S.f);
+    using RegRef = CodeGen::RegRef;
+    auto umulmod = [&](RegRef a, RegRef b, RegRef c) {
+      return cg.call(
+          ir->lib_funcs.at("__umulmod").get(), ScalarType::Int,
+          {{a, ScalarType::Int}, {b, ScalarType::Int}, {c, ScalarType::Int}});
+    };
+    auto u_c_np1_2_mod = [&](RegRef a, RegRef b) {
+      return cg.call(ir->lib_funcs.at("__u_c_np1_2_mod").get(), ScalarType::Int,
+                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+    };
+    auto s_c_np1_2 = [&](RegRef a) {
+      return cg.call(ir->lib_funcs.at("__s_c_np1_2").get(), ScalarType::Int,
+                     {{a, ScalarType::Int}});
+    };
+    auto umod = [&](RegRef a, RegRef b) {
+      return cg.call(ir->lib_funcs.at("__umod").get(), ScalarType::Int,
+                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+    };
+    auto fixmod = [&](RegRef a, RegRef b) {
+      return cg.call(ir->lib_funcs.at("__fixmod").get(), ScalarType::Int,
+                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+    };
+
+    umap<Reg, Reg> mp;
+
+    for (auto &[r, var] : wi0.vars) {
+      if (!var.reduce)
+        continue;
+      if (wi0.use_count[r] != 1)
+        continue;
+      auto &reduce = *var.reduce;
+      if (reduce.op == BinaryCompute::ADD) {
+        auto &step = reg_info.at(reduce.step).add;
+        if (step.bad)
+          continue;
+        bool poly_i = 1, positive = (i0 && *i0 >= 0);
+        int max_pow = 0;
+        for (auto &[k, v] : step.cs) {
+          for (auto &[k0, v0] : k) {
+            if (k0 == i)
+              max_pow = std::max(max_pow, 1);
+            else if (wi0.defs.count(k0))
+              poly_i = 0;
+          }
+          if (v < 0)
+            positive = 0;
+        }
+        if (!poly_i)
+          continue;
+        if (max_pow > 1)
+          continue;
+        if (reduce.mod) {
+          if (*reduce.mod <= 1)
+            continue;
+          if (!positive)
+            continue;
+          if (auto c0 = S.get_const(reduce.init)) {
+            if (*c0 < 0)
+              continue;
+            // optimizeable
+          } else
+            continue;
+        } else {
+          // optimizeable
+        }
+        auto lv = cg.reg(i1) - cg.lc(1), rv = cg.reg(i2);
+        if (!op.eq) {
+          rv = rv - cg.lc(1);
+        }
+        RegRef mod;
+        if (reduce.mod) {
+          mod = cg.lc(*reduce.mod);
+        }
+        auto add = [&](RegRef a, RegRef b) {
+          if (reduce.mod) {
+            return umod(a + b, mod);
+          }
+          return a + b;
+        };
+        auto sub = [&](RegRef a, RegRef b) {
+          if (reduce.mod) {
+            return umod(a - b + mod, mod);
+          }
+          return a - b;
+        };
+        auto mul = [&](RegRef a, RegRef b) {
+          if (reduce.mod) {
+            return umulmod(a, b, mod);
+          }
+          return a * b;
+        };
+        auto cnp12 = [&](RegRef a) {
+          if (reduce.mod) {
+            return u_c_np1_2_mod(a, mod);
+          }
+          return s_c_np1_2(a);
+        };
+        auto fix = [&](RegRef a) {
+          if (reduce.mod) {
+            return fixmod(a, mod);
+          }
+          return a;
+        };
+        auto calc = [&](RegRef x) {
+          x = fix(x);
+          auto s = cg.lc(0);
+          for (auto &[k, v] : step.cs) {
+            auto p = fix(cg.lc(v));
+            int i_pow = 0;
+            for (auto &[k0, v0] : k) {
+              if (k0 != i) {
+                for (int t = 0; t < v0; ++t) {
+                  p = mul(p, cg.reg(k0));
+                }
+              } else {
+                assert(v0 == 1);
+                i_pow = 1;
+                p = mul(p, cnp12(x));
+              }
+            }
+            if (!i_pow)
+              p = mul(p, x);
+            s = add(s, p);
+          }
+          return s;
+        };
+        auto s = cg.reg(reduce.init);
+        s = sub(add(fix(s), calc(rv)), calc(lv));
+        mp[r] = s.r;
+        dbg("reduce: s=", r, "  init=", reduce.init, "  step=", step,
+            "  mod=", (reduce.mod ? *reduce.mod : -1), "\n");
+      }
+    }
+
+    if (mp.size()) {
+      LoopCopyTool p0(wi0.bbs, w, w, S.f);
+      BB *next = p0.get_exit_next();
+      BB *bb1 = S.f->new_BB();
+      BB *bb2 = S.f->new_BB();
+      BB *bb3 = S.f->new_BB();
+      cg.jump(bb3);
+      bb2->push(std::move(cg.instrs));
+      if (dbg_on)
+        dbg(*bb2);
+      if (op.eq) {
+        cg.branch(cg.reg(i1) <= cg.reg(i2), bb2, bb3);
+      } else {
+        cg.branch(cg.reg(i1) < cg.reg(i2), bb2, bb3);
+      }
+      bb1->push(std::move(cg.instrs));
+      for (auto &[k, v] : mp) {
+        Reg t = S.f->new_Reg();
+        auto phi = new PhiInstr(t);
+        phi->add_use(wi0.vars.at(k).reduce.value().init, bb1);
+        phi->add_use(v, bb2);
+        dbg(k, " => ", v, " => ", t, '\n');
+        v = t;
+        bb3->push(phi);
+      }
+      p0.exit->map_BB(partial_map(next, bb1));
+      next->map_BB(partial_map(p0.exit, bb3));
+      S.f->for_each([&](BB *bb) {
+        if (!wi0.bbs.count(bb)) {
+          bb->map_use(partial_map(mp));
+        }
+      });
+      cg.jump(next);
+      bb3->push(std::move(cg.instrs));
+      // dbg(*bb1, *bb2, *bb3);
+      checkIR(S.f);
+      global_value_numbering_func(S.f);
+      remove_unused_def_func(S.f);
       return 1;
     }
   }
@@ -646,10 +849,14 @@ struct UnrollLoop {
       if (dfs(u))
         return 1;
     }
-    if (w && !parallel_only && unroll_fixed(w))
-      return 1;
-    if (w && !parallel_only && unroll_simple_for_loop(w))
-      return 1;
+    if (w && !parallel_only) {
+      if (arw.simplify_reduction_var(w, ir))
+        return 1;
+      if (unroll_fixed(w))
+        return 1;
+      if (unroll_simple_for_loop(w))
+        return 1;
+    }
     return 0;
   }
   bool loop_parallel(BB *w) {

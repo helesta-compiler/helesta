@@ -646,6 +646,7 @@ void remove_phi(NormalFunc *);
 void code_reorder(NormalFunc *);
 void remove_trivial_BB(NormalFunc *);
 void mod2div(NormalFunc *);
+void muldiv(NormalFunc *);
 
 namespace IR {
 void compute_data_offset(CompileUnit &c);
@@ -724,7 +725,10 @@ void local_init_to_global(CompileUnit *ir, NormalFunc *f) {
 }
 
 void arith(CompileUnit *ir) {
-  ir->for_each([&](NormalFunc *f) { mod2div(f); });
+  ir->for_each([&](NormalFunc *f) {
+    mod2div(f);
+    muldiv(f);
+  });
 }
 
 void dag_ir(CompileUnit *ir, bool last) {

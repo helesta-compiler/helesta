@@ -210,6 +210,7 @@ struct BB : Printable, Traversable<BB> {
   int id;
   bool disable_unroll = 0;
   bool disable_parallel = 0;
+  int thread_id = 0;
   // list of instructions in this basic block
   // the last one is ControlInstr, others are RegWriteInstr or StoreInstr
   void print(ostream &os) const override;
@@ -221,6 +222,7 @@ struct BB : Printable, Traversable<BB> {
       return 0;
     });
   }
+  decltype(_it) cur_iter() { return std::prev(_it); }
   void replace(Instr *x) { *std::prev(_it) = unique_ptr<Instr>(x); }
   bool _del = 0;
   void move() {

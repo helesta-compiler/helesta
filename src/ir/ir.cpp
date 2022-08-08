@@ -166,6 +166,11 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   f = new_LibFunc("__join_threads", 1);
   f->in = 1;
   f->out = 1;
+  new_LibFunc("__umulmod", 0);
+  new_LibFunc("__u_c_np1_2_mod", 0);
+  new_LibFunc("__s_c_np1_2", 0);
+  new_LibFunc("__umod", 0);
+  new_LibFunc("__fixmod", 0);
 
   for (auto name : {"getint", "getch", "getfloat"}) {
     f = new_LibFunc(name, 0);
@@ -386,6 +391,7 @@ int exec(CompileUnit &c) {
   // simulate IR execute result
   FILE *ifile = fopen("input.txt", "r");
   FILE *ofile = fopen("output.txt", "w");
+  bool dbg_step_on = global_config.args["exec-step"] == "1";
   bool ENABLE_PHI = global_config.args["exec-phi"] == "1";
   long long instr_cnt = 0, mem_r_cnt = 0, mem_w_cnt = 0, jump_cnt = 0,
             par_instr_cnt = 0;
@@ -454,6 +460,8 @@ int exec(CompileUnit &c) {
     std::unordered_map<int, typeless_scalar_t> regs, tmps;
     auto wReg = [&](Reg x, typeless_scalar_t v) {
       assert(1 <= x.id && x.id <= func->max_reg_id);
+      if (dbg_step_on)
+        dbg(x, " := ", v.int_value(), '\n');
       regs[x.id] = v;
     };
     auto rReg = [&](Reg x) -> typeless_scalar_t {
@@ -701,6 +709,34 @@ int exec(CompileUnit &c) {
               assert(0);
             } else if (x->f->name == "starttime") {
             } else if (x->f->name == "stoptime") {
+            } else if (x->f->name == "__umulmod") {
+              assert(args.size() == 3);
+              uint32_t a = args[0].int_value();
+              uint32_t b = args[1].int_value();
+              uint32_t c = args[2].int_value();
+              ret.int_value() = 1ull * a * b % c;
+            } else if (x->f->name == "__umod") {
+              assert(args.size() == 2);
+              uint32_t a = args[0].int_value();
+              uint32_t b = args[1].int_value();
+              ret.int_value() = a % b;
+            } else if (x->f->name == "__fixmod") {
+              assert(args.size() == 2);
+              int32_t a = args[0].int_value();
+              int32_t b = args[1].int_value();
+              a %= b;
+              if (a < 0)
+                a += b;
+              ret.int_value() = a;
+            } else if (x->f->name == "__u_c_np1_2_mod") {
+              assert(args.size() == 2);
+              uint32_t a = args[0].int_value();
+              uint32_t b = args[1].int_value();
+              ret.int_value() = (1ull * a * a + a) / 2ull % b;
+            } else if (x->f->name == "__s_c_np1_2") {
+              assert(args.size() == 1);
+              int32_t a = args[0].int_value();
+              ret.int_value() = (1ll * a * a + a) / 2ll;
             } else {
               std::cerr << "unknown func: " << x->f->name << std::endl;
               assert(0);

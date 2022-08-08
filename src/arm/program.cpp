@@ -771,6 +771,58 @@ __join_threads:
     mov r0, #0
     mov r7, #SYS_exit
     swi #0
+
+__umulmod:
+	push    {r11, lr}
+	umull   r3, r12, r1, r0
+	mov     r0, r3
+	mov     r1, r12
+	mov     r3, #0
+	bl      __aeabi_uldivmod
+	mov     r0, r2
+	pop     {r11, lr}
+	bx      lr
+
+__u_c_np1_2_mod:
+	push    {r11, lr}
+	mov     r2, r1
+	mov     r3, r0
+	mov     r1, #0
+	umlal   r3, r1, r0, r0
+	lsrs    r1, r1, #1
+	rrx     r0, r3
+	mov     r3, #0
+	bl      __aeabi_uldivmod
+	mov     r0, r2
+	pop     {r11, lr}
+	bx      lr
+
+__s_c_np1_2:
+	asr     r1, r0, #31
+	mov     r2, r0
+	smlal   r2, r1, r0, r0
+	adds    r0, r2, r1, lsr #31
+	adc     r1, r1, #0
+	lsrs    r1, r1, #1
+	rrx     r0, r0
+	bx      lr
+
+__fixmod:
+	push    {r4, lr}
+	mov     r4, r1
+	bl      __aeabi_idivmod
+	mov     r0, r1
+	cmp     r1, #0
+	addmi   r0, r0, r4
+	pop     {r4, lr}
+	bx      lr
+
+__umod:
+	push    {r11, lr}
+	bl      __aeabi_uidivmod
+	mov     r0, r1
+	pop     {r11, lr}
+	bx      lr
 )";
   for (auto &func : funcs)
     func->gen_asm(out);
