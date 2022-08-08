@@ -87,11 +87,7 @@ void handle_params(Func *ctx, MappingInfo &info, Block *entry,
       entry->push_back(make_unique<LoadStack>(cur_arg, 0, t.get()));
       ctx->caller_stack_object.push_back(std::move(t));
     }
-    if constexpr (type == ScalarType::Int) {
-      ctx->int_arg_reg.push_back(cur_arg);
-    } else {
-      ctx->float_arg_reg.push_back(cur_arg);
-    }
+    ctx->args.push_back(cur_arg);
   }
 }
 

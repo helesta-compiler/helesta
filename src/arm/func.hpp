@@ -27,8 +27,7 @@ struct Func {
   std::vector<std::unique_ptr<Block>> blocks;
   std::vector<std::unique_ptr<StackObject>> stack_objects,
       caller_stack_object; // caller_stack_object is for argument
-  std::vector<Reg> int_arg_reg;
-  std::vector<Reg> float_arg_reg;
+  std::vector<Reg> args;
   Block *entry;
   std::set<Reg> spilling_reg;
   std::map<Reg, int32_t> constant_reg;
