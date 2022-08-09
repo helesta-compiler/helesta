@@ -225,6 +225,7 @@ void remove_unused_BB(NormalFunc *f) {
     auto &w = dag.loop_tree[bb];
     return w.returnable;
   };
+  bool is_float = 0;
   f->for_each([&](BB *bb) {
     bb->for_each([&](Instr *x) {
       Case(PhiInstr, phi, x) {
@@ -233,6 +234,10 @@ void remove_unused_BB(NormalFunc *f) {
         });
       }
     });
+    Case(ReturnInstr<ScalarType::Float>, _, bb->back()) {
+      (void)_;
+      is_float = 1;
+    }
     Case(BranchInstr, br, bb->back()) {
       std::optional<BB *> target;
       if (!used(br->target1)) {
@@ -251,8 +256,13 @@ void remove_unused_BB(NormalFunc *f) {
   if (f->bbs.empty()) {
     Reg r = f->new_Reg();
     BB *bb = f->entry = f->new_BB();
-    bb->push(new LoadConst<int32_t>(r, 0));
-    bb->push(new ReturnInstr<ScalarType::Int>(r, 1));
+    if (is_float) {
+      bb->push(new LoadConst<float>(r, 0.0f));
+      bb->push(new ReturnInstr<ScalarType::Float>(r, 1));
+    } else {
+      bb->push(new LoadConst<int32_t>(r, 0));
+      bb->push(new ReturnInstr<ScalarType::Int>(r, 1));
+    }
   }
 }
 
