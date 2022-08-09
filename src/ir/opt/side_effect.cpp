@@ -250,7 +250,8 @@ struct GlobalInitProp : ForwardLoopVisitor<std::map<MemObject *, bool>> {
       : se(_se) {
     if (is_main)
       scope.for_each([&](MemObject *mem) {
-        if (mem->scalar_type == ScalarType::Int) {
+        if (mem->scalar_type == ScalarType::Int ||
+            mem->scalar_type == ScalarType::Float) {
           info[bb].in[mem];
         }
       });
@@ -286,6 +287,8 @@ struct GlobalInitProp : ForwardLoopVisitor<std::map<MemObject *, bool>> {
         if (v && (v->first->is_const || w.out.count(v->first))) {
           if (v->first->scalar_type == ScalarType::Int) {
             lc<int32_t>(v, ld->d1, it);
+          } else if (v->first->scalar_type == ScalarType::Float) {
+            lc<float>(v, ld->d1, it);
           }
         }
       }
