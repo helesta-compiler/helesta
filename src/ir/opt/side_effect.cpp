@@ -147,8 +147,10 @@ struct SideEffect : SimpleLoopVisitor {
       else Case(CallInstr, call, x) {
         Case(NormalFunc, f, call->f) {
           if (f == func) {
-            w.may_read.insert(nullptr);
-            w.may_write.insert(nullptr);
+            if (!call->no_load)
+              w.may_read.insert(nullptr);
+            if (!call->no_store)
+              w.may_write.insert(nullptr);
           } else {
             w |= mp->at(f)->loop_info.at(nullptr);
           }
