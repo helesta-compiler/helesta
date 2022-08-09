@@ -184,11 +184,11 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
               if (bop->s1 == phi->d1) {
                 if (!wi.defs.count(bop->s2)) {
                   ri.ind = SimpleIndVar{r1, bop->s2, bop->op.type};
+                  // dbg(w->name, ": ", r, " ind ", *ri.ind, '\n');
                 } else {
                   ri.reduce = SimpleReductionVar{r1, bop->s2, bop->op.type,
                                                  std::nullopt};
                 }
-                // dbg(w->name, ": ", r, " ind ", *ri.ind, '\n');
               } else if (bop->op.type == BinaryCompute::MOD) {
                 if (auto mod = get_const(bop->s2)) {
                   Case(BinaryOpInstr, bop2, defs.at(bop->s1)) {
@@ -1035,11 +1035,12 @@ struct UnrollLoop {
         "){...}\n");
     size_t cnt = 0;
     size_t MAX_UNROLL = parseIntArg(32, "max-unroll"),
-           MAX_UNROLL_INSTR = parseIntArg(64, "max-unroll-instr");
+           MAX_UNROLL_INSTR = parseIntArg(1024, "max-unroll-instr");
     while (cnt <= MAX_UNROLL && wi.cond->compute(i0, i1)) {
       i0 = std::get<int32_t>(typed_compute(op, i0, i2));
       cnt += 1;
     }
+    dbg("cnt=", cnt, "  instr_cnt=", wi.instr_cnt, '\n');
     if (cnt <= MAX_UNROLL) {
       if (cnt * wi.instr_cnt > MAX_UNROLL_INSTR)
         return 0;
