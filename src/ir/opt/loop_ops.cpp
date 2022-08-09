@@ -1,5 +1,6 @@
 #include "add_expr.hpp"
 #include "ir/opt/dag_ir.hpp"
+#include <climits>
 
 template <class K> using uset = std::unordered_set<K>;
 template <class K, class V> using umap = std::unordered_map<K, V>;
@@ -250,6 +251,21 @@ struct ArrayReadWrite : SimpleLoopVisitor {
     MulAddExpr add;
     AddrExpr addr;
     std::optional<MulAddExpr> min, max;
+    std::pair<int, int> get_range() {
+      int l = INT_MIN;
+      int r = INT_MAX;
+      if (min) {
+        if (auto c = min->get_c_if()) {
+          l = *c;
+        }
+      }
+      if (max) {
+        if (auto c = max->get_c_if()) {
+          r = *c;
+        }
+      }
+      return {l, r};
+    }
   };
   umap<Reg, RegInfo> reg_info;
   umap<BB *, LoopInfo> loop_info;
@@ -1325,28 +1341,50 @@ void change_array_access_pattern(CompileUnit *ir, NormalFunc *f) {
     }
   }
 }
-/*
-void range_analysis(NormalFunc *f){
+
+void remove_branch(BB *bb, bool cond);
+void remove_branch_by_range(NormalFunc *f) {
   DAG_IR dag(f);
   FindLoopVar S(f);
   dag.visit(S);
   ArrayReadWrite a(S);
   dag.visit(a);
-  f->for_each([&](BB *bb){
-        Case(BranchInstr,br,bb->back()){
-          auto h1 = S.loop_info.at(br->target1).node->loop_head;
-          auto h0 = S.loop_info.at(br->target0).node->loop_head;
-          if(h1!=h0)return;
+  size_t cnt = 0;
+  f->for_each([&](BB *bb) {
+    auto &wi = S.loop_info.at(bb);
+    if (wi.node->is_loop_head)
+      return;
+    Case(BranchInstr, br, bb->back()) {
+      Case(BinaryOpInstr, bop, S.defs.at(br->cond)) {
+        if (auto cmp = CmpExpr::make(bop)) {
+          if (!S.get_const(cmp->s2))
+            cmp->swap();
+          if (auto c = S.get_const(cmp->s2)) {
+            auto &ri = a.reg_info.at(cmp->s1);
+            auto [l, r] = ri.get_range();
+            bool t1 = cmp->compute(l, *c);
+            bool t2 = cmp->compute(r, *c);
+            if (t1 == t2) {
+              remove_branch(bb, t1);
+              ++cnt;
+            }
+          }
         }
+      }
+    }
   });
-}*/
+  if (cnt) {
+    after_unroll(f);
+    dbg("RemoveBranchByRange: ", cnt, '\n');
+  }
+}
 
 void loop_ops(CompileUnit *ir, NormalFunc *f, bool last) {
   PassDisabled("loop-ops") return;
   LoopOps ops(f, last, ir);
   int LOOP_OPS_ITER = parseIntArg(16, "loop-ops-iter");
   if (last) {
-    // range_analysis(f);
+    remove_branch_by_range(f);
     change_array_access_pattern(ir, f);
     LOOP_OPS_ITER *= 10;
   }
