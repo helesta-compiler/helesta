@@ -17,7 +17,9 @@ def run_with(args):
     for mod in os.listdir(args.data_dir):
         mod_path = os.path.join(args.data_dir, mod)
         for o in args.fuzz:
-            o_path = os.path.join(args.data_dir, mod + o)
+            if mod == "performance":
+                continue
+            o_path = os.path.join(args.data_dir, mod + "_" + o)
             os.mkdir(o_path)
         for filename in os.listdir(mod_path):
             if not filename.endswith(".sy"):
@@ -35,13 +37,13 @@ def run_with(args):
                 exit(1)
             if mod != 'performance':
                 for o in args.fuzz:
-                    o_path = os.path.join(args.data_dir, mod + o)
+                    o_path = os.path.join(args.data_dir, mod + "_" + o)
                     if os.path.exists(in_path):
                         shutil.copy(in_path, os.path.join(o_path, filename[:-2] + "in"))
                     if os.path.exists(out_path):
                         shutil.copy(out_path, os.path.join(o_path, filename[:-2] + "out"))
                     asm_path = os.path.join(o_path, filename[:-2] + "s")
-                    cmd = "{} {} -o {} {}".format(args.compiler_path, full_path, asm_path, o)
+                    cmd = "{} {} -o {} --{}".format(args.compiler_path, full_path, asm_path, o)
                     print(cmd)
                     child = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
                     child.communicate()
