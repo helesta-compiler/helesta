@@ -32,8 +32,11 @@ void AddExpr::print(std::ostream &os) const {
     os << "[bad]";
     return;
   }
+
   if (c) {
     os << c;
+  } else if (cs.empty()) {
+    os << '0';
   }
   for (auto [x, a] : cs) {
     if (a >= 0)
@@ -243,6 +246,13 @@ int32_t MulAddExpr::get_c() const {
     return cs.at(one);
   }
   return 0;
+}
+
+std::optional<int32_t> MulAddExpr::get_c_if() const {
+  int32_t c = get_c();
+  if ((c != 0) == cs.size())
+    return c;
+  return std::nullopt;
 }
 
 bool MulAddExpr::maybe_eq(const MulAddExpr &w, const EqContext &ctx) const {

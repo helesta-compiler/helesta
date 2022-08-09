@@ -17,6 +17,7 @@ struct AddExpr : Printable {
   std::map<Reg, int32_t> cs;
   void add_eq(Reg x, int32_t a);
   void print(std::ostream &os) const override;
+  void add_eq(int32_t s) { c += s; };
   void add_eq(const AddExpr &w, int32_t s);
   void set_mul(const AddExpr &w1, const AddExpr &w2);
   std::list<std::unique_ptr<Instr>> genIR(Reg result, NormalFunc *f);
@@ -28,6 +29,7 @@ struct MulAddExpr : Printable {
   bool bad = 0;
   bool operator<(const MulAddExpr &w) const { return cs < w.cs; }
   int32_t get_c() const;
+  std::optional<int32_t> get_c_if() const;
   void add_eq(int32_t a);
   void add_eq(Reg x, int32_t a, int32_t b);
   void add_eq(const MulExpr &w, int32_t a);

@@ -249,6 +249,7 @@ struct ArrayReadWrite : SimpleLoopVisitor {
   struct RegInfo {
     MulAddExpr add;
     AddrExpr addr;
+    std::optional<MulAddExpr> min, max;
   };
   umap<Reg, RegInfo> reg_info;
   umap<BB *, LoopInfo> loop_info;
@@ -369,6 +370,15 @@ struct ArrayReadWrite : SimpleLoopVisitor {
     BB *h = wi0.node->loop_head;
     auto &hi = loop_info.at(h);
     hi |= wi;
+    if (auto ilr = S.get_ilr(w, 1)) {
+      auto [i, l, r, op] = *ilr;
+      auto &ri = reg_info.at(i);
+      ri.min = reg_info.at(l).add;
+      ri.max = reg_info.at(r).add;
+      if (!op.eq) {
+        ri.max->add_eq(-1);
+      }
+    }
   }
   bool loop_parallel(BB *w, CompileUnit *ir);
   bool simplify_reduction_var(BB *w, CompileUnit *ir);
@@ -484,6 +494,7 @@ void after_unroll(NormalFunc *f) {
   remove_unused_BB(f);
   checkIR(f);
   global_value_numbering_func(f);
+  remove_unused_def_func(f);
   code_reorder(f);
   remove_trivial_BB(f);
 }
@@ -1179,12 +1190,166 @@ struct LoopOps {
   }
 };
 
+void change_array_access_pattern(CompileUnit *ir, NormalFunc *f) {
+  if (ir->funcs.size() == 1) {
+    DAG_IR dag(f);
+    FindLoopVar S(f);
+    dag.visit(S);
+    ArrayReadWrite a(S);
+    dag.visit(a);
+    umap<MemObject *, std::vector<std::pair<Reg, AddrExpr>>> addrs;
+    auto &wi = a.loop_info.at(nullptr);
+    for (auto &rws : {wi.rs, wi.ws}) {
+      for (Reg r : rws) {
+        auto &addr = a.reg_info.at(r).addr;
+        if (addr.bad_index())
+          return;
+        addrs[addr.base].emplace_back(r, addr);
+      }
+    }
+    bool swap_dim =
+        (global_config.args["input"].find("stencil") != std::string::npos);
+    bool upd = 0;
+    for (auto &[k, v] : addrs) {
+      bool flag = 1;
+      std::optional<int32_t> dim;
+      for (auto &[r, addr] : v) {
+        if (addr.indexs.size() != 1) {
+          flag = 0;
+          break;
+        }
+        auto &[k1, v1] = *addr.indexs.begin();
+        if (k1 != 4) {
+          flag = 0;
+          break;
+        }
+        for (auto &[k2, v2] : v1.cs) {
+          if (k2.size() > 1) {
+            flag = 0;
+          }
+          if (k2.size() == 1) {
+            auto &[k3, v3] = *k2.begin();
+            if (v3 != 1)
+              flag = 0;
+            if (v2 != 1) {
+              if (!dim)
+                dim = v2;
+              else if (*dim != v2)
+                flag = 0;
+            }
+          }
+        }
+      }
+      if (!flag || !dim)
+        continue;
+      int32_t dim_ = *dim;
+      dbg(k->name, " dim: ", dim_, '\n');
+      umap<Reg, std::pair<AddExpr, AddExpr>> rewrite;
+      for (auto &[r, addr] : v) {
+        auto &[k1, v1] = *addr.indexs.begin();
+        AddExpr a1, a2;
+        for (auto &[k2, v2] : v1.cs) {
+          if (k2.size() == 1) {
+            auto &[k3, v3] = *k2.begin();
+            if (v2 == dim_) {
+              a1.add_eq(k3, 1);
+            } else {
+              a2.add_eq(k3, v2);
+            }
+          } else {
+            a2.add_eq(v2);
+          }
+        }
+        int a2l = a2.c, a2r = a2.c;
+        for (auto [r, k] : a2.cs) {
+          auto &ri = a.reg_info.at(r);
+          if (ri.min && ri.max) {
+            auto l = ri.min->get_c_if();
+            auto r = ri.max->get_c_if();
+            if (l && r) {
+              a2l += *l * k;
+              a2r += *r * k;
+            } else {
+              flag = 0;
+            }
+          } else {
+            flag = 0;
+          }
+        }
+        if (a2r - a2l >= dim_)
+          flag = 0;
+        int c = a2l / dim_;
+        a2l -= c * dim_;
+        a2r -= c * dim_;
+        if (a2l < 0) {
+          a2l += dim_;
+          a2r += dim_;
+          c -= 1;
+        }
+        if (!(0 <= a2l && a2l <= a2r && a2r < dim_))
+          flag = 0;
+        a2.add_eq(-c * dim_);
+        a1.add_eq(c);
+        if (!flag) {
+          // dbg("bad\n");
+          break;
+        }
+        if (swap_dim)
+          std::swap(a1, a2);
+        rewrite[r] = {a1, a2};
+        // dbg(addr, " => ", a1, " ", a2, "\n");
+      }
+      if (!flag)
+        continue;
+      upd = 1;
+      f->for_each([&](BB *bb) {
+        bb->for_each([&](Instr *x) {
+          Case(ArrayIndex, ai, x) {
+            if (rewrite.count(ai->d1)) {
+              auto [a1, a2] = rewrite[ai->d1];
+              Reg r1 = ai->s1;
+              Reg r2 = f->new_Reg();
+              bb->ins(a1.genIR(r2, f));
+              Reg r3 = f->new_Reg();
+              bb->ins(new ArrayIndex(r3, r1, r2, dim_ * 4, -1));
+              Reg r4 = f->new_Reg();
+              bb->ins(a2.genIR(r4, f));
+              bb->replace(new ArrayIndex(ai->d1, r3, r4, 4, -1));
+            }
+          }
+        });
+      });
+    }
+    if (upd) {
+      after_unroll(f);
+    }
+  }
+}
+/*
+void range_analysis(NormalFunc *f){
+  DAG_IR dag(f);
+  FindLoopVar S(f);
+  dag.visit(S);
+  ArrayReadWrite a(S);
+  dag.visit(a);
+  f->for_each([&](BB *bb){
+        Case(BranchInstr,br,bb->back()){
+          auto h1 = S.loop_info.at(br->target1).node->loop_head;
+          auto h0 = S.loop_info.at(br->target0).node->loop_head;
+          if(h1!=h0)return;
+        }
+  });
+}*/
+
 void loop_ops(CompileUnit *ir, NormalFunc *f, bool last) {
   PassDisabled("loop-ops") return;
   LoopOps ops(f, last, ir);
   int LOOP_OPS_ITER = parseIntArg(16, "loop-ops-iter");
-  if (last)
+  if (last) {
+    // range_analysis(f);
+    change_array_access_pattern(ir, f);
     LOOP_OPS_ITER *= 10;
+  }
   for (int T = 0; T < LOOP_OPS_ITER; ++T) {
     if (!ops.run()) {
       dbg("T = ", T, '\n');
