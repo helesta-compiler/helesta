@@ -1077,7 +1077,7 @@ struct UnrollLoop {
     bool dbg_on(global_config.args["dbg-unroll"] == "1");
     if (dbg_on)
       print_cfg(S.f);
-    _unroll_simple_for_loop(w, 2, i, l, r, op);
+    _unroll_simple_for_loop(w, 4, i, l, r, op);
     if (dbg_on) {
       print_cfg(S.f);
       dbg("\n```cpp\n", *S.f, "\n```\n");
