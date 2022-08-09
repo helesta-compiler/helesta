@@ -48,6 +48,8 @@ def run_with(args):
                     print(cmd)
                     child = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
                     child.communicate()
+                    if child.returncode != 0:
+                        exit(1)
 
 
 if __name__ == '__main__':
