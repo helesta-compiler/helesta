@@ -121,12 +121,16 @@ std::list<std::unique_ptr<Instr>> AddExpr::genIR(Reg result, NormalFunc *f) {
 
 // this += a
 void MulAddExpr::add_eq(int32_t a) {
+  if (bad)
+    return;
   MulExpr t;
   add_eq(t, a);
 }
 
 // this += (x^a)*b
 void MulAddExpr::add_eq(Reg x, int32_t a, int32_t b) {
+  if (bad)
+    return;
   MulExpr t{{x, a}};
   add_eq(t, b);
 }
@@ -134,6 +138,10 @@ void MulAddExpr::add_eq(Reg x, int32_t a, int32_t b) {
 // this += (w1*w2)^a
 void MulAddExpr::set_mul(const MulAddExpr &w1, const MulAddExpr &w2,
                          int32_t a) {
+  if (w1.bad || w2.bad) {
+    bad = 1;
+    return;
+  }
   for (auto &[k1, v1] : w1.cs) {
     for (auto &[k2, v2] : w2.cs) {
       add_eq(mul(k1, k2), v1 * v2 * a);
@@ -158,6 +166,10 @@ void MulAddExpr::add_eq(const MulExpr &w, int32_t a) {
 
 // this += w*a
 void MulAddExpr::add_eq(const MulAddExpr &w, int32_t a) {
+  if (bad || w.bad) {
+    bad = 1;
+    return;
+  }
   for (auto &[k, v] : w.cs) {
     add_eq(k, v * a);
   }
@@ -299,12 +311,16 @@ MulAddExpr::MulExpr MulAddExpr::mul(const MulExpr &w1, const MulExpr &w2) {
 
 // this *= x^a
 void MulAddExpr::mul_eq(Reg x, int32_t a) {
+  if (bad)
+    return;
   MulExpr t{{x, a}};
   mul_eq(t, 1);
 }
 
 // this *= x^a
 void MulAddExpr::mul_eq(const MulExpr &w, int32_t a) {
+  if (bad)
+    return;
   MulAddExpr t;
   t.add_eq(w, 1);
   mul_eq(t, a);
@@ -312,6 +328,8 @@ void MulAddExpr::mul_eq(const MulExpr &w, int32_t a) {
 
 // this *= w^a
 void MulAddExpr::mul_eq(const MulAddExpr &w1, int32_t a) {
+  if (bad)
+    return;
   MulAddExpr t;
   t.set_mul(*this, w1, a);
   *this = std::move(t);
@@ -320,6 +338,8 @@ void MulAddExpr::mul_eq(const MulAddExpr &w1, int32_t a) {
 // maybe this >= w ?
 // if w-this>0 is proved, return 0
 bool MulAddExpr::may_gt(const MulAddExpr &w) {
+  if (bad || w.bad)
+    return 1;
   MulAddExpr d = w;
   d.add_eq(*this, -1);
   int32_t c = d.get_c();

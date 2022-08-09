@@ -478,6 +478,7 @@ void remove_unused_BB(NormalFunc *f);
 void global_value_numbering_func(IR::NormalFunc *func);
 void remove_unused_def_func(IR::NormalFunc *func);
 void remove_trivial_BB(NormalFunc *f);
+void pretty_print_func(NormalFunc *f);
 
 void after_unroll(NormalFunc *f) {
   remove_unused_BB(f);
