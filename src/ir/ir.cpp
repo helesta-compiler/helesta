@@ -39,10 +39,13 @@ ostream &operator<<(ostream &os, const Printable &r) {
 
 void Reg::print(ostream &os) const {
   auto f = print_ctx.f;
-  if (f)
-    os << f->get_name(*this) << "(" << id << ")";
-  else
+  if (f) {
+    os << f->get_name(*this);
+    if (!print_ctx.disable_reg_id)
+      os << "(" << id << ")";
+  } else {
     os << "R[" << id << "]";
+  }
 }
 
 void MemObject::print(ostream &os) const {
