@@ -493,7 +493,7 @@ void ChangeSP::gen_asm(ostream &out, AsmContext *ctx) {
   if (is_legal_immediate(change)) {
     out << "add" << cond << " sp,sp,#" << change << '\n';
   } else if (is_legal_immediate(-change)) {
-    out << "sub" << cond << "sp,sp,#" << -change << '\n';
+    out << "sub" << cond << " sp,sp,#" << -change << '\n';
   }
   ctx->temp_sp_offset += change;
 }
