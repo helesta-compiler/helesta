@@ -1060,6 +1060,7 @@ struct UnrollLoop {
   }
   bool unroll_simple_for_loop(BB *w) {
     constexpr size_t MAX_UNROLL_SIMPLE_FOR_INSTR = 256;
+    constexpr size_t UNROLL_SIMPLE_FOR_CNT = 3;
     if (w->disable_unroll || !last)
       return 0;
     auto &wi = S.loop_info.at(w);
@@ -1078,7 +1079,7 @@ struct UnrollLoop {
     bool dbg_on(global_config.args["dbg-unroll"] == "1");
     if (dbg_on)
       print_cfg(S.f);
-    _unroll_simple_for_loop(w, 4, i, l, r, op);
+    _unroll_simple_for_loop(w, UNROLL_SIMPLE_FOR_CNT, i, l, r, op);
     if (dbg_on) {
       print_cfg(S.f);
       dbg("\n```cpp\n", *S.f, "\n```\n");
