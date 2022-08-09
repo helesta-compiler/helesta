@@ -582,7 +582,6 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
           "main function should have no parameters");
   }
   return_bb = cur_func->new_BB();
-  int arg_cnt = 0;
   for (int i = 0; i < static_cast<int>(params.size()); ++i) {
     if (params[i].second.is_array()) {
       IR::MemObject *obj =
@@ -593,10 +592,10 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
       obj->dims.push_back(-1);
       for (MemSize i : params[i].second.array_dims)
         obj->dims.push_back(static_cast<int>(i));
-      cur_func->scope.set_arg(arg_cnt, obj);
+      cur_func->scope.set_arg(i, obj);
       cur_local_table->register_var(params[i].first, nullptr, params[i].second);
-      cur_local_table->resolve(params[i].first)->arg_id = arg_cnt;
-      arg_cnt += 1;
+      cur_local_table->resolve(params[i].first)->arg_id = i;
+      cur_func->arg_types.push_back(ScalarType::Int);
     } else {
       IR::MemObject *obj = cur_func->scope.new_MemObject(params[i].first);
       obj->size = params[i].second.size();
@@ -604,9 +603,11 @@ antlrcpp::Any ASTVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
       cur_local_table->register_var(params[i].first, obj, params[i].second);
       IR::Reg value = new_reg(), addr = new_reg();
       if (params[i].second.scalar_type == ScalarType::Int) {
-        cur_bb->push(new IR::LoadArg<ScalarType::Int>(value, arg_cnt++));
+        cur_bb->push(new IR::LoadArg<ScalarType::Int>(value, i));
+        cur_func->arg_types.push_back(ScalarType::Int);
       } else {
-        cur_bb->push(new IR::LoadArg<ScalarType::Float>(value, arg_cnt++));
+        cur_bb->push(new IR::LoadArg<ScalarType::Float>(value, i));
+        cur_func->arg_types.push_back(ScalarType::Float);
       }
       cur_bb->push(new IR::LoadAddr(addr, obj));
       cur_bb->push(new IR::StoreInstr(addr, value));

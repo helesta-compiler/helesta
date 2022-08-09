@@ -64,30 +64,46 @@ void MappingInfo::set_maybe_float_assign(Reg &r1, Reg &r2) {
   }
 }
 
-template <ScalarType type>
 void handle_params(Func *ctx, MappingInfo &info, Block *entry,
                    IR::NormalFunc *ir_func) {
-  int arg_n = 0;
-  for (auto &bb : ir_func->bbs)
-    for (auto &inst : bb->instrs)
-      if (auto *cur = dynamic_cast<IR::LoadArg<type> *>(inst.get()))
-        arg_n = std::max(arg_n, cur->id + 1);
-  for (int i = 0; i < arg_n; ++i) {
-    Reg cur_arg = info.new_reg();
-    cur_arg.type = type;
-    if (type == ScalarType::Float)
-      info.set_float(cur_arg);
-    if (i < RegConvention<type>::ARGUMENT_REGISTER_COUNT) {
-      entry->push_back(make_unique<MoveReg>(
-          cur_arg, Reg(RegConvention<type>::ARGUMENT_REGISTERS[i], type)));
-    } else {
-      unique_ptr<StackObject> t = make_unique<StackObject>();
-      t->size = INT_SIZE;
-      t->position = -1;
-      entry->push_back(make_unique<LoadStack>(cur_arg, 0, t.get()));
-      ctx->caller_stack_object.push_back(std::move(t));
-    }
-    ctx->args.push_back(cur_arg);
+  int int_arg_cnt = 0, float_arg_cnt = 0;
+  for (auto arg_type : ir_func->arg_types) {
+    Reg cur_reg = info.new_reg();
+    if (arg_type == ScalarType::Int) {
+      if (int_arg_cnt <
+          RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT) {
+        entry->push_back(std::make_unique<MoveReg>(
+            cur_reg,
+            Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[int_arg_cnt],
+                ScalarType::Int)));
+      } else {
+        unique_ptr<StackObject> t = make_unique<StackObject>();
+        t->size = INT_SIZE;
+        t->position = -1;
+        entry->push_back(make_unique<LoadStack>(cur_reg, 0, t.get()));
+        ctx->caller_stack_object.push_back(std::move(t));
+      }
+      int_arg_cnt += 1;
+    } else if (arg_type == ScalarType::Float) {
+      info.set_float(cur_reg);
+      if (float_arg_cnt <
+          RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT) {
+        entry->push_back(std::make_unique<MoveReg>(
+            cur_reg,
+            Reg(RegConvention<
+                    ScalarType::Float>::ARGUMENT_REGISTERS[float_arg_cnt],
+                ScalarType::Float)));
+      } else {
+        unique_ptr<StackObject> t = make_unique<StackObject>();
+        t->size = INT_SIZE;
+        t->position = -1;
+        entry->push_back(make_unique<LoadStack>(cur_reg, 0, t.get()));
+        ctx->caller_stack_object.push_back(std::move(t));
+      }
+      float_arg_cnt += 1;
+    } else
+      assert(false);
+    ctx->args.push_back(cur_reg);
   }
 }
 
@@ -114,8 +130,7 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     info.rev_block_mapping[res.get()] = cur;
     blocks.push_back(std::move(res));
   }
-  handle_params<ScalarType::Int>(this, info, entry, ir_func);
-  handle_params<ScalarType::Float>(this, info, entry, ir_func);
+  handle_params(this, info, entry, ir_func);
   Block *real_entry = info.block_mapping[ir_func->entry];
   if (blocks[1].get() != real_entry)
     entry->push_back(make_unique<Branch>(real_entry));
