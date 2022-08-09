@@ -894,9 +894,11 @@ struct UnrollLoop {
       return 0;
     return arw.loop_parallel(w, ir);
   }
-  void _unroll_simple_for_loop(BB *w, size_t cnt, Reg i, Reg l, Reg r) {
+  void _unroll_simple_for_loop(BB *w, size_t cnt, Reg i, Reg l, Reg r,
+                               CmpOp op) {
     assert(cnt >= 2);
-    dbg(">>> unroll: ", i, ' ', l, ' ', r, '\n');
+    assert(op.less);
+    dbg(">>> unroll: ", i, ' ', l, ' ', r, ' ', op.name(), '\n');
     auto &wi = S.loop_info.at(w);
     std::deque<LoopCopyTool> loops;
     loops.emplace_back(wi.bbs, w, w, S.f);
@@ -954,7 +956,11 @@ struct UnrollLoop {
     w->for_each([&](Instr *x) {
       Case(BranchInstr, br, x) {
         CodeGen cg(S.f);
-        br->cond = (cg.reg(i) + cg.lc(cnt) < cg.reg(r)).r;
+        if (op.eq) {
+          br->cond = (cg.reg(i) + cg.lc(cnt) <= cg.reg(r)).r;
+        } else {
+          br->cond = (cg.reg(i) + cg.lc(cnt) < cg.reg(r)).r;
+        }
         w->ins(std::move(cg.instrs));
         ++n;
       }
@@ -1050,7 +1056,7 @@ struct UnrollLoop {
     return 0;
   }
   bool unroll_simple_for_loop(BB *w) {
-    constexpr size_t MAX_UNROLL_SIMPLE_FOR_INSTR = 32;
+    constexpr size_t MAX_UNROLL_SIMPLE_FOR_INSTR = 256;
     if (w->disable_unroll || !last)
       return 0;
     auto &wi = S.loop_info.at(w);
@@ -1062,14 +1068,14 @@ struct UnrollLoop {
     if (!ilr)
       return 0;
     auto [i, l, r, op] = *ilr;
-    if (!(op.less && !op.eq))
+    if (!(op.less))
       return 0;
     // for(i=l;i op r;++i);
     PassDisabled("unroll-for") return 0;
     bool dbg_on(global_config.args["dbg-unroll"] == "1");
     if (dbg_on)
       print_cfg(S.f);
-    _unroll_simple_for_loop(w, 2, i, l, r);
+    _unroll_simple_for_loop(w, 2, i, l, r, op);
     if (dbg_on) {
       print_cfg(S.f);
       dbg("\n```cpp\n", *S.f, "\n```\n");
@@ -1080,6 +1086,55 @@ struct UnrollLoop {
       dbg("\n```cpp\n", *S.f, "\n```\n");
     }
     return 1;
+  }
+};
+
+struct LoadToRegV2 : ForwardLoopVisitor<std::map<AddrExpr, Reg>>,
+                     CounterOutput {
+  using ForwardLoopVisitor::map_t;
+  ArrayReadWrite &arw;
+  LoadToRegV2(ArrayReadWrite &_arw) : CounterOutput("LoadToRegV2"), arw(_arw) {}
+  void update(map_t &m, AddrExpr &mw) {
+    if (m.size() >= 40 || mw.bad) {
+      m.clear();
+    } else {
+      m.erase(mw);
+    }
+  }
+  void visitBB(BB *bb) {
+    // std::cerr << bb->name << " visited" << '\n';
+    auto &w = info[bb];
+    w.out = w.in;
+    if (w.is_loop_head) {
+      w.out.clear();
+    }
+    for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
+      Instr *x = it->get();
+      replace_reg(x);
+      Case(LoadInstr, ld, x) {
+        auto &key = arw.reg_info.at(ld->addr).addr;
+        // dbg(*ld, " :::: ", key, '\n');
+        if (key.bad) {
+        } else if (w.out.count(key)) {
+          replace_reg(it, ld->d1, w.out[key]);
+          ++cnt;
+          // dbg(">>> L2R2\n");
+        } else {
+          w.out[key] = ld->d1;
+        }
+      }
+      else Case(StoreInstr, st, x) {
+        auto &key = arw.reg_info.at(st->addr).addr;
+        // dbg(*st, " :::: ", key, '\n');
+        update(w.out, key);
+        w.out[key] = st->s1;
+      }
+      else Case(CallInstr, call, x) {
+        if (!call->no_store) {
+          w.out.clear();
+        }
+      }
+    }
   }
 };
 
@@ -1107,6 +1162,17 @@ struct LoopOps {
     }
     return 0;
   }
+  void run_last() {
+    DAG_IR dag(f);
+    FindLoopVar S(f);
+    dag.visit(S);
+    ArrayReadWrite a(S);
+    dag.visit(a);
+    {
+      LoadToRegV2 w(a);
+      dag.visit(w);
+    }
+  }
 };
 
 void loop_ops(CompileUnit *ir, NormalFunc *f, bool last) {
@@ -1121,4 +1187,6 @@ void loop_ops(CompileUnit *ir, NormalFunc *f, bool last) {
       break;
     }
   }
+  if (last)
+    ops.run_last();
 }

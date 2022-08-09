@@ -26,6 +26,7 @@ struct MulAddExpr : Printable {
   typedef std::map<Reg, int32_t> MulExpr;
   std::map<MulExpr, int32_t> cs;
   bool bad = 0;
+  bool operator<(const MulAddExpr &w) const { return cs < w.cs; }
   int32_t get_c() const;
   void add_eq(int32_t a);
   void add_eq(Reg x, int32_t a, int32_t b);
@@ -48,6 +49,11 @@ struct AddrExpr : Printable {
   MemObject *base;
   bool bad = 0;
   std::map<int, MulAddExpr> indexs;
+  bool operator<(const AddrExpr &w) const {
+    if (base != w.base)
+      return base < w.base;
+    return indexs < w.indexs;
+  }
   void add_eq(int key, const MulAddExpr &w);
   void print(std::ostream &os) const override;
   bool maybe_eq(const AddrExpr &w, const EqContext &ctx) const;

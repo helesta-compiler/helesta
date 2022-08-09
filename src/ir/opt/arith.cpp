@@ -48,7 +48,7 @@ struct MulDiv : ForwardLoopVisitor<std::map<Reg, Reg>>, Defs, CounterOutput {
       Case(BinaryOpInstr, bop, x) {
         if (bop->op.type == BinaryCompute::DIV) {
           Case(BinaryOpInstr, bop2, defs.at(bop->s1)) {
-            dbg(*bop2, " >>> ", *bop, '\n');
+            // dbg(*bop2, " >>> ", *bop, '\n');
             if (bop2->op.type == BinaryCompute::MUL && bop2->s2 == bop->s2) {
               replace_reg(bb->cur_iter(), bop->d1, bop2->s1);
               ++cnt;

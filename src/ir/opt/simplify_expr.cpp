@@ -353,7 +353,7 @@ void AddrExpr::add_eq(int key, const MulAddExpr &w) {
   if (bad)
     return;
   indexs[key].add_eq(w, 1);
-  if (indexs.size() > 3) {
+  if (w.bad || indexs.size() > 3) {
     bad = 1;
   }
 }
