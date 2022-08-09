@@ -21,6 +21,7 @@ void call_graph(IR::CompileUnit *);
 void remove_unused_BB(IR::CompileUnit *ir);
 void before_backend(IR::CompileUnit *ir);
 void before_gcm(IR::CompileUnit *ir);
+void pretty_print(IR::CompileUnit *ir);
 
 void checkIR(IR::NormalFunc *f);
 void checkIR(IR::CompileUnit *ir);
@@ -41,6 +42,8 @@ inline void gcm(IR::CompileUnit *ir) {
 }
 
 inline void optimize_ir(IR::CompileUnit *ir) {
+  if (global_config.args["pp"] == "0")
+    pretty_print(ir);
   PassEnabled("opt") {
     PassEnabled("mem2reg") mem2reg(ir);
     remove_unused_def(ir);
@@ -74,5 +77,7 @@ inline void optimize_ir(IR::CompileUnit *ir) {
       }
     }
   }
+  if (global_config.args["pp"] == "1")
+    pretty_print(ir);
   PassEnabled("del-phi") before_backend(ir);
 }

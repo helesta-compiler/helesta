@@ -319,7 +319,12 @@ struct NormalFunc : Func {
     return Reg(++max_reg_id);
   }
   BB *new_BB(string _name = "BB") {
-    BB *bb = new BB(name + "::" + _name + std::to_string(++max_bb_id));
+    auto bb_name = _name + std::to_string(++max_bb_id);
+    auto prefix = name + "::";
+    if (!bb_name.compare(0, prefix.size(), prefix)) {
+      bb_name = prefix + bb_name;
+    }
+    BB *bb = new BB(bb_name);
     bbs.emplace_back(bb);
     return bb;
   }
@@ -698,6 +703,7 @@ namespace IR {
 struct PrintContext {
   const CompileUnit *c = NULL;
   const NormalFunc *f = NULL;
+  bool disable_reg_id = 0;
   std::unordered_map<Instr *, string> instr_comment;
 };
 
