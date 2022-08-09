@@ -74,7 +74,7 @@ if __name__ == '__main__':
         if not args.benchmark and mod == "performance":
             continue
         for testcase in os.listdir(mod_path):
-            if not testcase.endswith(".s"):
+            if not testcase.endswith(".sy"):
                 continue
             testcase = testcase[:-3]
             asm_file = os.path.join(mod_path, testcase + ".s")

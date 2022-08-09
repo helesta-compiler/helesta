@@ -38,6 +38,7 @@ def run_with(args):
             if mod != 'performance':
                 for o in args.fuzz:
                     o_path = os.path.join(args.data_dir, mod + "_" + o)
+                    shutil.copy(full_path, os.path.join(o_path, filename[:-2] + "sy"))
                     if os.path.exists(in_path):
                         shutil.copy(in_path, os.path.join(o_path, filename[:-2] + "in"))
                     if os.path.exists(out_path):
