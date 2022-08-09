@@ -230,51 +230,58 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(std::make_unique<Return>(ScalarType::Float));
       }
     } else if (auto call = dynamic_cast<IR::CallInstr *>(cur)) {
-      std::vector<Reg> float_args;
-      std::vector<Reg> int_args;
+      int int_arg_cnt = 0, float_arg_cnt = 0;
       for (auto kv : call->args) {
-        auto r = info->from_ir_reg(kv.first);
-        if (kv.second == ScalarType::Float) {
-          info->set_float(r);
-          float_args.push_back(r);
+        if (kv.second == ScalarType::Int)
+          int_arg_cnt += 1;
+        else if (kv.second == ScalarType::Float)
+          float_arg_cnt += 1;
+        else
+          assert(false);
+      }
+      int int_arg_size = int_arg_cnt, float_arg_size = float_arg_cnt;
+      for (auto it = call->args.rbegin(); it != call->args.rend(); it++) {
+        auto kv = *it;
+        if (kv.second == ScalarType::Int) {
+          int_arg_cnt -= 1;
+          if (int_arg_cnt >=
+              RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT) {
+            push_back(std::make_unique<Push>(
+                std::vector<Reg>{info->from_ir_reg(kv.first)}));
+          } else {
+            push_back(std::make_unique<MoveReg>(
+                Reg(RegConvention<
+                        ScalarType::Int>::ARGUMENT_REGISTERS[int_arg_cnt],
+                    ScalarType::Int),
+                info->from_ir_reg(kv.first)));
+          }
         } else {
-          int_args.push_back(r);
+          float_arg_cnt -= 1;
+          auto reg = info->from_ir_reg(kv.first);
+          info->set_float(reg);
+          if (float_arg_cnt >=
+              RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT) {
+            push_back(std::make_unique<Push>(std::vector<Reg>{reg}));
+          } else {
+            push_back(std::make_unique<MoveReg>(
+                Reg(RegConvention<
+                        ScalarType::Float>::ARGUMENT_REGISTERS[float_arg_cnt],
+                    ScalarType::Float),
+                reg));
+          }
         }
       }
-      for (int i = float_args.size() - 1; i >= 0; i--) {
-        if (static_cast<int>(i) >=
-            RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT) {
-          push_back(std::make_unique<Push>(std::vector<Reg>{float_args[i]}));
-        } else {
-          push_back(std::make_unique<MoveReg>(
-              Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[i],
-                  ScalarType::Float),
-              float_args[i]));
-        }
-      }
-      for (int i = int_args.size() - 1; i >= 0; i--) {
-        if (static_cast<int>(i) >=
-            RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT) {
-          push_back(std::make_unique<Push>(std::vector<Reg>{int_args[i]}));
-        } else {
-          push_back(std::make_unique<MoveReg>(
-              Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[i],
-                  ScalarType::Int),
-              int_args[i]));
-        }
-      }
-      push_back(std::make_unique<FuncCall>(
-          call->f->name, static_cast<int>(int_args.size()),
-          static_cast<int>(float_args.size())));
+      push_back(std::make_unique<FuncCall>(call->f->name, int_arg_size,
+                                           float_arg_size));
       int stack_passed = 0;
-      if (int_args.size() >
+      if (int_arg_size >
           RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT)
-        stack_passed += int_args.size() -
+        stack_passed += int_arg_size -
                         RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT;
-      if (float_args.size() >
+      if (float_arg_size >
           RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT)
         stack_passed +=
-            float_args.size() -
+            float_arg_size -
             RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT;
       if (stack_passed > 0) {
         push_back(sp_move(stack_passed * INT_SIZE));

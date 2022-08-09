@@ -322,6 +322,7 @@ struct NormalFunc : Func {
   int max_reg_id = 0, max_bb_id = 0;
   // for id allocation
   vector<string> reg_names;
+  std::vector<ScalarType> arg_types;
 
   std::unordered_set<Reg> thread_local_regs;
   Reg new_Reg() { return new_Reg("R" + to_string(max_reg_id + 1)); }
