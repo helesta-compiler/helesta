@@ -240,20 +240,6 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
           assert(false);
       }
       int int_arg_size = int_arg_cnt, float_arg_size = float_arg_cnt;
-      int stack_passed = 0;
-      if (int_arg_size >
-          RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT)
-        stack_passed += int_arg_size -
-                        RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT;
-      if (float_arg_size >
-          RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT)
-        stack_passed +=
-            float_arg_size -
-            RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT;
-      if (stack_passed % 2 == 1) {
-        stack_passed += 1;
-        push_back(sp_move(-static_cast<int>(INT_SIZE)));
-      }
       for (auto it = call->args.rbegin(); it != call->args.rend(); it++) {
         auto kv = *it;
         if (kv.second == ScalarType::Int) {
@@ -287,6 +273,16 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       }
       push_back(std::make_unique<FuncCall>(call->f->name, int_arg_size,
                                            float_arg_size));
+      int stack_passed = 0;
+      if (int_arg_size >
+          RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT)
+        stack_passed += int_arg_size -
+                        RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT;
+      if (float_arg_size >
+          RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT)
+        stack_passed +=
+            float_arg_size -
+            RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT;
       if (stack_passed > 0) {
         push_back(sp_move(stack_passed * INT_SIZE));
       }
