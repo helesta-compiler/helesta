@@ -555,7 +555,7 @@ struct ChangeSP : Inst {
     if (is_legal_immediate(change)) {
       out << "add" << cond << " sp,sp,#" << change << '\n';
     } else if (is_legal_immediate(-change)) {
-      out << "sub" << cond << " sp,sp,#" << -change << '\n';
+      out << "sub" << cond << "sp,sp,#" << -change << '\n';
     }
   }
 };
