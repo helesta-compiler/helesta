@@ -900,6 +900,8 @@ struct UnrollLoop {
     assert(op.less);
     dbg(">>> unroll: ", i, ' ', l, ' ', r, ' ', op.name(), '\n');
     auto &wi = S.loop_info.at(w);
+    dbg("instr_cnt: ", wi.instr_cnt, "\n");
+    dbg("BB_cnt: ", wi.bbs.size(), "\n");
     std::deque<LoopCopyTool> loops;
     loops.emplace_back(wi.bbs, w, w, S.f);
     for (size_t i = 1; i <= cnt; ++i) {
@@ -1095,7 +1097,7 @@ struct LoadToRegV2 : ForwardLoopVisitor<std::map<AddrExpr, Reg>>,
   ArrayReadWrite &arw;
   LoadToRegV2(ArrayReadWrite &_arw) : CounterOutput("LoadToRegV2"), arw(_arw) {}
   void update(map_t &m, AddrExpr &mw) {
-    if (m.size() >= 40 || mw.bad) {
+    if (m.size() >= 40 || mw.bad_index()) {
       m.clear();
     } else {
       m.erase(mw);
@@ -1114,7 +1116,7 @@ struct LoadToRegV2 : ForwardLoopVisitor<std::map<AddrExpr, Reg>>,
       Case(LoadInstr, ld, x) {
         auto &key = arw.reg_info.at(ld->addr).addr;
         // dbg(*ld, " :::: ", key, '\n');
-        if (key.bad) {
+        if (key.bad_index()) {
         } else if (w.out.count(key)) {
           replace_reg(it, ld->d1, w.out[key]);
           ++cnt;

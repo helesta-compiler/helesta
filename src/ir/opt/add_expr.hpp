@@ -56,6 +56,15 @@ struct AddrExpr : Printable {
   }
   void add_eq(int key, const MulAddExpr &w);
   void print(std::ostream &os) const override;
+  bool bad_index() const {
+    if (bad)
+      return 1;
+    for (auto &[k, v] : indexs) {
+      if (v.bad)
+        return 1;
+    }
+    return 0;
+  }
   bool maybe_eq(const AddrExpr &w, const EqContext &ctx) const;
 };
 
