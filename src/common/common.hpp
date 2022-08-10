@@ -175,3 +175,12 @@ template <class T, class F> void remove_if(T &ls, F f) {
 template <class T, class F> void remove_if_vec(T &ls, F f) {
   ls.resize(std::remove_if(ls.begin(), ls.end(), f) - ls.begin());
 }
+
+inline void _dbg1() {}
+template <class T1, class... T2> void _dbg1(const T1 &x, const T2 &...xs) {
+  if (global_config.log_level > 1)
+    return;
+  std::cerr << x;
+  _dbg1(xs...);
+}
+#define dbg(...) _dbg1(__VA_ARGS__)

@@ -3,15 +3,6 @@
 #include "ir/opt/opt.hpp"
 using namespace IR;
 
-inline void _dbg1() {}
-template <class T1, class... T2> void _dbg1(const T1 &x, const T2 &...xs) {
-  if (global_config.log_level > 1)
-    return;
-  std::cerr << x;
-  _dbg1(xs...);
-}
-#define dbg(...) _dbg1(__VA_ARGS__)
-
 inline void print_cfg(NormalFunc *f) {
   dbg("CFG:\n");
   dbg("```mermaid\n");
@@ -264,4 +255,4 @@ struct CounterOutput {
 
 std::unordered_set<Reg> get_float_regs(NormalFunc *f);
 bool type_check(NormalFunc *f);
-void loop_ops(NormalFunc *f, bool last);
+void loop_ops(CompileUnit *ir, NormalFunc *f, bool last);

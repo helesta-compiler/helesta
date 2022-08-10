@@ -15,6 +15,16 @@ void BB::map_phi_use(std::function<void(Reg &)> f1,
   }
 }
 
+void BB::map_phi_use(std::function<void(Reg &, BB *&)> f) {
+  for (auto &x : instrs) {
+    Case(PhiInstr, phi, x.get()) {
+      for (auto &[r, bb] : phi->uses) {
+        f(r, bb);
+      }
+    }
+  }
+}
+
 void BB::map_use(std::function<void(Reg &)> f) {
   for (auto &x : instrs)
     x->map_use(f);
@@ -159,6 +169,16 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   f = new_LibFunc("__join_threads", 1);
   f->in = 1;
   f->out = 1;
+  f = new_LibFunc("__umulmod", 0);
+  f->pure = 1;
+  f = new_LibFunc("__u_c_np1_2_mod", 0);
+  f->pure = 1;
+  f = new_LibFunc("__s_c_np1_2", 0);
+  f->pure = 1;
+  f = new_LibFunc("__umod", 0);
+  f->pure = 1;
+  f = new_LibFunc("__fixmod", 0);
+  f->pure = 1;
 
   for (auto name : {"getint", "getch", "getfloat"}) {
     f = new_LibFunc(name, 0);
@@ -379,9 +399,11 @@ int exec(CompileUnit &c) {
   // simulate IR execute result
   FILE *ifile = fopen("input.txt", "r");
   FILE *ofile = fopen("output.txt", "w");
+  bool dbg_step_on = global_config.args["exec-step"] == "1";
   bool ENABLE_PHI = global_config.args["exec-phi"] == "1";
   long long instr_cnt = 0, mem_r_cnt = 0, mem_w_cnt = 0, jump_cnt = 0,
-            fork_cnt = 0, par_instr_cnt = 0;
+            par_instr_cnt = 0;
+  int fork_cnt = 0;
   int sp = c.scope.size, mem_limit = sp + (8 << 20);
   char *mem = new char[mem_limit];
   auto wMem = [&](int addr, typeless_scalar_t v) {
@@ -407,8 +429,8 @@ int exec(CompileUnit &c) {
     printf("Load:  %lld\n", mem_r_cnt);
     printf("Store: %lld\n", mem_w_cnt);
     printf("Jump:  %lld\n", jump_cnt);
-    printf("Fork:  %lld\n", fork_cnt);
-    printf("Parallel:  %g\n", par_instr_cnt * 1. / instr_cnt);
+    printf("Fork:  %d\n", fork_cnt);
+    printf("Parallel:  %lld\n", par_instr_cnt);
     /*c.scope.for_each([&](MemObject *x){
             assert(x->global);
             printf("%s: ",x->name.data());
@@ -417,44 +439,79 @@ int exec(CompileUnit &c) {
             printf("\n");
     });*/
   };
-  bool in_fork = 0;
   bool eol = 1;
-  NormalFunc *fork_func = NULL;
-  BB *fork_bb = NULL;
-  std::list<std::unique_ptr<Instr>>::iterator fork_instr;
+  typedef std::list<std::unique_ptr<Instr>>::iterator it_t;
+  struct ThreadContext {
+    BB *cur_bb = NULL;
+    it_t cur_instr;
+    int id = -1, waiting_id = -1;
+    bool waiting = 0;
+    std::optional<std::pair<Reg, int32_t>> write_reg;
+  } cur_thread;
+  cur_thread.id = 0;
+  std::queue<ThreadContext> threads;
+  std::unordered_set<int> finished_threads;
+  BB *&cur = cur_thread.cur_bb;
+  it_t &it = cur_thread.cur_instr;
+  std::vector<std::pair<BB *, it_t>> call_stack;
 
   /*auto skip_instr = [&](Instr *) {
     --instr_cnt;
-    if (in_fork)
-      --par_instr_cnt;
   };*/
   std::function<typeless_scalar_t(NormalFunc *, std::vector<typeless_scalar_t>)>
       run;
   run = [&](NormalFunc *func,
             std::vector<typeless_scalar_t> args) -> typeless_scalar_t {
     BB *last_bb = NULL;
-    BB *cur = func->entry;
+    cur = func->entry;
     int sz = func->scope.size;
     std::unordered_map<int, typeless_scalar_t> regs, tmps;
     auto wReg = [&](Reg x, typeless_scalar_t v) {
-      assert(func->thread_local_regs.count(x) == in_fork);
       assert(1 <= x.id && x.id <= func->max_reg_id);
+      if (dbg_step_on)
+        dbg(x, " := ", v.int_value(), '\n');
       regs[x.id] = v;
     };
     auto rReg = [&](Reg x) -> typeless_scalar_t {
       assert(1 <= x.id && x.id <= func->max_reg_id);
       return regs[x.id];
     };
+
+    int time_to_last_schedule = 0;
+    bool dbg_thread_on = 0;
+
+    auto schedule = [&]() {
+      assert(!threads.empty());
+      time_to_last_schedule = 0;
+      for (;;) {
+        cur_thread = threads.front();
+        threads.pop();
+        if (cur_thread.waiting &&
+            !finished_threads.count(cur_thread.waiting_id)) {
+          if (dbg_thread_on)
+            dbg(cur_thread.id, " waiting ", cur_thread.waiting_id, '\n');
+          threads.push(cur_thread);
+          continue;
+        }
+        cur_thread.waiting = 0;
+        if (auto w = cur_thread.write_reg) {
+          wReg(w->first, w->second);
+          cur_thread.write_reg = std::nullopt;
+        }
+        if (dbg_thread_on)
+          dbg("schedule: ", cur_thread.id, '\n');
+        break;
+      }
+    };
     for (int i = 0; i < (int)args.size(); ++i) {
       wReg(i + 1, args[i]);
     }
     typeless_scalar_t _ret = 0;
-    bool last_in_fork = in_fork;
     while (cur) {
       // printf("BB: %s\n",cur->name.data());
       tmps.clear();
       if (ENABLE_PHI)
-        for (auto it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
+        for (it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
           Instr *x0 = it->get();
           Case(PhiInstr, x, x0) {
             for (auto &kv : x->uses)
@@ -462,11 +519,12 @@ int exec(CompileUnit &c) {
                 tmps[x->d1.id] = rReg(kv.first);
           }
         }
-      for (auto it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
+      for (it = cur->instrs.begin(); it != cur->instrs.end(); ++it) {
         Instr *x0 = it->get();
         ++instr_cnt;
-        if (in_fork)
+        if (threads.size())
           ++par_instr_cnt;
+        ++time_to_last_schedule;
         Case(PhiInstr, x, x0) {
           if (ENABLE_PHI)
             wReg(x->d1, tmps.at(x->d1.id));
@@ -543,13 +601,48 @@ int exec(CompileUnit &c) {
             args.push_back(rReg(kv.first));
           Case(NormalFunc, f, x->f) {
             sp += sz;
+            call_stack.emplace_back(cur, it);
             ret = run(f, args);
+            std::tie(cur, it) = call_stack.back();
+            call_stack.pop_back();
             sp -= sz;
             if (!f->ignore_return_value)
               wReg(x->d1, ret);
           }
           else {
 #define FLOAT_FMT "%a"
+            if (x->f->name == "__create_threads") {
+              assert(args.size() == 0);
+              threads.push(ThreadContext{cur, it, ++fork_cnt, -1, 0,
+                                         std::make_pair(x->d1, 0)});
+              cur_thread.waiting_id = fork_cnt;
+              if (dbg_thread_on)
+                dbg(cur_thread.id, " fork ", fork_cnt, "\n");
+              wReg(x->d1, 1);
+              time_to_last_schedule = 0;
+              // return 1: wait on join
+              // return 0: exit on join
+              continue;
+              // std::cerr<<">>> fork"<<std::endl;
+            } else if (x->f->name == "__join_threads") {
+              assert(args.size() == 1);
+              assert(args[0].int_value() >= 0);
+              assert(args[0].int_value() <= 1);
+              if (args[0].int_value()) {
+                finished_threads.insert(cur_thread.id);
+                if (dbg_thread_on)
+                  dbg(cur_thread.id, " exited\n");
+              } else {
+                cur_thread.waiting = 1;
+                if (dbg_thread_on)
+                  dbg(cur_thread.id, " wait ", cur_thread.waiting_id, '\n');
+                threads.push(cur_thread);
+              }
+              schedule();
+              continue;
+              // std::cerr<<">>> join"<<std::endl;
+            } else
+              assert(threads.empty());
             if (x->f->name == "getint") {
               assert(args.size() == 0);
               assert(fscanf(ifile, "%d", &ret.int_value()) == 1);
@@ -622,38 +715,36 @@ int exec(CompileUnit &c) {
               fputs(buf,ofile);
               if(len)eol=(buf[len-1]==10);*/
               assert(0);
-            } else if (x->f->name == "__create_threads") {
-              assert(args.size() == 1);
-              assert(args[0].int_value() >= 1);
-              assert(!in_fork);
-              fork_func = f;
-              fork_bb = cur;
-              fork_instr = it;
-              in_fork = 1;
-              ++fork_cnt;
-              ret = args[0].int_value() - 1;
-              // std::cerr<<">>> fork"<<std::endl;
-            } else if (x->f->name == "__join_threads") {
-              assert(args.size() == 2);
-              assert(args[0].int_value() >= 0);
-              assert(args[0].int_value() < args[1].int_value());
-              assert(in_fork);
-              assert(fork_func == f);
-              if (args[0].int_value()) {
-                ret = args[0].int_value() - 1;
-                cur = fork_bb;
-                it = fork_instr;
-                Case(CallInstr, call, it->get()) { x = call; }
-                else assert(0);
-              } else {
-                fork_func = NULL;
-                fork_bb = NULL;
-                ret = 0;
-                in_fork = 0;
-              }
-              // std::cerr<<">>> join"<<std::endl;
             } else if (x->f->name == "starttime") {
             } else if (x->f->name == "stoptime") {
+            } else if (x->f->name == "__umulmod") {
+              assert(args.size() == 3);
+              uint32_t a = args[0].int_value();
+              uint32_t b = args[1].int_value();
+              uint32_t c = args[2].int_value();
+              ret.int_value() = 1ull * a * b % c;
+            } else if (x->f->name == "__umod") {
+              assert(args.size() == 2);
+              uint32_t a = args[0].int_value();
+              uint32_t b = args[1].int_value();
+              ret.int_value() = a % b;
+            } else if (x->f->name == "__fixmod") {
+              assert(args.size() == 2);
+              int32_t a = args[0].int_value();
+              int32_t b = args[1].int_value();
+              a %= b;
+              if (a < 0)
+                a += b;
+              ret.int_value() = a;
+            } else if (x->f->name == "__u_c_np1_2_mod") {
+              assert(args.size() == 2);
+              uint32_t a = args[0].int_value();
+              uint32_t b = args[1].int_value();
+              ret.int_value() = (1ull * a * a + a) / 2ull % b;
+            } else if (x->f->name == "__s_c_np1_2") {
+              assert(args.size() == 1);
+              int32_t a = args[0].int_value();
+              ret.int_value() = (1ll * a * a + a) / 2ll;
             } else {
               std::cerr << "unknown func: " << x->f->name << std::endl;
               assert(0);
@@ -663,9 +754,12 @@ int exec(CompileUnit &c) {
             wReg(x->d1, ret);
         }
         else assert(0);
+        if (time_to_last_schedule > 32) {
+          threads.push(cur_thread);
+          schedule();
+        }
       }
     }
-    assert(last_in_fork == in_fork);
     return _ret;
   };
   int ret = run(c.main(), {}).int_value();

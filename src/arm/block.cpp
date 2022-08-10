@@ -296,10 +296,15 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
             ret, Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0],
                      ScalarType::Float)));
       } else if (call->return_type == ScalarType::Int) {
-        push_back(std::make_unique<MoveReg>(
-            info->from_ir_reg(call->d1),
-            Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0],
-                ScalarType::Int)));
+        auto r0 = RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0];
+        if (call->f->name == "__create_threads") {
+          assert(
+              info->reg_mapping.insert({call->d1.id, Reg(r0, ScalarType::Int)})
+                  .second);
+        } else {
+          push_back(std::make_unique<MoveReg>(info->from_ir_reg(call->d1),
+                                              Reg(r0, ScalarType::Int)));
+        }
       }
     } else if (auto array_index = dynamic_cast<IR::ArrayIndex *>(cur)) {
       Reg dst = info->from_ir_reg(array_index->d1),

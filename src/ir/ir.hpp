@@ -208,7 +208,9 @@ struct BB : Printable, Traversable<BB> {
   string name;
   list<unique_ptr<Instr>> instrs;
   int id;
-  bool disable_schedule_early = 0;
+  bool disable_unroll = 0;
+  bool disable_parallel = 0;
+  int thread_id = 0;
   // list of instructions in this basic block
   // the last one is ControlInstr, others are RegWriteInstr or StoreInstr
   void print(ostream &os) const override;
@@ -220,6 +222,7 @@ struct BB : Printable, Traversable<BB> {
       return 0;
     });
   }
+  decltype(_it) cur_iter() { return std::prev(_it); }
   void replace(Instr *x) { *std::prev(_it) = unique_ptr<Instr>(x); }
   bool _del = 0;
   void move() {
@@ -232,6 +235,13 @@ struct BB : Printable, Traversable<BB> {
     for (auto &x : ls) {
       ins(x.release());
     }
+    ls.clear();
+  }
+  void push(decltype(instrs) &&ls) {
+    for (auto &x : ls) {
+      push(x.release());
+    }
+    ls.clear();
   }
   void replace(decltype(instrs) &&ls) {
     ins(std::move(ls));
@@ -264,6 +274,7 @@ struct BB : Printable, Traversable<BB> {
   void map_use(std::function<void(Reg &)> f);
   void map_phi_use(std::function<void(Reg &)> f1,
                    std::function<void(BB *&)> f2);
+  void map_phi_use(std::function<void(Reg &, BB *&)> f);
 
   const std::vector<BB *> getOutNodes() const override;
   void addOutNode(BB *) override {
@@ -293,6 +304,8 @@ struct LibFunc : Func {
   // (arg_id,0): read only
   bool in = 0,
        out = 0; // IO side effect, in: stdin changed, out: stdout changed
+  bool pure = 0;
+
 private:
   friend struct CompileUnit;
   LibFunc(string name) : Func(name) {}
@@ -759,6 +772,19 @@ struct CodeGen {
   RegRef lc(int32_t x) {
     Reg r = f->new_Reg();
     instrs.emplace_back(new LoadConst<int32_t>(r, x));
+    return reg(r);
+  }
+  void branch(RegRef cond, BB *target1, BB *target0) {
+    instrs.emplace_back(new BranchInstr(cond.r, target1, target0));
+  }
+  void jump(BB *target) { instrs.emplace_back(new JumpInstr(target)); }
+  RegRef call(Func *f0, ScalarType ret_type,
+              std::vector<std::pair<RegRef, ScalarType>> args_ref = {}) {
+    Reg r = f->new_Reg();
+    std::vector<std::pair<Reg, ScalarType>> args;
+    for (auto [x, t] : args_ref)
+      args.emplace_back(x.r, ScalarType::Int);
+    instrs.emplace_back(new CallInstr(r, f0, args, ret_type));
     return reg(r);
   }
 };
