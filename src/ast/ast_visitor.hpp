@@ -206,7 +206,7 @@ public:
   virtual antlrcpp::Any
   visitReturnStmt(SysYParser::ReturnStmtContext *ctx) override;
 
-  virtual antlrcpp::Any visitExp(SysYParser::ExpContext *ctx) override;
+  virtual antlrcpp::Any visitExp1(SysYParser::Exp1Context *ctx) override;
 
   virtual antlrcpp::Any visitCond(SysYParser::CondContext *ctx) override;
 
@@ -258,29 +258,17 @@ public:
   virtual antlrcpp::Any
   visitStringAsRParam(SysYParser::StringAsRParamContext *ctx) override;
 
-  virtual antlrcpp::Any visitMul2(SysYParser::Mul2Context *ctx) override;
+  virtual antlrcpp::Any visitMulExp(SysYParser::MulExpContext *ctx) override;
 
-  virtual antlrcpp::Any visitMul1(SysYParser::Mul1Context *ctx) override;
+  virtual antlrcpp::Any visitAddExp(SysYParser::AddExpContext *ctx) override;
 
-  virtual antlrcpp::Any visitAdd2(SysYParser::Add2Context *ctx) override;
+  virtual antlrcpp::Any visitRelExp(SysYParser::RelExpContext *ctx) override;
 
-  virtual antlrcpp::Any visitAdd1(SysYParser::Add1Context *ctx) override;
+  virtual antlrcpp::Any visitEqExp(SysYParser::EqExpContext *ctx) override;
 
-  virtual antlrcpp::Any visitRel2(SysYParser::Rel2Context *ctx) override;
+  virtual antlrcpp::Any visitLAndExp(SysYParser::LAndExpContext *ctx) override;
 
-  virtual antlrcpp::Any visitRel1(SysYParser::Rel1Context *ctx) override;
-
-  virtual antlrcpp::Any visitEq1(SysYParser::Eq1Context *ctx) override;
-
-  virtual antlrcpp::Any visitEq2(SysYParser::Eq2Context *ctx) override;
-
-  virtual antlrcpp::Any visitLAnd2(SysYParser::LAnd2Context *ctx) override;
-
-  virtual antlrcpp::Any visitLAnd1(SysYParser::LAnd1Context *ctx) override;
-
-  virtual antlrcpp::Any visitLOr1(SysYParser::LOr1Context *ctx) override;
-
-  virtual antlrcpp::Any visitLOr2(SysYParser::LOr2Context *ctx) override;
+  virtual antlrcpp::Any visitLOrExp(SysYParser::LOrExpContext *ctx) override;
 
   virtual antlrcpp::Any
   visitConstExp(SysYParser::ConstExpContext *ctx) override;

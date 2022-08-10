@@ -95,9 +95,6 @@ public:
   virtual void enterReturnStmt(SysYParser::ReturnStmtContext *ctx) = 0;
   virtual void exitReturnStmt(SysYParser::ReturnStmtContext *ctx) = 0;
 
-  virtual void enterExp(SysYParser::ExpContext *ctx) = 0;
-  virtual void exitExp(SysYParser::ExpContext *ctx) = 0;
-
   virtual void enterCond(SysYParser::CondContext *ctx) = 0;
   virtual void exitCond(SysYParser::CondContext *ctx) = 0;
 
@@ -137,41 +134,26 @@ public:
   virtual void enterStringAsRParam(SysYParser::StringAsRParamContext *ctx) = 0;
   virtual void exitStringAsRParam(SysYParser::StringAsRParamContext *ctx) = 0;
 
-  virtual void enterMul2(SysYParser::Mul2Context *ctx) = 0;
-  virtual void exitMul2(SysYParser::Mul2Context *ctx) = 0;
+  virtual void enterEqExp(SysYParser::EqExpContext *ctx) = 0;
+  virtual void exitEqExp(SysYParser::EqExpContext *ctx) = 0;
 
-  virtual void enterMul1(SysYParser::Mul1Context *ctx) = 0;
-  virtual void exitMul1(SysYParser::Mul1Context *ctx) = 0;
+  virtual void enterLOrExp(SysYParser::LOrExpContext *ctx) = 0;
+  virtual void exitLOrExp(SysYParser::LOrExpContext *ctx) = 0;
 
-  virtual void enterAdd2(SysYParser::Add2Context *ctx) = 0;
-  virtual void exitAdd2(SysYParser::Add2Context *ctx) = 0;
+  virtual void enterAddExp(SysYParser::AddExpContext *ctx) = 0;
+  virtual void exitAddExp(SysYParser::AddExpContext *ctx) = 0;
 
-  virtual void enterAdd1(SysYParser::Add1Context *ctx) = 0;
-  virtual void exitAdd1(SysYParser::Add1Context *ctx) = 0;
+  virtual void enterMulExp(SysYParser::MulExpContext *ctx) = 0;
+  virtual void exitMulExp(SysYParser::MulExpContext *ctx) = 0;
 
-  virtual void enterRel2(SysYParser::Rel2Context *ctx) = 0;
-  virtual void exitRel2(SysYParser::Rel2Context *ctx) = 0;
+  virtual void enterLAndExp(SysYParser::LAndExpContext *ctx) = 0;
+  virtual void exitLAndExp(SysYParser::LAndExpContext *ctx) = 0;
 
-  virtual void enterRel1(SysYParser::Rel1Context *ctx) = 0;
-  virtual void exitRel1(SysYParser::Rel1Context *ctx) = 0;
+  virtual void enterExp1(SysYParser::Exp1Context *ctx) = 0;
+  virtual void exitExp1(SysYParser::Exp1Context *ctx) = 0;
 
-  virtual void enterEq1(SysYParser::Eq1Context *ctx) = 0;
-  virtual void exitEq1(SysYParser::Eq1Context *ctx) = 0;
-
-  virtual void enterEq2(SysYParser::Eq2Context *ctx) = 0;
-  virtual void exitEq2(SysYParser::Eq2Context *ctx) = 0;
-
-  virtual void enterLAnd2(SysYParser::LAnd2Context *ctx) = 0;
-  virtual void exitLAnd2(SysYParser::LAnd2Context *ctx) = 0;
-
-  virtual void enterLAnd1(SysYParser::LAnd1Context *ctx) = 0;
-  virtual void exitLAnd1(SysYParser::LAnd1Context *ctx) = 0;
-
-  virtual void enterLOr1(SysYParser::LOr1Context *ctx) = 0;
-  virtual void exitLOr1(SysYParser::LOr1Context *ctx) = 0;
-
-  virtual void enterLOr2(SysYParser::LOr2Context *ctx) = 0;
-  virtual void exitLOr2(SysYParser::LOr2Context *ctx) = 0;
+  virtual void enterRelExp(SysYParser::RelExpContext *ctx) = 0;
+  virtual void exitRelExp(SysYParser::RelExpContext *ctx) = 0;
 
   virtual void enterConstExp(SysYParser::ConstExpContext *ctx) = 0;
   virtual void exitConstExp(SysYParser::ConstExpContext *ctx) = 0;

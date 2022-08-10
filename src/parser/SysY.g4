@@ -2,115 +2,82 @@ grammar SysY;
 
 import CommonLex;
 
-compUnit : (decl | funcDef)* EOF;
+compUnit: (decl | funcDef)* EOF;
 
-decl : constDecl | varDecl;
+decl: constDecl | varDecl;
 
-constDecl : 'const' bType constDef (',' constDef)* ';' ;
+constDecl: 'const' bType constDef (',' constDef)* ';';
 
 bType: 'int' | 'float';
 
-constDef : Identifier ('[' constExp ']')* '=' constInitVal;
+constDef: Identifier ('[' constExp ']')* '=' constInitVal;
 
-constInitVal
-    : constExp # scalarConstInitVal
-    | '{' (constInitVal (',' constInitVal)* )? '}' # listConstInitVal
-    ;
+constInitVal:
+	constExp										# scalarConstInitVal
+	| '{' (constInitVal (',' constInitVal)*)? '}'	# listConstInitVal;
 
-varDecl : bType varDef (',' varDef)* ';';
+varDecl: bType varDef (',' varDef)* ';';
 
-varDef
-    : Identifier ('[' constExp ']')* # uninitVarDef
-    | Identifier ('[' constExp ']')* '=' initVal # initVarDef
-    ;
+varDef:
+	Identifier ('[' constExp ']')*					# uninitVarDef
+	| Identifier ('[' constExp ']')* '=' initVal	# initVarDef;
 
-initVal
-    : exp # scalarInitVal
-    | '{' (initVal (',' initVal)* )? '}' # listInitval
-    ;
+initVal:
+	exp									# scalarInitVal
+	| '{' (initVal (',' initVal)*)? '}'	# listInitval;
 
-funcDef : funcType Identifier '(' (funcFParams)? ')' block;
+funcDef: funcType Identifier '(' (funcFParams)? ')' block;
 
-funcType : 'void' | 'int' | 'float';
+funcType: 'void' | 'int' | 'float';
 
-funcFParams : funcFParam (',' funcFParam)*;
+funcFParams: funcFParam (',' funcFParam)*;
 
-funcFParam : bType Identifier ('[' ']' ('[' constExp ']')* )?;
+funcFParam: bType Identifier ('[' ']' ('[' constExp ']')*)?;
 
-block : '{' (blockItem)* '}';
+block: '{' (blockItem)* '}';
 
-blockItem : decl | stmt;
+blockItem: decl | stmt;
 
-stmt
-    : lVal '=' exp ';' # assignment
-    | (exp)? ';' # expStmt
-    | block # blockStmt
-    | 'if' '(' cond ')' stmt # ifStmt1
-    | 'if' '(' cond ')' stmt 'else' stmt # ifStmt2
-    | 'while' '(' cond ')' stmt # whileStmt
-    | 'break' ';' # breakStmt
-    | 'continue' ';' # continueStmt
-    | 'return' (exp)? ';' # returnStmt
-    ;
+stmt:
+	lVal '=' exp ';'						# assignment
+	| (exp)? ';'							# expStmt
+	| block									# blockStmt
+	| 'if' '(' cond ')' stmt				# ifStmt1
+	| 'if' '(' cond ')' stmt 'else' stmt	# ifStmt2
+	| 'while' '(' cond ')' stmt				# whileStmt
+	| 'break' ';'							# breakStmt
+	| 'continue' ';'						# continueStmt
+	| 'return' (exp)? ';'					# returnStmt;
 
-exp : addExp;
+cond: exp;
 
-cond : lOrExp;
+lVal: Identifier ('[' exp ']')*;
 
-lVal : Identifier ('[' exp ']')*;
+primaryExp:
+	'(' exp ')'	# primaryExp1
+	| lVal		# primaryExp2
+	| number	# primaryExp3;
 
-primaryExp
-    : '(' exp ')' # primaryExp1
-    | lVal # primaryExp2
-    | number # primaryExp3
-    ;
+number: IntLiteral | FloatLiteral;
 
-number : IntLiteral | FloatLiteral;
+unaryExp:
+	primaryExp							# unary1
+	| Identifier '(' (funcRParams)? ')'	# unary2
+	| unaryOp unaryExp					# unary3;
 
-unaryExp
-    : primaryExp # unary1
-    | Identifier '(' (funcRParams)? ')' # unary2
-    | unaryOp unaryExp # unary3
-    ;
+unaryOp: '+' | '-' | '!';
 
-unaryOp : '+' | '-' | '!';
+funcRParams: funcRParam (',' funcRParam)*;
 
-funcRParams : funcRParam (',' funcRParam)*;
+funcRParam: exp # expAsRParam | STRING # stringAsRParam;
 
-funcRParam
-    : exp # expAsRParam
-    | STRING # stringAsRParam
-    ;
+exp:
+	unaryExp							# exp1
+	| exp ('+' | '-') exp				# addExp
+	| exp ('*' | '/' | '%') exp			# mulExp
+	| exp ('<' | '>' | '<=' | '>=') exp	# relExp
+	| exp ('==' | '!=') exp				# eqExp
+	| exp '&&' exp						# lAndExp
+	| exp '||' exp						# lOrExp;
 
-mulExp
-    : unaryExp # mul1
-    | mulExp ('*' | '/' | '%') unaryExp # mul2
-    ;
-
-addExp
-    : mulExp # add1
-    | addExp ('+' | '-') mulExp # add2
-    ;
-
-relExp
-    : addExp # rel1
-    | relExp ('<' | '>' | '<=' | '>=') addExp # rel2
-    ;
-eqExp
-    : relExp # eq1
-    | eqExp ('==' | '!=') relExp # eq2
-    ;
-
-lAndExp
-    : eqExp # lAnd1
-    | lAndExp '&&' eqExp # lAnd2
-    ;
-
-lOrExp
-    : lAndExp # lOr1
-    | lOrExp '||' lAndExp # lOr2
-    ;
-
-constExp
-    : addExp
-    ;
+constExp: exp;
