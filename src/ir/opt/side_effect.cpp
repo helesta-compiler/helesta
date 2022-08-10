@@ -309,19 +309,19 @@ struct GlobalInitProp : ForwardLoopVisitor<std::map<MemObject *, bool>> {
   }
 };
 
-struct GlobalInitToGlobalConst {
+template <ScalarType Type, typename T> struct GlobalInitToGlobalConst {
   PointerBase &pb;
   CompileUnit *ir;
   struct Info {
     bool locked = 0;
-    std::unordered_map<size_t, int32_t> kv;
+    std::unordered_map<size_t, T> kv;
   };
   std::unordered_map<MemObject *, Info> init;
   GlobalInitToGlobalConst(PointerBase &_pb, CompileUnit *_ir)
       : pb(_pb), ir(_ir) {
     assert(pb.f == ir->main());
     ir->scope.for_each([&](MemObject *mem) {
-      if (mem->scalar_type == ScalarType::Int && mem->size <= 4 * 64) {
+      if (mem->scalar_type == Type && mem->size <= 4 * 64) {
         init[mem];
       }
     });
@@ -339,8 +339,7 @@ struct GlobalInitToGlobalConst {
         if (w.mustbe) {
           assert(w.mustbe->first == mem);
           auto offset = w.mustbe->second;
-          int32_t v = (mp.kv.count(offset) ? mp.kv.at(offset)
-                                           : mem->at<int32_t>(offset));
+          T v = (mp.kv.count(offset) ? mp.kv.at(offset) : mem->at<T>(offset));
           pb.f->entry->replace(new LoadConst(ld->d1, v));
         } else {
           mp.locked = 1;
@@ -378,21 +377,22 @@ struct GlobalInitToGlobalConst {
         continue;
       dbg("GlobalInitToGlobalConst: ", mem->name, '\n');
       if (!mem->initial_value) {
-        mem->initial_value = new int32_t[mem->size / 4]();
+        mem->initial_value = new T[mem->size / 4]();
       }
       for (auto &[k, v] : mp.kv) {
-        mem->set<int32_t>(k, v);
+        mem->set(k, v);
       }
     }
   }
 };
 
+template <ScalarType Type, typename T>
 struct LocalInitToGlobalConst : InstrVisitor {
   PointerBase &pb;
-  std::unordered_map<MemObject *, std::unordered_map<size_t, int32_t>> init;
+  std::unordered_map<MemObject *, std::unordered_map<size_t, T>> init;
   LocalInitToGlobalConst(PointerBase &_pb) : pb(_pb) {
     pb.f->scope.for_each([&](MemObject *mem) {
-      if (mem->scalar_type == ScalarType::Int) {
+      if (mem->scalar_type == Type) {
         init[mem];
       }
     });
@@ -406,10 +406,10 @@ struct LocalInitToGlobalConst : InstrVisitor {
         w->global = 1;
         w->scalar_type = mem->scalar_type;
         w->dims = mem->dims;
-        int32_t *data = new int32_t[mem->size / 4]();
+        T *data = new T[mem->size / 4]();
         w->init(data, mem->size);
         for (auto &[k, v] : kv) {
-          w->set<int32_t>(k, v);
+          w->set(k, v);
         }
         mp[mem] = w;
         dbg("LocalInitToGlobalConst: ", mem->name, '\n');
@@ -727,13 +727,24 @@ void local_init_to_global(CompileUnit *ir, NormalFunc *f) {
   dag.visit(pb);
 
   {
-    LocalInitToGlobalConst w(pb);
+    LocalInitToGlobalConst<ScalarType::Int, int32_t> w(pb);
+    dag.visit(w);
+    w.apply(ir->scope);
+  }
+  {
+    LocalInitToGlobalConst<ScalarType::Float, float> w(pb);
     dag.visit(w);
     w.apply(ir->scope);
   }
   if (f == ir->main()) {
-    GlobalInitToGlobalConst w(pb, ir);
-    w.apply();
+    {
+      GlobalInitToGlobalConst<ScalarType::Int, int32_t> w(pb, ir);
+      w.apply();
+    }
+    {
+      GlobalInitToGlobalConst<ScalarType::Float, float> w(pb, ir);
+      w.apply();
+    }
   }
 }
 
