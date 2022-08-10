@@ -157,11 +157,11 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
     } else if (auto load = dynamic_cast<IR::LoadInstr *>(cur)) {
       Reg dst = info->from_ir_reg(load->d1),
           addr = info->from_ir_reg(load->addr);
-      push_back(std::make_unique<Load>(dst, addr, 0));
+      push_back(std::make_unique<Load>(dst, addr, load->offset));
     } else if (auto store = dynamic_cast<IR::StoreInstr *>(cur)) {
       Reg addr = info->from_ir_reg(store->addr),
           src = info->from_ir_reg(store->s1);
-      push_back(std::make_unique<Store>(src, addr, 0));
+      push_back(std::make_unique<Store>(src, addr, store->offset));
     } else if (auto jump = dynamic_cast<IR::JumpInstr *>(cur)) {
       Block *jump_target = info->block_mapping[jump->target];
       if (jump_target != next_block)

@@ -126,9 +126,17 @@ void UnaryOpInstr::print(ostream &os) const {
 void BinaryOpInstr::print(ostream &os) const {
   os << d1 << " = " << s1 << " " << op << " " << s2;
 }
-void LoadInstr::print(ostream &os) const { os << d1 << " = M[" << addr << "]"; }
+void LoadInstr::print(ostream &os) const {
+  os << d1 << " = M[" << addr;
+  if (offset)
+    os << " + " << offset;
+  os << "]";
+}
 void StoreInstr::print(ostream &os) const {
-  os << "M[" << addr << "] = " << s1;
+  os << "M[" << addr;
+  if (offset)
+    os << " + " << offset;
+  os << "] = " << s1;
 }
 void JumpInstr::print(ostream &os) const { os << "goto " << target->name; }
 void BranchInstr::print(ostream &os) const {
@@ -561,10 +569,10 @@ int exec(CompileUnit &c) {
           wReg(x->d1, d1);
         }
         else Case(LoadInstr, x, x0) {
-          wReg(x->d1, rMem(rReg(x->addr).int_value()));
+          wReg(x->d1, rMem(rReg(x->addr).int_value() + x->offset));
         }
         else Case(StoreInstr, x, x0) {
-          wMem(rReg(x->addr).int_value(), rReg(x->s1));
+          wMem(rReg(x->addr).int_value() + x->offset, rReg(x->s1));
         }
         else Case(JumpInstr, x, x0) {
           last_bb = cur;
