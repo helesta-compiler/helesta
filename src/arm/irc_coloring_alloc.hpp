@@ -80,6 +80,14 @@ private:
           temp.push_back(r.id);
         }
       }
+      if (block->insts.size() > 0) {
+        for (Reg r : (*block->insts.rbegin())->def_reg()) {
+          if (r.type == type &&
+              (r.is_pseudo() || RegConvention<type>::allocable(r.id))) {
+            temp.push_back(r.id);
+          }
+        }
+      }
       for (size_t idx1 = 0; idx1 < temp.size(); ++idx1) {
         for (size_t idx0 = 0; idx0 < idx1; ++idx0) {
           if (temp[idx0] != temp[idx1]) {
@@ -91,11 +99,13 @@ private:
       for (auto i = block->insts.rbegin(); i != block->insts.rend(); ++i) {
         if (auto mov_instr = dynamic_cast<MoveReg *>((*i).get())) {
           if (mov_instr->src != mov_instr->dst) {
-            if ((mov_instr->src.is_pseudo() ||
-                 RegConvention<type>::allocable(mov_instr->src.id)) &&
-                (mov_instr->dst.is_pseudo() ||
-                 RegConvention<type>::allocable(mov_instr->dst.id))) {
-              add_move_edge(mov_instr->src.id, mov_instr->dst.id, 1);
+            if (mov_instr->src.type == type && mov_instr->dst.type == type) {
+              if ((mov_instr->src.is_pseudo() ||
+                   RegConvention<type>::allocable(mov_instr->src.id)) &&
+                  (mov_instr->dst.is_pseudo() ||
+                   RegConvention<type>::allocable(mov_instr->dst.id))) {
+                add_move_edge(mov_instr->src.id, mov_instr->dst.id, 1);
+              }
             }
           }
         }
@@ -162,7 +172,7 @@ private:
       interfere_edge[i].erase(id);
       if (interfere_edge[i].size() ==
               RegConvention<type>::ALLOCABLE_REGISTER_COUNT - 1 &&
-          i >= RegConvention<type>::Count)
+          i >= RegConvention<type>::Count && move_edges[i].empty())
         simplify_worklist.push(i);
     }
     interfere_edge[id].clear();
@@ -250,13 +260,12 @@ private:
     });
     std::sort(
         worklist_moves.begin(), worklist_moves.end(),
-        [](const CoalesceEdge &x, const CoalesceEdge &y) { return x.w < y.w; });
+        [](const CoalesceEdge &x, const CoalesceEdge &y) { return x.w > y.w; });
     int coalesced_degree = 0;
     for (auto &cur_move : worklist_moves) {
       int u = get_alias(cur_move.u);
       int v = get_alias(cur_move.v);
       if (u == v) {
-        coalesced_degree += cur_move.w;
         continue;
       }
       if (u < RegConvention<type>::Count && v < RegConvention<type>::Count) {
@@ -282,6 +291,9 @@ private:
   bool freeze() {
     int selected_freeze = -1;
     for (int i : remain_pesudo_nodes) {
+      if (move_edges[i].empty()) {
+        continue;
+      }
       if (interfere_edge[i].size() < RegConvention<type>::Count) {
         if (selected_freeze < 0) {
           selected_freeze = i;
@@ -361,9 +373,6 @@ private:
         bool need_continue = false;
         for (Reg r : (*it)->def_reg())
           if (constant_spilled.find(r.id) != constant_spilled.end()) {
-            // auto nxt = std::next(it);
-            // block->insts.erase(it);
-            // it = nxt;
             it = block->insts.erase(it);
             need_continue = true;
             break;
@@ -516,7 +525,8 @@ public:
       if (remain_pesudo_nodes.empty()) {
         break;
       }
-      if (int coalesced_degree = coalesce()) {
+      int coalesced_degree = coalesce();
+      if (coalesced_degree > 0) {
         stat->move_eliminated += coalesced_degree;
         continue;
       }
