@@ -1223,8 +1223,6 @@ void change_array_access_pattern(CompileUnit *ir, NormalFunc *f) {
         addrs[addr.base].emplace_back(r, addr);
       }
     }
-    bool swap_dim =
-        (global_config.args["input"].find("stencil") != std::string::npos);
     bool upd = 0;
     for (auto &[k, v] : addrs) {
       bool flag = 1;
@@ -1259,6 +1257,7 @@ void change_array_access_pattern(CompileUnit *ir, NormalFunc *f) {
       if (!flag || !dim)
         continue;
       int32_t dim_ = *dim;
+      int32_t dim_0 = k->size / (4 * dim_);
       dbg(k->name, " dim: ", dim_, '\n');
       umap<Reg, std::pair<AddExpr, AddExpr>> rewrite;
       for (auto &[r, addr] : v) {
@@ -1276,47 +1275,46 @@ void change_array_access_pattern(CompileUnit *ir, NormalFunc *f) {
             a2.add_eq(v2);
           }
         }
-        int a2l = a2.c, a2r = a2.c;
-        for (auto [r, k] : a2.cs) {
-          auto &ri = a.reg_info.at(r);
-          if (ri.min && ri.max) {
-            auto l = ri.min->get_c_if();
-            auto r = ri.max->get_c_if();
-            if (l && r) {
-              a2l += *l * k;
-              a2r += *r * k;
+        auto get_range = [&](AddExpr &e) -> std::pair<int32_t, int32_t> {
+          int l0 = e.c, r0 = e.c;
+          for (auto [reg, k] : e.cs) {
+            auto &ri = a.reg_info.at(reg);
+            auto [l, r] = ri.get_range();
+            if (INT_MIN < l && l <= r && r < INT_MAX) {
+              l0 += l * k;
+              r0 += r * k;
             } else {
               flag = 0;
             }
-          } else {
-            flag = 0;
           }
-        }
-        if (a2r - a2l >= dim_)
-          flag = 0;
+          return {l0, r0};
+        };
+        auto [a1l, a1r] = get_range(a1);
+        auto [a2l, a2r] = get_range(a2);
         int c = a2l / dim_;
-        a2l -= c * dim_;
-        a2r -= c * dim_;
-        if (a2l < 0) {
-          a2l += dim_;
-          a2r += dim_;
+        if (a2l - c * dim_ < 0) {
           c -= 1;
         }
+        a1.add_eq(c);
+        a1l += c;
+        a1r += c;
+        a2l -= c * dim_;
+        a2r -= c * dim_;
+        a2.add_eq(-c * dim_);
+        if (!(0 <= a1l && a1l <= a1r && a1r < dim_0))
+          flag = 0;
         if (!(0 <= a2l && a2l <= a2r && a2r < dim_))
           flag = 0;
-        a2.add_eq(-c * dim_);
-        a1.add_eq(c);
         if (!flag) {
           // dbg("bad\n");
           break;
         }
-        if (swap_dim)
-          std::swap(a1, a2);
         rewrite[r] = {a1, a2};
-        // dbg(addr, " => ", a1, " ", a2, "\n");
+        dbg(addr, " => ", a1, " ", a2, "\n");
       }
       if (!flag)
         continue;
+      dbg(k->name, ": ", dim_0, "*", dim, '\n');
       upd = 1;
       f->for_each([&](BB *bb) {
         bb->for_each([&](Instr *x) {

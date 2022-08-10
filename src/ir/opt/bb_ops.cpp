@@ -375,3 +375,13 @@ void DAG_IR_ALL::remove_unused_BB() {
     typed &= type_check(f);
   });
 }
+
+void split_live_range(NormalFunc *f) {
+  PassDisabled("slr") return;
+  auto defs = build_defs(f);
+  f->for_each([&](BB *bb) {
+    bb->for_each([&](Instr *) {
+      // TODO
+    });
+  });
+}

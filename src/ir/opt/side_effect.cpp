@@ -655,6 +655,7 @@ void DAG_IR_ALL::remove_unused_memobj() {
   });
 }
 
+void split_live_range(NormalFunc *);
 void remove_phi(NormalFunc *);
 void code_reorder(NormalFunc *);
 void remove_trivial_BB(NormalFunc *);
@@ -671,6 +672,8 @@ DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
     return;
   if (type == BEFORE_BACKEND) {
     ir->for_each([&](NormalFunc *f) {
+      code_reorder(f);
+      split_live_range(f);
       remove_phi(f);
       code_reorder(f);
       remove_trivial_BB(f);
