@@ -189,6 +189,15 @@ struct PrettyPrint : Defs {
     if (wi.is_loop_head) {
       dbg("[loop] ");
     }
+    if (w->disable_parallel) {
+      dbg("[!par] ");
+    }
+    if (w->disable_unroll) {
+      dbg("[!unroll] ");
+    }
+    if (w->thread_id != 0) {
+      dbg("[thread: ", w->thread_id, "] ");
+    }
     dbg(get_simple_name(w));
     // dbg("{ ", get_simple_name(next), " }");
     // dbg("{ ", get_simple_name(break_), " }");

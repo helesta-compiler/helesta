@@ -747,6 +747,98 @@ void Program::gen_asm(ostream &out) {
   gen_global_var_asm(out);
   out << ".global main\n";
   out << ".section .text\n";
+  out << R"(
+SYS_clone = 120
+CLONE_VM = 256
+SIGCHLD = 17
+__create_threads:
+    push {r4, r5, r6, r7}
+    mov r0, #(CLONE_VM | SIGCHLD)
+    mov r1, sp
+    mov r2, #0
+    mov r3, #0
+    mov r4, #0
+    mov r6, #0
+    mov r7, #SYS_clone
+    swi #0
+    pop {r4, r5, r6, r7}
+    bx lr
+
+SYS_waitid = 280
+SYS_exit = 1
+P_ALL = 0
+WEXITED = 4
+__join_threads:
+    sub sp, sp, #16
+    cmp r0, #0
+	bne .L01
+    push {r4, r5, r6, r7}
+    mov r0, #P_ALL
+    mov r1, #0
+    mov r2, #0
+    mov r3, #WEXITED
+    mov r7, #SYS_waitid
+    swi #0
+    pop {r4, r5, r6, r7}
+    add sp, sp, #16
+    bx lr
+.L01:
+    mov r0, #0
+    mov r7, #SYS_exit
+    swi #0
+
+__umulmod:
+	push    {r11, lr}
+	umull   r3, r12, r1, r0
+	mov     r0, r3
+	mov     r1, r12
+	mov     r3, #0
+	bl      __aeabi_uldivmod
+	mov     r0, r2
+	pop     {r11, lr}
+	bx      lr
+
+__u_c_np1_2_mod:
+	push    {r11, lr}
+	mov     r2, r1
+	mov     r3, r0
+	mov     r1, #0
+	umlal   r3, r1, r0, r0
+	lsrs    r1, r1, #1
+	rrx     r0, r3
+	mov     r3, #0
+	bl      __aeabi_uldivmod
+	mov     r0, r2
+	pop     {r11, lr}
+	bx      lr
+
+__s_c_np1_2:
+	asr     r1, r0, #31
+	mov     r2, r0
+	smlal   r2, r1, r0, r0
+	adds    r0, r2, r1, lsr #31
+	adc     r1, r1, #0
+	lsrs    r1, r1, #1
+	rrx     r0, r0
+	bx      lr
+
+__fixmod:
+	push    {r4, lr}
+	mov     r4, r1
+	bl      __aeabi_idivmod
+	mov     r0, r1
+	cmp     r1, #0
+	addmi   r0, r0, r4
+	pop     {r4, lr}
+	bx      lr
+
+__umod:
+	push    {r11, lr}
+	bl      __aeabi_uidivmod
+	mov     r0, r1
+	pop     {r11, lr}
+	bx      lr
+)";
   for (auto &func : funcs)
     func->gen_asm(out);
 }
