@@ -15,11 +15,12 @@ namespace ARMv7 {
 
 class ColoringAllocator {
 protected:
-  Func* func;
-public: 
-  ColoringAllocator(Func* _func) : func(_func) {}
+  Func *func;
+
+public:
+  ColoringAllocator(Func *_func) : func(_func) {}
   virtual std::vector<int> run(RegAllocStat *stat) = 0;
-  virtual void clear() = 0;    
+  virtual void clear() = 0;
 };
 
-}   // namespace ARMv7
+} // namespace ARMv7
