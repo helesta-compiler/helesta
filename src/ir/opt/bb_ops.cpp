@@ -379,9 +379,179 @@ void DAG_IR_ALL::remove_unused_BB() {
 void split_live_range(NormalFunc *f) {
   PassDisabled("slr") return;
   auto defs = build_defs(f);
+  struct RegInfo {
+    RegWriteInstr *def;
+    size_t def_pos, dead_pos;
+    std::multiset<std::pair<size_t, Reg *>> use_pos;
+  };
+  struct BBInfo {
+    size_t min_pos, max_pos;
+  };
+  std::unordered_map<BB *, BBInfo> bb_info;
+  std::unordered_map<Reg, RegInfo> info;
+  std::unordered_set<Reg> live;
+  std::unordered_map<size_t, std::vector<Reg>> kill;
+  size_t cur_pos = 0;
   f->for_each([&](BB *bb) {
-    bb->for_each([&](Instr *) {
-      // TODO
+    auto &bi = bb_info[bb];
+    bi.min_pos = cur_pos;
+    bb->for_each([&](Instr *x) {
+      Case(RegWriteInstr, rw, x) {
+        auto &ri = info[rw->d1];
+        ri.def = rw;
+        ri.def_pos = cur_pos;
+      }
+      Case(PhiInstr, _, x) { (void)_; }
+      else {
+        x->map_use([&](Reg &r) { info.at(r).use_pos.insert({cur_pos, &r}); });
+      }
+      cur_pos += 1;
     });
+    for (BB *u : bb->getOutNodes()) {
+      u->for_each([&](Instr *x) {
+        Case(PhiInstr, phi, x) {
+          for (auto &[r, bb0] : phi->uses) {
+            if (bb0 == bb) {
+              info.at(r).use_pos.insert({cur_pos, &r});
+            }
+          }
+          cur_pos += 1;
+        }
+      });
+    }
+    bi.max_pos = cur_pos;
   });
+  auto update_kill = [&](Reg k) {
+    auto &v = info.at(k);
+    if (v.use_pos.empty()) {
+      v.dead_pos = v.def_pos;
+    } else {
+      v.dead_pos = (--v.use_pos.end())->first;
+    }
+    kill[v.dead_pos].push_back(k);
+  };
+  for (auto &[k, v] : info) {
+    update_kill(k);
+  }
+  bool dbg_live = global_config.args["dbg-live"] == "1";
+  size_t spill_cnt = 0;
+  size_t used_spill = 0;
+  size_t extra_op = 0;
+  f->for_each([&](BB *bb) {
+    auto &bi = bb_info[bb];
+    auto check_spill = [&]() {
+      if (live.size() >= 12) {
+        size_t max_pos = 0;
+        Reg spill;
+        for (Reg r : live) {
+          auto pos = info.at(r).dead_pos;
+          if (max_pos <= pos) {
+            pos = max_pos;
+            spill = r;
+          }
+        }
+        ++spill_cnt;
+        if (dbg_live)
+          dbg("spill: ", spill, '\n');
+        live.erase(spill);
+        /*
+for (auto &[x, y] : info.at(spill).use_pos) {
+  dbg("use: ", x, "  ", *y, '\n');
+}*/
+      }
+    };
+    bool on_phi = 0;
+    auto on_use = [&](Reg &r) {
+      if (live.count(r))
+        return;
+      auto &ri = info.at(r);
+      auto recompute = [&](RegWriteInstr *instr0) {
+        Reg r_ = r;
+        Reg r0 = instr0->d1;
+        auto &ri0 = info[r0];
+        ri0.def = instr0;
+        ri0.def_pos = cur_pos;
+        if (on_phi)
+          bb->push1(ri0.def);
+        else
+          bb->ins(ri0.def);
+        size_t cnt = 0;
+        for (auto it = ri.use_pos.lower_bound({cur_pos, nullptr});
+             it != ri.use_pos.end(); ++it) {
+          auto [pos, reg_use] = *it;
+          if (pos >= bi.max_pos)
+            break;
+          ri0.use_pos.insert({pos, reg_use});
+          assert(*reg_use == r_);
+          *reg_use = r0;
+          ++cnt;
+          if (std::next(it) == ri.use_pos.end()) {
+            --spill_cnt;
+          }
+          if (cnt >= 4)
+            break;
+        }
+        if (dbg_live) {
+          // dbg("cur_pos: ", cur_pos, '\n');
+          dbg("recompute: ", r_, " => ", *instr0, "  cnt: ", cnt, '\n');
+        }
+        extra_op += 1;
+        check_spill();
+        live.insert(r0);
+        update_kill(r0);
+        assert(cnt >= 1);
+        assert(r == r0);
+      };
+      PassEnabled("slr-rc") {
+        Case(LoadConst<int32_t>, lc, ri.def) {
+          Reg r0 = f->new_Reg();
+          return recompute(new LoadConst<int32_t>(r0, lc->value));
+        }
+        Case(LoadConst<float>, lc, ri.def) {
+          Reg r0 = f->new_Reg();
+          return recompute(new LoadConst<float>(r0, lc->value));
+        }
+        Case(LoadAddr, la, ri.def) {
+          Reg r0 = f->new_Reg();
+          return recompute(new LoadAddr(r0, la->offset));
+        }
+      }
+      ++used_spill;
+      if (dbg_live)
+        dbg("use spilled reg: ", *defs.at(r), "\n");
+    };
+    cur_pos = bi.min_pos;
+    bb->for_each([&](Instr *x) {
+      Case(RegWriteInstr, rw, x) {
+        check_spill();
+        live.insert(rw->d1);
+      }
+      Case(PhiInstr, _, x) { (void)_; }
+      else {
+        x->map_use(on_use);
+      }
+      for (auto x : kill[cur_pos])
+        live.erase(x);
+      if (dbg_live)
+        dbg(live.size(), "\t", *x, '\n');
+      cur_pos += 1;
+    });
+    on_phi = 1;
+    for (BB *u : bb->getOutNodes()) {
+      u->for_each([&](Instr *x) {
+        Case(PhiInstr, phi, x) {
+          for (auto &[r, bb0] : phi->uses) {
+            if (bb0 == bb) {
+              on_use(r);
+            }
+          }
+          cur_pos += 1;
+        }
+      });
+    }
+    assert(cur_pos == bi.max_pos);
+  });
+  dbg("IR estimated spill: ", spill_cnt, '\n');
+  dbg("IR estimated used spill: ", used_spill, '\n');
+  dbg("IR estimated extra op: ", extra_op, '\n');
 }

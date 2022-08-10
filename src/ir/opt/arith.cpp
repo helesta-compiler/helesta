@@ -148,6 +148,7 @@ struct LoadStoreOffset
 
 void remove_unused_def_func(NormalFunc *f);
 void load_store_offset(NormalFunc *f) {
+  PassDisabled("lso") return;
   DAG_IR dag(f);
   LoadStoreOffset w;
   dag.visit(w);
