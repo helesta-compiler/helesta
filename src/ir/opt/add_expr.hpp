@@ -15,6 +15,9 @@ struct AddExpr : Printable {
   int32_t c = 0;
   bool bad = 0;
   std::map<Reg, int32_t> cs;
+  bool operator<(const AddExpr &w) const {
+    return c != w.c ? c < w.c : cs < w.cs;
+  }
   void add_eq(Reg x, int32_t a);
   void print(std::ostream &os) const override;
   void add_eq(int32_t s) { c += s; };
