@@ -3,6 +3,15 @@
 #include "ir/opt/opt.hpp"
 using namespace IR;
 
+inline void _dbg1() {}
+template <class T1, class... T2> void _dbg1(const T1 &x, const T2 &...xs) {
+  if (global_config.log_level > 1)
+    return;
+  std::cerr << x;
+  _dbg1(xs...);
+}
+#define dbg(...) _dbg1(__VA_ARGS__)
+
 inline void print_cfg(NormalFunc *f) {
   dbg("CFG:\n");
   dbg("```mermaid\n");
