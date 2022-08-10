@@ -843,6 +843,19 @@ public:
     virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
+  class  LAndExpContext : public ExpContext {
+  public:
+    LAndExpContext(ExpContext *ctx);
+
+    std::vector<ExpContext *> exp();
+    ExpContext* exp(size_t i);
+    antlr4::tree::TerminalNode *LAND();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
   class  MulExpContext : public ExpContext {
   public:
     MulExpContext(ExpContext *ctx);
@@ -852,19 +865,6 @@ public:
     antlr4::tree::TerminalNode *Multiplication();
     antlr4::tree::TerminalNode *Division();
     antlr4::tree::TerminalNode *Modulo();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  class  LAndExpContext : public ExpContext {
-  public:
-    LAndExpContext(ExpContext *ctx);
-
-    std::vector<ExpContext *> exp();
-    ExpContext* exp(size_t i);
-    antlr4::tree::TerminalNode *LAND();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 

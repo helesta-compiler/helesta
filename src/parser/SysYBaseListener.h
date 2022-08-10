@@ -145,11 +145,11 @@ public:
   virtual void enterAddExp(SysYParser::AddExpContext * /*ctx*/) override { }
   virtual void exitAddExp(SysYParser::AddExpContext * /*ctx*/) override { }
 
-  virtual void enterMulExp(SysYParser::MulExpContext * /*ctx*/) override { }
-  virtual void exitMulExp(SysYParser::MulExpContext * /*ctx*/) override { }
-
   virtual void enterLAndExp(SysYParser::LAndExpContext * /*ctx*/) override { }
   virtual void exitLAndExp(SysYParser::LAndExpContext * /*ctx*/) override { }
+
+  virtual void enterMulExp(SysYParser::MulExpContext * /*ctx*/) override { }
+  virtual void exitMulExp(SysYParser::MulExpContext * /*ctx*/) override { }
 
   virtual void enterExp1(SysYParser::Exp1Context * /*ctx*/) override { }
   virtual void exitExp1(SysYParser::Exp1Context * /*ctx*/) override { }

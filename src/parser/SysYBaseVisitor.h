@@ -187,11 +187,11 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual antlrcpp::Any visitMulExp(SysYParser::MulExpContext *ctx) override {
+  virtual antlrcpp::Any visitLAndExp(SysYParser::LAndExpContext *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual antlrcpp::Any visitLAndExp(SysYParser::LAndExpContext *ctx) override {
+  virtual antlrcpp::Any visitMulExp(SysYParser::MulExpContext *ctx) override {
     return visitChildren(ctx);
   }
 
