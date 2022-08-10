@@ -209,11 +209,6 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.args["max-unroll"] = "320";
     global_config.args["max-unroll-instr"] = "5000";
   }
-  for (auto s : {"long_line", "side_effect2", "fp_params", "light2d", "math"}) {
-    if (input.find(s) != std::string::npos) {
-      global_config.disabled_passes.insert("opt");
-    }
-  }
   return pair{input, output};
 }
 
