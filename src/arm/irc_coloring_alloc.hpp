@@ -179,6 +179,12 @@ private:
     remain_pesudo_nodes.erase(id);
   }
 
+  bool can_simplify(int id) {
+    return move_edges[id].empty() &&
+           (interfere_edge[id].size() <
+            RegConvention<type>::ALLOCABLE_REGISTER_COUNT);
+  }
+
   void prepare_for_simplify() {
     for_each_node([this](int id) {
       for (int neighbor : this->interfere_edge[id]) {
@@ -193,9 +199,7 @@ private:
       }
     });
     for (int node : remain_pesudo_nodes) {
-      if (move_edges[node].empty() &&
-          interfere_edge[node].size() <
-              RegConvention<type>::ALLOCABLE_REGISTER_COUNT) {
+      if (can_simplify(node)) {
         simplify_worklist.push(node);
       }
     }
@@ -215,11 +219,12 @@ private:
   bool conservative(const std::set<int> &nodes) {
     int sum = 0;
     for (int node : nodes) {
-      if (interfere_edge[node].size() >= RegConvention<type>::Count) {
+      if (interfere_edge[node].size() >=
+          RegConvention<type>::ALLOCABLE_REGISTER_COUNT) {
         ++sum;
       }
     }
-    return sum < RegConvention<type>::Count;
+    return sum < RegConvention<type>::ALLOCABLE_REGISTER_COUNT;
   }
 
   void combine(int u, int v) {
