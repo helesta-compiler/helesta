@@ -563,7 +563,17 @@ void Func::replace_complex_inst() {
   }
 }
 
-void Func::remove_trivial_inst() { ; }
+void Func::remove_trivial_inst() {
+  for (auto &block : blocks) {
+    block->for_each([&](Inst *inst) {
+      if (auto mov = dynamic_cast<MoveReg *>(inst)) {
+        if (mov->dst.type == mov->src.type && mov->dst == mov->src) {
+          block->del();
+        }
+      }
+    });
+  }
+}
 
 template <ScalarType type>
 std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
