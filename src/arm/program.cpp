@@ -570,8 +570,8 @@ void Func::remove_trivial_inst() {
       if (auto mov = dynamic_cast<MoveReg *>(inst)) {
         if (mov->dst.type == mov->src.type && mov->dst == mov->src) {
           block->del();
+          return;
         }
-        return;
       }
       if (auto mov = dynamic_cast<MoveImm *>(inst)) {
         if (const_info.count(mov->dst.id)) {
@@ -587,6 +587,8 @@ void Func::remove_trivial_inst() {
         }
         return;
       }
+      for (auto r : inst->def_reg())
+        const_info.erase(r.id);
     });
   }
 }
