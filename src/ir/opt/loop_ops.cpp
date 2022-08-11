@@ -562,7 +562,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 
       std::deque<LoopCopyTool> loops;
       loops.emplace_back(wi0.bbs, w, w, S.f);
-      size_t cnt = parseIntArg(2, "num-threads");
+      size_t cnt = parseIntArg(3, "num-threads");
       for (size_t i = 1; i <= cnt; ++i) {
         loops.emplace_back(loops[0]);
         loops.back().copy(std::string(":") + std::to_string(i) + ":");
