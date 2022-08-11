@@ -542,6 +542,8 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
         }
       }
       dbg('\n');
+      // for (BB *bb : wi0.node->dfn)
+      //   dbg(*bb);
       dbg(">>> data ", (flag ? "" : "in"), "dependent for each i\n");
       for (Reg r : wi.rs) {
         dbg("R: ", reg_info.at(r).addr, '\n');
@@ -560,7 +562,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 
       std::deque<LoopCopyTool> loops;
       loops.emplace_back(wi0.bbs, w, w, S.f);
-      size_t cnt = parseIntArg(3, "num-threads");
+      size_t cnt = parseIntArg(4, "num-threads");
       for (size_t i = 1; i <= cnt; ++i) {
         loops.emplace_back(loops[0]);
         loops.back().copy(std::string(":") + std::to_string(i) + ":");

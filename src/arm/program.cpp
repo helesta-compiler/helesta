@@ -811,14 +811,14 @@ __join_threads:
     sub sp, sp, #16
     cmp r0, #0
 	bne .L01
-    push {r4, r5, r6, r7}
+	vmov s31, r7
     mov r0, #P_ALL
     mov r1, #0
     mov r2, #0
     mov r3, #WEXITED
     mov r7, #SYS_waitid
     swi #0
-    pop {r4, r5, r6, r7}
+    vmov r7, s31
     add sp, sp, #16
     bx lr
 .L01:
