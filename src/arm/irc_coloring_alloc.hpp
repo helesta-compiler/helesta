@@ -316,8 +316,8 @@ private:
       return false;
     }
     for (auto &move_neighbor : move_edges[selected_freeze]) {
-      frozen_moves.emplace_back(CoalesceEdge(
-          selected_freeze, move_neighbor.first, move_neighbor.second));
+      frozen_moves.emplace_back(selected_freeze, move_neighbor.first,
+                                move_neighbor.second);
       move_edges[move_neighbor.first].erase(selected_freeze);
     }
     move_edges[selected_freeze].clear();
