@@ -565,11 +565,27 @@ void Func::replace_complex_inst() {
 
 void Func::remove_trivial_inst() {
   for (auto &block : blocks) {
+    std::unordered_map<int32_t, int32_t> const_info;
     block->for_each([&](Inst *inst) {
       if (auto mov = dynamic_cast<MoveReg *>(inst)) {
         if (mov->dst.type == mov->src.type && mov->dst == mov->src) {
           block->del();
         }
+        return;
+      }
+      if (auto mov = dynamic_cast<MoveImm *>(inst)) {
+        if (const_info.count(mov->dst.id)) {
+          if (const_info.at(mov->dst.id) == mov->src) {
+            block->del();
+            return;
+          }
+        }
+        if (mov->op == MoveImm::Mov && mov->cond == InstCond::Always) {
+          const_info[mov->dst.id] = mov->src;
+        } else {
+          const_info.erase(mov->dst.id);
+        }
+        return;
       }
     });
   }
