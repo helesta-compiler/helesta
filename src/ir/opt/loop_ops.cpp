@@ -542,8 +542,6 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
         }
       }
       dbg('\n');
-      // for (BB *bb : wi0.node->dfn)
-      //   dbg(*bb);
       dbg(">>> data ", (flag ? "" : "in"), "dependent for each i\n");
       for (Reg r : wi.rs) {
         dbg("R: ", reg_info.at(r).addr, '\n');
