@@ -190,7 +190,15 @@ void Func::merge_inst() {
     for (auto it = insts.begin(); it != insts.end(); ++it) {
       visit(insts, it);
       Inst *inst = it->get();
-      if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
+      if (auto cmp = dynamic_cast<RegRegCmp *>(inst)) {
+        if (!constant_reg.count(cmp->rhs))
+          continue;
+        int32_t v = constant_reg[cmp->rhs];
+        if (is_legal_immediate(v)) {
+          Ins(new RegImmCmp(RegImmCmp::Cmp, cmp->lhs, v));
+          Del();
+        }
+      } else if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
         if (bop->shift.w)
           continue;
         if (!constant_reg.count(bop->rhs))
@@ -555,6 +563,8 @@ void Func::replace_complex_inst() {
   }
 }
 
+void Func::remove_trivial_inst() { ; }
+
 template <ScalarType type>
 std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
   info << "register allocation for function: " << ctx->name << '\n';
@@ -655,6 +665,7 @@ void Func::gen_asm(ostream &out) {
   }
   replace_with_reg_alloc(int_reg_alloc, float_reg_alloc);
   replace_complex_inst();
+  remove_trivial_inst();
   out << '\n' << name << ":\n";
   prologue(out);
   for (auto &block : blocks)
