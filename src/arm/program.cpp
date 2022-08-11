@@ -574,7 +574,7 @@ void Func::remove_trivial_inst() {
         }
       }
       if (auto mov = dynamic_cast<MoveImm *>(inst)) {
-        if (const_info.count(mov->dst.id)) {
+        if (mov->op == MoveImm::Mov && const_info.count(mov->dst.id)) {
           if (const_info.at(mov->dst.id) == mov->src) {
             block->del();
             return;
