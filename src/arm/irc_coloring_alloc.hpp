@@ -166,6 +166,7 @@ private:
       }
     }
   }
+
   void remove(int id) {
     assert(id >= RegConvention<type>::Count);
     for (int i : interfere_edge[id]) {
@@ -492,11 +493,16 @@ private:
       used[cur_ans] = true;
       ans[cur_node.first] = cur_ans;
     }
+    int merge_node = 0;
     for (int i = RegConvention<type>::Count; i < func->reg_n; ++i) {
       if (occur[i]) {
         ans[i] = ans[get_alias(i)];
+        if(get_alias(i)!=i) {
+          merge_node ++;
+        }
       }
     }
+    info<<"merge nodes: "<<merge_node<<"\n";
     stat->callee_save_used = 0;
     for (int i = 0; i < RegConvention<type>::Count; ++i) {
       if (used[i] &&
