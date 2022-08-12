@@ -674,7 +674,8 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
   auto &wi0 = S.loop_info.at(w);
   bool dbg_on = (global_config.args["dbg-sr"] == "1");
   if (auto ilr = S.get_ilr(w)) {
-    auto [i, i1, i2, op] = *ilr;
+    auto [_i, i1, i2, op] = *ilr;
+    auto i = _i;
     auto i0 = S.get_const(i1);
     CodeGen cg(S.f);
     using RegRef = CodeGen::RegRef;
