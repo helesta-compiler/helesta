@@ -781,7 +781,7 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
           }
           return a;
         };
-        auto calc = [&, i](RegRef x) {
+        auto calc = [&](RegRef x) {
           x = fix(x);
           auto s = cg.lc(0);
           for (auto &[k, v] : step.cs) {
