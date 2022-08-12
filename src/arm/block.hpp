@@ -88,6 +88,47 @@ struct Block {
   void insert_before_jump(std::unique_ptr<Inst> inst);
   void gen_asm(std::ostream &out, AsmContext *ctx);
   void print(std::ostream &out);
+
+  decltype(insts)::iterator _it;
+  void for_each(std::function<void(Inst *)> f) {
+    for_each_until([&](Inst *x) -> bool {
+      f(x);
+      return 0;
+    });
+  }
+  decltype(_it) cur_iter() { return std::prev(_it); }
+  void replace(Inst *x) { *std::prev(_it) = std::unique_ptr<Inst>(x); }
+  bool _del = 0;
+  void move() {
+    (void)std::prev(_it)->release();
+    del();
+  }
+  void del() { _del = 1; }
+  void ins(Inst *x) { insts.insert(std::prev(_it), std::unique_ptr<Inst>(x)); }
+  void ins(decltype(insts) &&ls) {
+    for (auto &x : ls) {
+      ins(x.release());
+    }
+    ls.clear();
+  }
+  void replace(decltype(insts) &&ls) {
+    ins(std::move(ls));
+    del();
+  }
+  bool for_each_until(std::function<bool(Inst *)> f) {
+    for (_it = insts.begin(); _it != insts.end();) {
+      auto it0 = _it;
+      ++_it;
+      _del = 0;
+      bool ret = f(it0->get());
+      if (_del) {
+        insts.erase(it0);
+      }
+      if (ret)
+        return 1;
+    }
+    return 0;
+  }
 };
 
 struct MappingInfo {

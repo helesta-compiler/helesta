@@ -60,7 +60,7 @@ private:
                               const std::vector<int> &float_reg_alloc);
   void replace_complex_inst(); // replace out-of-range LoadStack, all of
                                // LoadStackAddr and LoadStackOffset
-
+  void remove_trivial_inst();
   typedef std::list<std::unique_ptr<Inst>> List;
   List *_ls;
   List::iterator _it;
