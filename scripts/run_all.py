@@ -14,6 +14,8 @@ def parse_args():
 
 
 def run_with(args):
+    if args.fuzz is None:
+        args.fuzz = []
     for mod in os.listdir(args.data_dir):
         mod_path = os.path.join(args.data_dir, mod)
         for o in args.fuzz:
