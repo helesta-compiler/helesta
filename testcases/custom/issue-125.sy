@@ -1,0 +1,17 @@
+float sum(int a, float s0, int s1, float s2, float s3) {
+    if (a == 0)
+        return s0 + s1 + s2 + s3;
+    float res = sum(a - 1, s3, s1, s2, s0);
+    putfloat(s0);
+    putch(10);
+    return res;
+}
+
+int main() {
+    float s0 = getfloat();
+    int s1 = getint();
+    float s2 = getfloat();
+    float s3 = getfloat();
+    putfloat(sum(3, s0, s1, s2, s3));
+    return 0;
+}

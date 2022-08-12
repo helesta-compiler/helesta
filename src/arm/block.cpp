@@ -47,7 +47,6 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
     } else if (auto loadarg =
                    dynamic_cast<IR::LoadArg<ScalarType::Float> *>(cur)) {
       auto arg_reg = info->from_ir_reg(loadarg->d1);
-      arg_reg.type = ScalarType::Float;
       info->set_float(arg_reg);
       push_back(std::make_unique<MoveReg>(arg_reg, func->args[loadarg->id]));
     } else if (auto unary = dynamic_cast<IR::UnaryOpInstr *>(cur)) {
@@ -158,11 +157,11 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
     } else if (auto load = dynamic_cast<IR::LoadInstr *>(cur)) {
       Reg dst = info->from_ir_reg(load->d1),
           addr = info->from_ir_reg(load->addr);
-      push_back(std::make_unique<Load>(dst, addr, 0));
+      push_back(std::make_unique<Load>(dst, addr, load->offset));
     } else if (auto store = dynamic_cast<IR::StoreInstr *>(cur)) {
       Reg addr = info->from_ir_reg(store->addr),
           src = info->from_ir_reg(store->s1);
-      push_back(std::make_unique<Store>(src, addr, 0));
+      push_back(std::make_unique<Store>(src, addr, store->offset));
     } else if (auto jump = dynamic_cast<IR::JumpInstr *>(cur)) {
       Block *jump_target = info->block_mapping[jump->target];
       if (jump_target != next_block)
@@ -230,52 +229,63 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(std::make_unique<Return>(ScalarType::Float));
       }
     } else if (auto call = dynamic_cast<IR::CallInstr *>(cur)) {
-      std::vector<Reg> float_args;
-      std::vector<Reg> int_args;
+      int int_arg_cnt = 0, float_arg_cnt = 0;
       for (auto kv : call->args) {
-        auto r = info->from_ir_reg(kv.first);
-        if (kv.second == ScalarType::Float) {
-          info->set_float(r);
-          float_args.push_back(r);
-        } else {
-          int_args.push_back(r);
-        }
+        if (kv.second == ScalarType::Int)
+          int_arg_cnt += 1;
+        else if (kv.second == ScalarType::Float)
+          float_arg_cnt += 1;
+        else
+          assert(false);
       }
-      for (int i = float_args.size() - 1; i >= 0; i--) {
-        if (static_cast<int>(i) >=
-            RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT) {
-          push_back(std::make_unique<Push>(std::vector<Reg>{float_args[i]}));
-        } else {
-          push_back(std::make_unique<MoveReg>(
-              Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[i],
-                  ScalarType::Float),
-              float_args[i]));
-        }
-      }
-      for (int i = int_args.size() - 1; i >= 0; i--) {
-        if (static_cast<int>(i) >=
-            RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT) {
-          push_back(std::make_unique<Push>(std::vector<Reg>{int_args[i]}));
-        } else {
-          push_back(std::make_unique<MoveReg>(
-              Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[i],
-                  ScalarType::Int),
-              int_args[i]));
-        }
-      }
-      push_back(std::make_unique<FuncCall>(
-          call->f->name, static_cast<int>(int_args.size()),
-          static_cast<int>(float_args.size())));
+      int int_arg_size = int_arg_cnt, float_arg_size = float_arg_cnt;
       int stack_passed = 0;
-      if (int_args.size() >
+      if (int_arg_size >
           RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT)
-        stack_passed += int_args.size() -
+        stack_passed += int_arg_size -
                         RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT;
-      if (float_args.size() >
+      if (float_arg_size >
           RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT)
         stack_passed +=
-            float_args.size() -
+            float_arg_size -
             RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT;
+      if (stack_passed % 2 == 1) {
+        stack_passed += 1;
+        push_back(sp_move(-static_cast<int>(INT_SIZE)));
+      }
+      for (auto it = call->args.rbegin(); it != call->args.rend(); it++) {
+        auto kv = *it;
+        if (kv.second == ScalarType::Int) {
+          int_arg_cnt -= 1;
+          if (int_arg_cnt >=
+              RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT) {
+            push_back(std::make_unique<Push>(
+                std::vector<Reg>{info->from_ir_reg(kv.first)}));
+          } else {
+            push_back(std::make_unique<MoveReg>(
+                Reg(RegConvention<
+                        ScalarType::Int>::ARGUMENT_REGISTERS[int_arg_cnt],
+                    ScalarType::Int),
+                info->from_ir_reg(kv.first)));
+          }
+        } else {
+          float_arg_cnt -= 1;
+          auto reg = info->from_ir_reg(kv.first);
+          info->set_float(reg);
+          if (float_arg_cnt >=
+              RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT) {
+            push_back(std::make_unique<Push>(std::vector<Reg>{reg}));
+          } else {
+            push_back(std::make_unique<MoveReg>(
+                Reg(RegConvention<
+                        ScalarType::Float>::ARGUMENT_REGISTERS[float_arg_cnt],
+                    ScalarType::Float),
+                reg));
+          }
+        }
+      }
+      push_back(std::make_unique<FuncCall>(call->f->name, int_arg_size,
+                                           float_arg_size));
       if (stack_passed > 0) {
         push_back(sp_move(stack_passed * INT_SIZE));
       }
@@ -286,10 +296,15 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
             ret, Reg(RegConvention<ScalarType::Float>::ARGUMENT_REGISTERS[0],
                      ScalarType::Float)));
       } else if (call->return_type == ScalarType::Int) {
-        push_back(std::make_unique<MoveReg>(
-            info->from_ir_reg(call->d1),
-            Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0],
-                ScalarType::Int)));
+        auto r0 = RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0];
+        if (call->f->name == "__create_threads") {
+          assert(
+              info->reg_mapping.insert({call->d1.id, Reg(r0, ScalarType::Int)})
+                  .second);
+        } else {
+          push_back(std::make_unique<MoveReg>(info->from_ir_reg(call->d1),
+                                              Reg(r0, ScalarType::Int)));
+        }
       }
     } else if (auto array_index = dynamic_cast<IR::ArrayIndex *>(cur)) {
       Reg dst = info->from_ir_reg(array_index->d1),
@@ -313,7 +328,6 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(std::make_unique<ML>(ML::Mla, dst, s2, step, s1));
       }
     } else {
-      std::cout << *cur << std::endl;
       unreachable();
     }
   }

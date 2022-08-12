@@ -64,30 +64,46 @@ void MappingInfo::set_maybe_float_assign(Reg &r1, Reg &r2) {
   }
 }
 
-template <ScalarType type>
 void handle_params(Func *ctx, MappingInfo &info, Block *entry,
                    IR::NormalFunc *ir_func) {
-  int arg_n = 0;
-  for (auto &bb : ir_func->bbs)
-    for (auto &inst : bb->instrs)
-      if (auto *cur = dynamic_cast<IR::LoadArg<type> *>(inst.get()))
-        arg_n = std::max(arg_n, cur->id + 1);
-  for (int i = 0; i < arg_n; ++i) {
-    Reg cur_arg = info.new_reg();
-    cur_arg.type = type;
-    if (type == ScalarType::Float)
-      info.set_float(cur_arg);
-    if (i < RegConvention<type>::ARGUMENT_REGISTER_COUNT) {
-      entry->push_back(make_unique<MoveReg>(
-          cur_arg, Reg(RegConvention<type>::ARGUMENT_REGISTERS[i], type)));
-    } else {
-      unique_ptr<StackObject> t = make_unique<StackObject>();
-      t->size = INT_SIZE;
-      t->position = -1;
-      entry->push_back(make_unique<LoadStack>(cur_arg, 0, t.get()));
-      ctx->caller_stack_object.push_back(std::move(t));
-    }
-    ctx->args.push_back(cur_arg);
+  int int_arg_cnt = 0, float_arg_cnt = 0;
+  for (auto arg_type : ir_func->arg_types) {
+    Reg cur_reg = info.new_reg();
+    if (arg_type == ScalarType::Int) {
+      if (int_arg_cnt <
+          RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT) {
+        entry->push_back(std::make_unique<MoveReg>(
+            cur_reg,
+            Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[int_arg_cnt],
+                ScalarType::Int)));
+      } else {
+        unique_ptr<StackObject> t = make_unique<StackObject>();
+        t->size = INT_SIZE;
+        t->position = -1;
+        entry->push_back(make_unique<LoadStack>(cur_reg, 0, t.get()));
+        ctx->caller_stack_object.push_back(std::move(t));
+      }
+      int_arg_cnt += 1;
+    } else if (arg_type == ScalarType::Float) {
+      info.set_float(cur_reg);
+      if (float_arg_cnt <
+          RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT) {
+        entry->push_back(std::make_unique<MoveReg>(
+            cur_reg,
+            Reg(RegConvention<
+                    ScalarType::Float>::ARGUMENT_REGISTERS[float_arg_cnt],
+                ScalarType::Float)));
+      } else {
+        unique_ptr<StackObject> t = make_unique<StackObject>();
+        t->size = INT_SIZE;
+        t->position = -1;
+        entry->push_back(make_unique<LoadStack>(cur_reg, 0, t.get()));
+        ctx->caller_stack_object.push_back(std::move(t));
+      }
+      float_arg_cnt += 1;
+    } else
+      assert(false);
+    ctx->args.push_back(cur_reg);
   }
 }
 
@@ -114,8 +130,7 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     info.rev_block_mapping[res.get()] = cur;
     blocks.push_back(std::move(res));
   }
-  handle_params<ScalarType::Int>(this, info, entry, ir_func);
-  handle_params<ScalarType::Float>(this, info, entry, ir_func);
+  handle_params(this, info, entry, ir_func);
   Block *real_entry = info.block_mapping[ir_func->entry];
   if (blocks[1].get() != real_entry)
     entry->push_back(make_unique<Branch>(real_entry));
@@ -732,6 +747,98 @@ void Program::gen_asm(ostream &out) {
   gen_global_var_asm(out);
   out << ".global main\n";
   out << ".section .text\n";
+  out << R"(
+SYS_clone = 120
+CLONE_VM = 256
+SIGCHLD = 17
+__create_threads:
+    push {r4, r5, r6, r7}
+    mov r0, #(CLONE_VM | SIGCHLD)
+    mov r1, sp
+    mov r2, #0
+    mov r3, #0
+    mov r4, #0
+    mov r6, #0
+    mov r7, #SYS_clone
+    swi #0
+    pop {r4, r5, r6, r7}
+    bx lr
+
+SYS_waitid = 280
+SYS_exit = 1
+P_ALL = 0
+WEXITED = 4
+__join_threads:
+    sub sp, sp, #16
+    cmp r0, #0
+	bne .L01
+    push {r4, r5, r6, r7}
+    mov r0, #P_ALL
+    mov r1, #0
+    mov r2, #0
+    mov r3, #WEXITED
+    mov r7, #SYS_waitid
+    swi #0
+    pop {r4, r5, r6, r7}
+    add sp, sp, #16
+    bx lr
+.L01:
+    mov r0, #0
+    mov r7, #SYS_exit
+    swi #0
+
+__umulmod:
+	push    {r11, lr}
+	umull   r3, r12, r1, r0
+	mov     r0, r3
+	mov     r1, r12
+	mov     r3, #0
+	bl      __aeabi_uldivmod
+	mov     r0, r2
+	pop     {r11, lr}
+	bx      lr
+
+__u_c_np1_2_mod:
+	push    {r11, lr}
+	mov     r2, r1
+	mov     r3, r0
+	mov     r1, #0
+	umlal   r3, r1, r0, r0
+	lsrs    r1, r1, #1
+	rrx     r0, r3
+	mov     r3, #0
+	bl      __aeabi_uldivmod
+	mov     r0, r2
+	pop     {r11, lr}
+	bx      lr
+
+__s_c_np1_2:
+	asr     r1, r0, #31
+	mov     r2, r0
+	smlal   r2, r1, r0, r0
+	adds    r0, r2, r1, lsr #31
+	adc     r1, r1, #0
+	lsrs    r1, r1, #1
+	rrx     r0, r0
+	bx      lr
+
+__fixmod:
+	push    {r4, lr}
+	mov     r4, r1
+	bl      __aeabi_idivmod
+	mov     r0, r1
+	cmp     r1, #0
+	addmi   r0, r0, r4
+	pop     {r4, lr}
+	bx      lr
+
+__umod:
+	push    {r11, lr}
+	bl      __aeabi_uidivmod
+	mov     r0, r1
+	pop     {r11, lr}
+	bx      lr
+)";
   for (auto &func : funcs)
     func->gen_asm(out);
 }

@@ -181,39 +181,68 @@ void remove_phi(NormalFunc *f) {
     bb1->push(new JumpInstr(bb));
     for (auto &P : Ps.a) {
       auto emit_copy = [&](Reg a, Reg b) {
-        if (b != a)
+        if (b != a) {
           bb1->push1(new UnaryOpInstr(b, a, UnaryCompute::ID));
-      };
-      Reg n = f->new_Reg();
-      std::vector<std::pair<Reg, Reg>> res;
-      std::map<Reg, std::optional<Reg>> loc, pred;
-      std::vector<Reg> to_do, ready;
-      for (auto [a, b] : P) {
-        loc[a] = a;
-        pred[b] = a;
-        to_do.push_back(b);
-      }
-      for (auto [a, b] : P) {
-        if (!loc[b])
-          ready.push_back(b);
-      }
-      while (!to_do.empty()) {
-        while (!ready.empty()) {
-          Reg b = ready.back();
-          ready.pop_back();
-          Reg a = pred[b].value();
-          Reg c = loc[a].value();
-          emit_copy(c, b);
-          loc[a] = b;
-          if (a == c && pred[a])
-            ready.push_back(a);
         }
-        Reg b = to_do.back();
-        to_do.pop_back();
-        if (b == loc[pred[b].value()].value()) {
-          emit_copy(b, n);
-          loc[b] = n;
+      };
+      std::unordered_map<Reg, Reg> pred, loc;
+      std::unordered_map<Reg, int> deg;
+      for (auto [a, b] : P) {
+        pred[b] = a;
+        ++deg[a];
+      }
+      std::vector<Reg> ready;
+      for (auto [a, b] : P) {
+        if (!deg[b]) {
           ready.push_back(b);
+        }
+      }
+      while (ready.size()) {
+        auto b = ready.back();
+        ready.pop_back();
+        auto a = pred.at(b);
+        emit_copy(a, b);
+        loc[a] = b;
+        if (!--deg[a] && pred.count(a)) {
+          ready.push_back(a);
+        }
+      }
+      Reg n = f->new_Reg();
+      for (auto [a, b] : P) {
+        if (deg[b] && loc.count(b)) {
+          for (Reg x = b;;) {
+            deg[x] = 0;
+            ready.push_back(x);
+            x = pred[x];
+            if (x == b)
+              break;
+          }
+          ready.push_back(loc.at(b));
+          std::reverse(ready.begin(), ready.end());
+          while (ready.size() > 1) {
+            Reg x = ready.back();
+            ready.pop_back();
+            emit_copy(ready.back(), x);
+          }
+        }
+      }
+      for (auto [a, b] : P) {
+        if (deg[b]) {
+          emit_copy(b, n);
+          for (Reg x = b;;) {
+            deg[x] = 0;
+            ready.push_back(x);
+            x = pred[x];
+            if (x == b)
+              break;
+          }
+          ready.push_back(n);
+          std::reverse(ready.begin(), ready.end());
+          while (ready.size() > 1) {
+            Reg x = ready.back();
+            ready.pop_back();
+            emit_copy(ready.back(), x);
+          }
         }
       }
     }
@@ -225,6 +254,7 @@ void remove_unused_BB(NormalFunc *f) {
     auto &w = dag.loop_tree[bb];
     return w.returnable;
   };
+  bool is_float = 0;
   f->for_each([&](BB *bb) {
     bb->for_each([&](Instr *x) {
       Case(PhiInstr, phi, x) {
@@ -233,6 +263,10 @@ void remove_unused_BB(NormalFunc *f) {
         });
       }
     });
+    Case(ReturnInstr<ScalarType::Float>, _, bb->back()) {
+      (void)_;
+      is_float = 1;
+    }
     Case(BranchInstr, br, bb->back()) {
       std::optional<BB *> target;
       if (!used(br->target1)) {
@@ -251,8 +285,13 @@ void remove_unused_BB(NormalFunc *f) {
   if (f->bbs.empty()) {
     Reg r = f->new_Reg();
     BB *bb = f->entry = f->new_BB();
-    bb->push(new LoadConst<int32_t>(r, 0));
-    bb->push(new ReturnInstr<ScalarType::Int>(r, 1));
+    if (is_float) {
+      bb->push(new LoadConst<float>(r, 0.0f));
+      bb->push(new ReturnInstr<ScalarType::Float>(r, 1));
+    } else {
+      bb->push(new LoadConst<int32_t>(r, 0));
+      bb->push(new ReturnInstr<ScalarType::Int>(r, 1));
+    }
   }
 }
 
@@ -334,5 +373,15 @@ void DAG_IR_ALL::remove_unused_BB() {
   ir->for_each([&](NormalFunc *f) {
     simplify_BB(f);
     typed &= type_check(f);
+  });
+}
+
+void split_live_range(NormalFunc *f) {
+  PassDisabled("slr") return;
+  auto defs = build_defs(f);
+  f->for_each([&](BB *bb) {
+    bb->for_each([&](Instr *) {
+      // TODO
+    });
   });
 }

@@ -208,7 +208,9 @@ struct BB : Printable, Traversable<BB> {
   string name;
   list<unique_ptr<Instr>> instrs;
   int id;
-  bool disable_schedule_early = 0;
+  bool disable_unroll = 0;
+  bool disable_parallel = 0;
+  int thread_id = 0;
   // list of instructions in this basic block
   // the last one is ControlInstr, others are RegWriteInstr or StoreInstr
   void print(ostream &os) const override;
@@ -220,6 +222,7 @@ struct BB : Printable, Traversable<BB> {
       return 0;
     });
   }
+  decltype(_it) cur_iter() { return std::prev(_it); }
   void replace(Instr *x) { *std::prev(_it) = unique_ptr<Instr>(x); }
   bool _del = 0;
   void move() {
@@ -232,6 +235,13 @@ struct BB : Printable, Traversable<BB> {
     for (auto &x : ls) {
       ins(x.release());
     }
+    ls.clear();
+  }
+  void push(decltype(instrs) &&ls) {
+    for (auto &x : ls) {
+      push(x.release());
+    }
+    ls.clear();
   }
   void replace(decltype(instrs) &&ls) {
     ins(std::move(ls));
@@ -264,6 +274,7 @@ struct BB : Printable, Traversable<BB> {
   void map_use(std::function<void(Reg &)> f);
   void map_phi_use(std::function<void(Reg &)> f1,
                    std::function<void(BB *&)> f2);
+  void map_phi_use(std::function<void(Reg &, BB *&)> f);
 
   const std::vector<BB *> getOutNodes() const override;
   void addOutNode(BB *) override {
@@ -293,6 +304,8 @@ struct LibFunc : Func {
   // (arg_id,0): read only
   bool in = 0,
        out = 0; // IO side effect, in: stdin changed, out: stdout changed
+  bool pure = 0;
+
 private:
   friend struct CompileUnit;
   LibFunc(string name) : Func(name) {}
@@ -309,6 +322,7 @@ struct NormalFunc : Func {
   int max_reg_id = 0, max_bb_id = 0;
   // for id allocation
   vector<string> reg_names;
+  std::vector<ScalarType> arg_types;
 
   std::unordered_set<Reg> thread_local_regs;
   Reg new_Reg() { return new_Reg("R" + to_string(max_reg_id + 1)); }
@@ -319,7 +333,12 @@ struct NormalFunc : Func {
     return Reg(++max_reg_id);
   }
   BB *new_BB(string _name = "BB") {
-    BB *bb = new BB(name + "::" + _name + std::to_string(++max_bb_id));
+    auto bb_name = _name + std::to_string(++max_bb_id);
+    auto prefix = name + "::";
+    if (!bb_name.compare(0, prefix.size(), prefix)) {
+      bb_name = prefix + bb_name;
+    }
+    BB *bb = new BB(bb_name);
     bbs.emplace_back(bb);
     return bb;
   }
@@ -562,6 +581,7 @@ struct LoadInstr : RegWriteInstr {
   // d1 = M[addr]
   LoadInstr(Reg d1, Reg addr) : RegWriteInstr(d1), addr(addr) {}
   Reg addr;
+  int32_t offset = 0;
   void print(ostream &os) const override;
 };
 
@@ -571,6 +591,7 @@ struct StoreInstr : Instr {
   StoreInstr(Reg addr, Reg s1) : addr(addr), s1(s1) {}
   Reg addr;
   Reg s1;
+  int32_t offset = 0;
   void print(ostream &os) const override;
 };
 
@@ -698,6 +719,7 @@ namespace IR {
 struct PrintContext {
   const CompileUnit *c = NULL;
   const NormalFunc *f = NULL;
+  bool disable_reg_id = 0;
   std::unordered_map<Instr *, string> instr_comment;
 };
 
@@ -752,6 +774,19 @@ struct CodeGen {
   RegRef lc(int32_t x) {
     Reg r = f->new_Reg();
     instrs.emplace_back(new LoadConst<int32_t>(r, x));
+    return reg(r);
+  }
+  void branch(RegRef cond, BB *target1, BB *target0) {
+    instrs.emplace_back(new BranchInstr(cond.r, target1, target0));
+  }
+  void jump(BB *target) { instrs.emplace_back(new JumpInstr(target)); }
+  RegRef call(Func *f0, ScalarType ret_type,
+              std::vector<std::pair<RegRef, ScalarType>> args_ref = {}) {
+    Reg r = f->new_Reg();
+    std::vector<std::pair<Reg, ScalarType>> args;
+    for (auto [x, t] : args_ref)
+      args.emplace_back(x.r, ScalarType::Int);
+    instrs.emplace_back(new CallInstr(r, f0, args, ret_type));
     return reg(r);
   }
 };

@@ -1,0 +1,29 @@
+float sum(int a, int i0, float f0, int i1, float f1, int i2, float f2, int i3, float f3, int i4, float f4, int i5, float f5, int i6, float f6) {
+    putfloat(f0);
+    putch(10);
+    if (a == 0) {
+        return i0 + f0 + i1 + f1 + i2 + f2 + i3 + f3 + i4 + f4 + i5 + f5 + i6 + f6;
+    }
+    return sum(a - 1, i6, f6, i1, f1, i2, f2, i3, f3, i4, f4, i5, f5, i0, f0);
+}
+
+int main() {
+    int i0 = getint();
+    int i1 = getint();
+    int i2 = getint();
+    int i3 = getint();
+    int i4 = getint();
+    int i5 = getint();
+    int i6 = getint();
+    float f0 = getfloat();
+    float f1 = getfloat();
+    float f2 = getfloat();
+    float f3 = getfloat();
+    float f4 = getfloat();
+    float f5 = getfloat();
+    float f6 = getfloat();
+    int a = getint();
+    putfloat(sum(a, i0, f0, i1, f1, i2, f2, i3, f3, i4, f4, i5, f5, i6, f6));
+    putch(10);
+    return 0;
+}
