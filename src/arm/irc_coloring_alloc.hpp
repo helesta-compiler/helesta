@@ -223,10 +223,17 @@ private:
     }
   }
 
-  bool conservative(const std::set<int> &nodes) {
+  bool conservative(const std::set<int> &shared_nodes,
+                    const std::set<int> &unique_nodes) {
     int sum = 0;
-    for (int node : nodes) {
+    for (int node : unique_nodes) {
       if (interfere_edge[node].size() >=
+          RegConvention<type>::ALLOCABLE_REGISTER_COUNT) {
+        ++sum;
+      }
+    }
+    for (int node : shared_nodes) {
+      if (interfere_edge[node].size() >
           RegConvention<type>::ALLOCABLE_REGISTER_COUNT) {
         ++sum;
       }
@@ -284,14 +291,21 @@ private:
         continue;
       }
       if (!is_neighbor(u, v)) {
-        std::set<int> adjacent;
+        std::set<int> shared_adjacent;
+        std::set<int> unique_adjacent;
         for (int i : interfere_edge[u]) {
-          adjacent.insert(i);
+          if (interfere_edge[v].count(i)) {
+            shared_adjacent.insert(i);
+          } else {
+            unique_adjacent.insert(i);
+          }
         }
         for (int i : interfere_edge[v]) {
-          adjacent.insert(i);
+          if (interfere_edge[u].count(i) == 0) {
+            unique_adjacent.insert(i);
+          }
         }
-        if (conservative(adjacent)) {
+        if (conservative(shared_adjacent, unique_adjacent)) {
           combine(u, v);
           coalesced_degree += cur_move.w;
         }
@@ -335,17 +349,15 @@ private:
     int selected_spill = -1;
     // TODO: get a better policy to select the node
     double optimal_value = 0.0;
-    const double epsilon = 1e-5;
+    // const double epsilon = 1e-5;
     for (int i : remain_pesudo_nodes) {
       if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end()) {
         double cur_value = 0.0;
         if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end() ||
             func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end()) {
-          cur_value =
-              (double)(interfere_edge[i].size() * 1.0 / (use_cnt[i] + epsilon));
+          cur_value = (double)interfere_edge[i].size() * 1.0;
         } else {
-          cur_value = (double)(interfere_edge[i].size() * 1.0 /
-                               (use_cnt[i] * 2 + def_cnt[i] + epsilon));
+          cur_value = (double)(interfere_edge[i].size() * 1.0);
         }
         if (selected_spill == -1 || cur_value > optimal_value) {
           selected_spill = i;
