@@ -674,7 +674,8 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
   auto &wi0 = S.loop_info.at(w);
   bool dbg_on = (global_config.args["dbg-sr"] == "1");
   if (auto ilr = S.get_ilr(w)) {
-    auto [i, i1, i2, op] = *ilr;
+    auto [_i, i1, i2, op] = *ilr;
+    auto i = _i;
     auto i0 = S.get_const(i1);
     CodeGen cg(S.f);
     using RegRef = CodeGen::RegRef;
@@ -780,7 +781,7 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
           }
           return a;
         };
-        auto calc = [&](RegRef x) {
+        auto calc = [&, i](RegRef x) {
           x = fix(x);
           auto s = cg.lc(0);
           for (auto &[k, v] : step.cs) {
