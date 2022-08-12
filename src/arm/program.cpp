@@ -698,10 +698,12 @@ void Func::gen_asm(ostream &out) {
     if (check_store_stack())
       break;
   }
-  info << "Int Register allocation:\n"    << "spill: " << int_stat.spill_cnt << '\n'
+  info << "Int Register allocation:\n"
+       << "spill: " << int_stat.spill_cnt << '\n'
        << "move instructions eliminated: " << int_stat.move_eliminated << '\n'
        << "callee-save registers used: " << int_stat.callee_save_used << '\n';
-  info << "Float Register allocation:\n"    << "spill: " << float_stat.spill_cnt << '\n'
+  info << "Float Register allocation:\n"
+       << "spill: " << float_stat.spill_cnt << '\n'
        << "move instructions eliminated: " << float_stat.move_eliminated << '\n'
        << "callee-save registers used: " << float_stat.callee_save_used << '\n';
   replace_with_reg_alloc(int_reg_alloc, float_reg_alloc);
