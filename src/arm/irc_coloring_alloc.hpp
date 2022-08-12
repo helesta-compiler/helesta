@@ -32,6 +32,8 @@ private:
   std::vector<std::map<int, int>> move_edges;
   std::vector<CoalesceEdge> frozen_moves;
   std::set<int> remain_pesudo_nodes;
+  std::vector<int> def_cnt;
+  std::vector<int> use_cnt;
 
   bool is_neighbor(int x, int y) {
     assert(x >= 0 && x < (int)interfere_edge.size());
@@ -60,6 +62,8 @@ private:
     interfere_edge.resize(func->reg_n);
     move_edges.resize(func->reg_n);
     alias.resize(func->reg_n, -1);
+    def_cnt.resize(func->reg_n, 0);
+    use_cnt.resize(func->reg_n, 0);
     std::fill(occur.begin(), occur.end(), 0);
     std::fill(interfere_edge.begin(), interfere_edge.end(), std::set<int>{});
     func->calc_live();
@@ -114,6 +118,7 @@ private:
           if (r.type == type &&
               (r.is_pseudo() || RegConvention<type>::allocable(r.id))) {
             assert(r.id >= 0);
+            ++def_cnt[r.id];
             occur[r.id] = 1;
             live.erase(r);
           }
@@ -122,6 +127,7 @@ private:
           if (r.type == type &&
               (r.is_pseudo() || RegConvention<type>::allocable(r.id))) {
             assert(r.id >= 0);
+            ++use_cnt[r.id];
             occur[r.id] = 1;
             if (live.find(r) == live.end()) {
               for (Reg o : live) {
@@ -328,20 +334,24 @@ private:
   int select_spill() {
     int selected_spill = -1;
     // TODO: get a better policy to select the node
+    double optimal_value = 0.0;
+    const double epsilon = 1e-5;
     for (int i : remain_pesudo_nodes) {
-      if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end())
+      if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end()) {
+        double cur_value = 0.0;
         if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end() ||
-            func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end())
-          if (selected_spill == -1 ||
-              interfere_edge[i].size() > interfere_edge[selected_spill].size())
-            selected_spill = i;
-    }
-    if (selected_spill == -1) {
-      for (int i : remain_pesudo_nodes)
-        if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end())
-          if (selected_spill == -1 ||
-              interfere_edge[i].size() > interfere_edge[selected_spill].size())
-            selected_spill = i;
+            func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end()) {
+          cur_value =
+              (double)(interfere_edge[i].size() * 1.0 / (use_cnt[i] + epsilon));
+        } else {
+          cur_value = (double)(interfere_edge[i].size() * 1.0 /
+                               (use_cnt[i] * 2 + def_cnt[i] + epsilon));
+        }
+        if (selected_spill == -1 || cur_value > optimal_value) {
+          selected_spill = i;
+          optimal_value = cur_value;
+        }
+      }
     }
     assert(selected_spill != -1);
     remain_pesudo_nodes.erase(selected_spill);
@@ -493,16 +503,11 @@ private:
       used[cur_ans] = true;
       ans[cur_node.first] = cur_ans;
     }
-    int merge_node = 0;
     for (int i = RegConvention<type>::Count; i < func->reg_n; ++i) {
       if (occur[i]) {
         ans[i] = ans[get_alias(i)];
-        if (get_alias(i) != i) {
-          merge_node++;
-        }
       }
     }
-    info << "merge nodes: " << merge_node << "\n";
     stat->callee_save_used = 0;
     for (int i = 0; i < RegConvention<type>::Count; ++i) {
       if (used[i] &&
@@ -524,6 +529,8 @@ public:
     move_edges.clear();
     frozen_moves.clear();
     remain_pesudo_nodes.clear();
+    def_cnt.clear();
+    use_cnt.clear();
   }
   virtual std::vector<int> run(RegAllocStat *stat) override {
     build_graph();
