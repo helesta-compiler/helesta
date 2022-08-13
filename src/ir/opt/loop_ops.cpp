@@ -241,6 +241,7 @@ struct SIMDScheme {
   int cnt = 4;
   std::list<std::unique_ptr<Instr>> instrs;
   void try_unroll(NormalFunc *f) {
+    PassDisabled("simd-unroll") return;
     int max_r = 1;
     for (auto &x0 : instrs) {
       Case(SIMDInstr, x, x0.get()) {
@@ -604,8 +605,17 @@ std::optional<SIMDScheme> ArrayReadWrite::loop_simd(BB *w, CompileUnit *ir) {
     return std::nullopt;
   auto simd = ir->lib_funcs.at("__simd").get();
   SIMDScheme ls;
+  uset<Reg> new_defs;
+  new_defs.insert(i_);
+  bool bad = 0;
   auto push = [&](Instr *x) {
     dbg_(">>> ", *x, '\n');
+    x->map_use([&](Reg &r) {
+      if (wi0.defs.count(r) && !new_defs.count(r)) {
+        bad = 1;
+      }
+    });
+    Case(RegWriteInstr, rw, x) { new_defs.insert(rw->d1); }
     ls.instrs.emplace_back(x);
   };
   umap<Reg, std::pair<int, int>> mp_reg;
@@ -761,7 +771,7 @@ std::optional<SIMDScheme> ArrayReadWrite::loop_simd(BB *w, CompileUnit *ir) {
     }
     return 1;
   });
-  if (flag) {
+  if (flag || bad) {
     dbg_("cannot simd\n");
     return std::nullopt;
   }
