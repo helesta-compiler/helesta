@@ -283,10 +283,10 @@ struct PrettyPrint : Defs {
       size_t l1 = idfn.at(out[1]);
       assert(l0 < l1);
       size_t r0 = l0;
-      while (s0.count(dfn.at(r0)) && !s1.count(dfn.at(r0)))
+      while (r0 < r && s0.count(dfn.at(r0)) && !s1.count(dfn.at(r0)))
         ++r0;
       size_t r1 = l1;
-      while (!s0.count(dfn.at(r1)) && s1.count(dfn.at(r1)))
+      while (r1 < r && !s0.count(dfn.at(r1)) && s1.count(dfn.at(r1)))
         ++r1;
       // [l0,r0) [l1,r1)
       remove_if(s0, [&](BB *bb0) {

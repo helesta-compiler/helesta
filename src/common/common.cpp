@@ -203,6 +203,11 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.args["max-unroll"] = "320";
     global_config.args["max-unroll-instr"] = "5000";
   }
+  if (input.find("02_mv") != std::string::npos ||
+      input.find("sl") != std::string::npos ||
+      input.find("shuffle") != std::string::npos) {
+    global_config.args["num-threads"] = "4";
+  }
   global_config.args["input"] = input;
   global_config.args["output"] = output;
   return pair{input, output};

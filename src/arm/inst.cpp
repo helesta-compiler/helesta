@@ -276,9 +276,7 @@ void RegImmInst::gen_asm(ostream &out, AsmContext *) {
 void MoveReg::gen_asm(ostream &out, AsmContext *) {
   if (dst.type == ScalarType::Float) {
     if (src.type == ScalarType::Float) {
-      if (src != dst) {
-        out << "vmov.f32" << cond << ' ' << dst << ',' << src << '\n';
-      }
+      out << "vmov.f32" << cond << ' ' << dst << ',' << src << '\n';
     } else {
       out << "vmov" << cond << ' ' << dst << ',' << src << '\n';
     }
@@ -286,9 +284,7 @@ void MoveReg::gen_asm(ostream &out, AsmContext *) {
     if (src.type == ScalarType::Float) {
       out << "vmov" << cond << ' ' << dst << ',' << src << '\n';
     } else {
-      if (src != dst) {
-        out << "mov" << cond << ' ' << dst << ',' << src << '\n';
-      }
+      out << "mov" << cond << ' ' << dst << ',' << src << '\n';
     }
   }
 }

@@ -190,7 +190,15 @@ void Func::merge_inst() {
     for (auto it = insts.begin(); it != insts.end(); ++it) {
       visit(insts, it);
       Inst *inst = it->get();
-      if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
+      if (auto cmp = dynamic_cast<RegRegCmp *>(inst)) {
+        if (!constant_reg.count(cmp->rhs))
+          continue;
+        int32_t v = constant_reg[cmp->rhs];
+        if (is_legal_immediate(v)) {
+          Ins(new RegImmCmp(RegImmCmp::Cmp, cmp->lhs, v));
+          Del();
+        }
+      } else if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
         if (bop->shift.w)
           continue;
         if (!constant_reg.count(bop->rhs))
@@ -555,6 +563,36 @@ void Func::replace_complex_inst() {
   }
 }
 
+void Func::remove_trivial_inst() {
+  for (auto &block : blocks) {
+    std::unordered_map<int32_t, int32_t> const_info;
+    block->for_each([&](Inst *inst) {
+      if (auto mov = dynamic_cast<MoveReg *>(inst)) {
+        if (mov->dst.type == mov->src.type && mov->dst == mov->src) {
+          block->del();
+          return;
+        }
+      }
+      if (auto mov = dynamic_cast<MoveImm *>(inst)) {
+        if (mov->op == MoveImm::Mov && const_info.count(mov->dst.id)) {
+          if (const_info.at(mov->dst.id) == mov->src) {
+            block->del();
+            return;
+          }
+        }
+        if (mov->op == MoveImm::Mov && mov->cond == InstCond::Always) {
+          const_info[mov->dst.id] = mov->src;
+        } else {
+          const_info.erase(mov->dst.id);
+        }
+        return;
+      }
+      for (auto r : inst->def_reg())
+        const_info.erase(r.id);
+    });
+  }
+}
+
 template <ScalarType type>
 std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
   info << "register allocation for function: " << ctx->name << '\n';
@@ -655,6 +693,7 @@ void Func::gen_asm(ostream &out) {
   }
   replace_with_reg_alloc(int_reg_alloc, float_reg_alloc);
   replace_complex_inst();
+  remove_trivial_inst();
   out << '\n' << name << ":\n";
   prologue(out);
   for (auto &block : blocks)
@@ -772,14 +811,14 @@ __join_threads:
     sub sp, sp, #16
     cmp r0, #0
 	bne .L01
-    push {r4, r5, r6, r7}
+	vmov s31, r7
     mov r0, #P_ALL
     mov r1, #0
     mov r2, #0
     mov r3, #WEXITED
     mov r7, #SYS_waitid
     swi #0
-    pop {r4, r5, r6, r7}
+    vmov r7, s31
     add sp, sp, #16
     bx lr
 .L01:

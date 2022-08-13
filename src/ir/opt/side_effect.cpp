@@ -339,7 +339,8 @@ template <ScalarType Type, typename T> struct GlobalInitToGlobalConst {
         if (w.mustbe) {
           assert(w.mustbe->first == mem);
           auto offset = w.mustbe->second;
-          T v = (mp.kv.count(offset) ? mp.kv.at(offset) : mem->at<T>(offset));
+          T v = (mp.kv.count(offset) ? mp.kv.at(offset)
+                                     : mem->template at<T>(offset));
           pb.f->entry->replace(new LoadConst(ld->d1, v));
         } else {
           mp.locked = 1;
