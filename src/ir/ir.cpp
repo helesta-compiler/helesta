@@ -168,6 +168,8 @@ void SIMDInstr::print(ostream &os) const {
     os << 'q' << get_id(x);
     flag = 1;
   }
+  if (size)
+    os << "(x" << size << ")";
 }
 void PhiInstr::print(ostream &os) const {
   os << d1 << " = phi";
@@ -634,15 +636,21 @@ int exec(CompileUnit &c) {
           }
           case SIMDInstr::VLDM: {
             int s1 = rReg(*x->s1).int_value();
-            for (int i = 0; i < 4; ++i) {
-              cur_thread.simd_regs[x->regs[0]][i] = rMem(s1 + i * 4);
+            for (int j = 0; j < x->size; ++j) {
+              for (int i = 0; i < 4; ++i) {
+                cur_thread.simd_regs[x->regs[0] + j][i] =
+                    rMem(s1 + i * 4 + j * 16);
+              }
             }
             break;
           }
           case SIMDInstr::VSTM: {
             int s1 = rReg(*x->s1).int_value();
-            for (int i = 0; i < 4; ++i) {
-              wMem(s1 + i * 4, cur_thread.simd_regs[x->regs[0]][i]);
+            for (int j = 0; j < x->size; ++j) {
+              for (int i = 0; i < 4; ++i) {
+                wMem(s1 + i * 4 + j * 16,
+                     cur_thread.simd_regs[x->regs[0] + j][i]);
+              }
             }
             break;
           }

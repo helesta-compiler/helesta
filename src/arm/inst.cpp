@@ -454,9 +454,13 @@ void SIMD::gen_asm(ostream &out, AsmContext *) {
   case IR::SIMDInstr::VSTM: {
     out << ir->name() << ' ';
     out << *src << ",{";
-    int id = ir->get_id(ir->regs[0]);
-    out << 'd' << (id * 2) << ',';
-    out << 'd' << (id * 2 + 1) << '}';
+    int id = ir->get_id(ir->regs[0]) * 2;
+    for (int j = 0; j < ir->size * 2; ++j) {
+      if (j)
+        out << ',';
+      out << 'd' << (id + j);
+    }
+    out << '}';
     break;
   }
   default:

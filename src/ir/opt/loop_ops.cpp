@@ -237,6 +237,61 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
   }
 };
 
+struct SIMDScheme {
+  int cnt = 4;
+  std::list<std::unique_ptr<Instr>> instrs;
+  void try_unroll(NormalFunc *f) {
+    int max_r = 1;
+    for (auto &x0 : instrs) {
+      Case(SIMDInstr, x, x0.get()) {
+        for (int r : x->regs) {
+          max_r = std::max(max_r, r + 1);
+        }
+      }
+    }
+    assert(max_r <= 8);
+    int n = std::min(2, 8 / max_r);
+    if (n == 1)
+      return;
+    cnt *= n;
+
+    dbg("simd unroll: ", n, '\n');
+
+    decltype(instrs) new_instrs;
+    for (auto &x0 : instrs) {
+      Case(SIMDInstr, x, x0.get()) {
+        switch (x->type) {
+        case SIMDInstr::VLDM:
+        case SIMDInstr::VSTM: {
+          SIMDInstr *xi = (SIMDInstr *)x->copy();
+          for (int &r : xi->regs) {
+            r *= n;
+          }
+          xi->size *= n;
+          new_instrs.emplace_back(xi);
+          break;
+        }
+        default: {
+          for (int i = 0; i < n; ++i) {
+            SIMDInstr *xi = (SIMDInstr *)x->copy();
+            for (int &r : xi->regs) {
+              r = r * n + i;
+            }
+            xi->d1 = f->new_Reg();
+            new_instrs.emplace_back(xi);
+          }
+          break;
+        }
+        }
+      }
+      else {
+        new_instrs.emplace_back(x0->copy());
+      }
+    }
+    instrs = std::move(new_instrs);
+  }
+};
+
 struct ArrayReadWrite : SimpleLoopVisitor {
   struct LoopInfo {
     uset<Reg> rs, ws;
@@ -396,8 +451,7 @@ struct ArrayReadWrite : SimpleLoopVisitor {
       }
     }
   }
-  std::optional<std::list<std::unique_ptr<Instr>>> loop_simd(BB *w,
-                                                             CompileUnit *ir);
+  std::optional<SIMDScheme> loop_simd(BB *w, CompileUnit *ir);
   bool loop_parallel(BB *w, CompileUnit *ir);
   bool simplify_reduction_var(BB *w, CompileUnit *ir);
 };
@@ -527,8 +581,7 @@ int parseIntArg(int v, std::string s) {
   return v;
 }
 
-std::optional<std::list<std::unique_ptr<Instr>>>
-ArrayReadWrite::loop_simd(BB *w, CompileUnit *ir) {
+std::optional<SIMDScheme> ArrayReadWrite::loop_simd(BB *w, CompileUnit *ir) {
   PassDisabled("simd") return std::nullopt;
   if (dependent(w))
     return std::nullopt;
@@ -549,10 +602,10 @@ ArrayReadWrite::loop_simd(BB *w, CompileUnit *ir) {
   if (wi0.node->dfn.size() != 2)
     return std::nullopt;
   auto simd = ir->lib_funcs.at("__simd").get();
-  std::list<std::unique_ptr<Instr>> ls;
+  SIMDScheme ls;
   auto push = [&](Instr *x) {
     dbg_(">>> ", *x, '\n');
-    ls.emplace_back(x);
+    ls.instrs.emplace_back(x);
   };
   umap<Reg, std::pair<int, int>> mp_reg;
   int32_t alloc = 0;
@@ -711,6 +764,7 @@ ArrayReadWrite::loop_simd(BB *w, CompileUnit *ir) {
     dbg_("cannot simd\n");
     return std::nullopt;
   }
+  ls.try_unroll(S.f);
 #undef dbg_
   return ls;
 }
@@ -1176,11 +1230,11 @@ struct UnrollLoop {
     p4.entry->disable_parallel = 1;
 
     if (simd) {
-      cnt = 4;
+      cnt = simd->cnt;
       BB *bb = wi.node->dfn.at(1);
       dbg(">>> simd:\n");
       dbg(*bb);
-      bb->instrs = std::move(*simd);
+      bb->instrs = std::move(simd->instrs);
       dbg(*bb);
     }
 

@@ -663,14 +663,18 @@ struct SIMDInstr : CallInstr {
   } type;
   std::optional<Reg> s1;
   std::vector<int> regs;
+  int size = 0;
   SIMDInstr(Reg r, Func *f, Type _type, Reg _s1, std::vector<int> _regs)
       : CallInstr(r, f, {}, ScalarType::Void), type(_type), s1(_s1),
         regs(_regs) {
     switch (type) {
     case VDUP_32:
+      assert(regs.size() == 1);
+      break;
     case VLDM:
     case VSTM:
       assert(regs.size() == 1);
+      size = 1;
       break;
     default:
       assert(0);
