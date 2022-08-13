@@ -435,6 +435,37 @@ void Store::gen_asm(ostream &out, AsmContext *) {
       << "]\n";
 }
 
+void SIMD::gen_asm(ostream &out, AsmContext *) {
+  switch (ir->type) {
+  case IR::SIMDInstr::VDUP_32: {
+    if (src->type == ScalarType::Float) {
+      out << "vmov r0," << *src << '\n';
+    }
+    out << ir->name() << ' ';
+    out << 'q' << ir->get_id(ir->regs[0]) << ',';
+    if (src->type == ScalarType::Float) {
+      out << "r0";
+    } else {
+      out << *src;
+    }
+    break;
+  }
+  case IR::SIMDInstr::VLDM:
+  case IR::SIMDInstr::VSTM: {
+    out << ir->name() << ' ';
+    out << *src << ",{";
+    int id = ir->get_id(ir->regs[0]);
+    out << 'd' << (id * 2) << ',';
+    out << 'd' << (id * 2 + 1) << '}';
+    break;
+  }
+  default:
+    out << *ir;
+    break;
+  }
+  out << '\n';
+}
+
 void ComplexLoad::gen_asm(ostream &out, AsmContext *) {
   if (dst.type == ScalarType::Float) {
     out << "ldr" << cond << ' ' << Reg(dst.id, ScalarType::Float) << ",["

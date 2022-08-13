@@ -782,11 +782,15 @@ void Program::gen_global_var_asm(ostream &out) {
 }
 
 void Program::gen_asm(ostream &out) {
-  out << ".arch armv7ve\n.arm\n";
+  out <<
+      R"(.arch armv7ve
+.fpu neon
+.arm
+)";
   gen_global_var_asm(out);
-  out << ".global main\n";
-  out << ".section .text\n";
-  out << R"(
+  out <<
+      R"(.global main
+.section .text
 SYS_clone = 120
 CLONE_VM = 256
 SIGCHLD = 17

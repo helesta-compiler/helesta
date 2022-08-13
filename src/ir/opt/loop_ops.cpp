@@ -396,6 +396,8 @@ struct ArrayReadWrite : SimpleLoopVisitor {
       }
     }
   }
+  std::optional<std::list<std::unique_ptr<Instr>>> loop_simd(BB *w,
+                                                             CompileUnit *ir);
   bool loop_parallel(BB *w, CompileUnit *ir);
   bool simplify_reduction_var(BB *w, CompileUnit *ir);
 };
@@ -523,6 +525,194 @@ int parseIntArg(int v, std::string s) {
     }
   }
   return v;
+}
+
+std::optional<std::list<std::unique_ptr<Instr>>>
+ArrayReadWrite::loop_simd(BB *w, CompileUnit *ir) {
+  PassDisabled("simd") return std::nullopt;
+  if (dependent(w))
+    return std::nullopt;
+  bool dbg_on = (global_config.args["dbg-simd"] == "1");
+#define dbg_(...)                                                              \
+  if (dbg_on)                                                                  \
+  dbg(__VA_ARGS__)
+  dbg_("simd?\n", *w);
+  if (w->instrs.size() != 3)
+    return std::nullopt;
+  auto ilr = S.get_ilr(w, 1);
+  if (!ilr)
+    return std::nullopt;
+  auto [i_, l, r, op] = *ilr;
+  if (!(op.less))
+    return std::nullopt;
+  auto &wi0 = S.loop_info.at(w);
+  if (wi0.node->dfn.size() != 2)
+    return std::nullopt;
+  auto simd = ir->lib_funcs.at("__simd").get();
+  std::list<std::unique_ptr<Instr>> ls;
+  auto push = [&](Instr *x) {
+    dbg_(">>> ", *x, '\n');
+    ls.emplace_back(x);
+  };
+  umap<Reg, std::pair<int, int>> mp_reg;
+  int32_t alloc = 0;
+  auto alloc_reg = [&](Reg r) -> int {
+    dbg_("alloc reg: ", r, '\n');
+    for (int i = 0; i < 8; ++i) {
+      if ((1 << i) & (~alloc)) {
+        alloc |= 1 << i;
+        mp_reg[r] = {i, wi0.use_count.at(r)};
+        dbg_("alloc reg: ", r, " => ", i, '\n');
+        return i;
+      }
+    }
+    dbg_("alloc reg: ", r, " failed\n");
+    return -1;
+  };
+  auto free_reg = [&](int r) {
+    dbg_("free reg: ", r, '\n');
+    alloc &= ~(1 << r);
+  };
+  auto get_reg = [&](Reg r) -> int {
+    dbg_("get_reg: ", r, '\n');
+    if (mp_reg.count(r)) {
+      auto &[r0, n] = mp_reg.at(r);
+      assert(n);
+      dbg_("get_reg: ", r, " => ", r0, "  use_cnt: ", n, '\n');
+      return r0;
+    }
+    if (!wi0.defs.count(r)) {
+      int d1 = alloc_reg(r);
+      if (d1 == -1)
+        return -1;
+      push(new SIMDInstr(S.f->new_Reg(), simd, SIMDInstr::VDUP_32, r, {d1}));
+      return d1;
+    }
+    dbg_("get_reg: ", r, " failed\n");
+    return -1;
+  };
+  auto on_use = [&](Reg r) {
+    dbg_("on_use: ", r, '\n');
+    auto &[r0, n] = mp_reg.at(r);
+    if (!--n) {
+      free_reg(r0);
+    }
+  };
+  auto gen_unary = [&](UnaryOpInstr *uop, SIMDInstr::Type type) -> bool {
+    int s1 = get_reg(uop->s1);
+    if (s1 == -1)
+      return 1;
+    on_use(uop->s1);
+    int d1 = alloc_reg(uop->d1);
+    if (d1 == -1)
+      return 1;
+    push(new SIMDInstr(S.f->new_Reg(), simd, type, {d1, s1}));
+    return 0;
+  };
+  auto gen = [&](BinaryOpInstr *bop, SIMDInstr::Type type) -> bool {
+    int s1 = get_reg(bop->s1);
+    if (s1 == -1)
+      return 1;
+    int s2 = get_reg(bop->s2);
+    if (s2 == -1)
+      return 1;
+    on_use(bop->s1);
+    on_use(bop->s2);
+    int d1 = alloc_reg(bop->d1);
+    if (d1 == -1)
+      return 1;
+    push(new SIMDInstr(S.f->new_Reg(), simd, type, {d1, s1, s2}));
+    return 0;
+  };
+  auto gen_mem = [&](bool store, Reg reg, Reg addr) -> bool {
+    Case(ArrayIndex, ai, S.defs.at(addr)) {
+      if (ai->size != 4)
+        return 1;
+      if (wi0.defs.count(ai->s1))
+        return 1;
+      for (auto &[m, k] : reg_info.at(ai->s2).add.cs) {
+        if (m.empty())
+          continue;
+        if (m.size() != 1)
+          return 1;
+        auto [r, k0] = *m.begin();
+        if (!(r == i_ && k0 == 1 && k == 1))
+          return 1;
+      }
+    }
+    else return 1;
+    if (store) {
+      int s1 = get_reg(reg);
+      if (s1 == -1)
+        return 1;
+      on_use(reg);
+      push(new SIMDInstr(S.f->new_Reg(), simd, SIMDInstr::VSTM, addr, {s1}));
+    } else {
+      int d1 = alloc_reg(reg);
+      if (d1 == -1)
+        return 1;
+      push(new SIMDInstr(S.f->new_Reg(), simd, SIMDInstr::VLDM, addr, {d1}));
+    }
+    return 0;
+  };
+  BB *bb = wi0.node->dfn.at(1);
+  dbg_(*bb);
+  bool flag = bb->for_each_until([&](Instr *x) -> bool {
+    dbg_("simd?  ", *x, '\n');
+    Case(ArrayIndex, x0, x) {
+      push(new ArrayIndex(*x0));
+      return 0;
+    }
+    Case(LoadInstr, x0, x) { return gen_mem(0, x0->d1, x0->addr); }
+    Case(StoreInstr, x0, x) { return gen_mem(1, x0->s1, x0->addr); }
+    Case(BinaryOpInstr, x0, x) {
+      switch (x0->op.type) {
+      case BinaryCompute::ADD:
+        if (gen(x0, SIMDInstr::VADD_I32)) {
+          push(new BinaryOpInstr(*x0));
+        }
+        return 0;
+      case BinaryCompute::SUB:
+        if (gen(x0, SIMDInstr::VSUB_I32)) {
+          push(new BinaryOpInstr(*x0));
+        }
+        return 0;
+      case BinaryCompute::MUL:
+        return gen(x0, SIMDInstr::VMUL_S32);
+      case BinaryCompute::FADD:
+        return gen(x0, SIMDInstr::VADD_F32);
+      case BinaryCompute::FSUB:
+        return gen(x0, SIMDInstr::VSUB_F32);
+      case BinaryCompute::FMUL:
+        return gen(x0, SIMDInstr::VMUL_F32);
+      default:
+        return 1;
+      }
+    }
+    Case(UnaryOpInstr, x0, x) {
+      switch (x0->op.type) {
+      case UnaryCompute::F2I:
+        return gen_unary(x0, SIMDInstr::VCVT_S32_F32);
+      case UnaryCompute::I2F:
+        return gen_unary(x0, SIMDInstr::VCVT_F32_S32);
+      default:
+        return 1;
+      }
+    }
+    Case(JumpInstr, x0, x) {
+      if (x0->target == w) {
+        push(new JumpInstr(w));
+        return 0;
+      }
+    }
+    return 1;
+  });
+  if (flag) {
+    dbg_("cannot simd\n");
+    return std::nullopt;
+  }
+#undef dbg_
+  return ls;
 }
 
 bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
@@ -930,6 +1120,10 @@ struct UnrollLoop {
     dbg("instr_cnt: ", wi.instr_cnt, "\n");
     dbg("BB_cnt: ", wi.bbs.size(), "\n");
     std::deque<LoopCopyTool> loops;
+    auto simd = arw.loop_simd(w, ir);
+    if (simd) {
+      cnt = 1;
+    }
     loops.emplace_back(wi.bbs, w, w, S.f);
     for (size_t i = 1; i <= cnt; ++i) {
       loops.emplace_back(loops[0]);
@@ -981,14 +1175,37 @@ struct UnrollLoop {
     p4.entry->disable_unroll = 1;
     p4.entry->disable_parallel = 1;
 
+    if (simd) {
+      cnt = 4;
+      BB *bb = wi.node->dfn.at(1);
+      dbg(">>> simd:\n");
+      dbg(*bb);
+      bb->instrs = std::move(*simd);
+      dbg(*bb);
+    }
+
     size_t n = 0;
     w->for_each([&](Instr *x) {
       Case(BranchInstr, br, x) {
         CodeGen cg(S.f);
+        auto i_nxt = cg.reg(i) + cg.lc(cnt);
         if (op.eq) {
-          br->cond = (cg.reg(i) + cg.lc(cnt) <= cg.reg(r)).r;
+          br->cond = (i_nxt <= cg.reg(r)).r;
         } else {
-          br->cond = (cg.reg(i) + cg.lc(cnt) < cg.reg(r)).r;
+          br->cond = (i_nxt < cg.reg(r)).r;
+        }
+        if (simd) {
+          w->for_each([&](Instr *x) {
+            Case(PhiInstr, phi, x) {
+              if (phi->d1 == i) {
+                for (auto &[r_, bb_] : phi->uses) {
+                  if (bb_ == wi.node->dfn.at(1)) {
+                    r_ = i_nxt.r;
+                  }
+                }
+              }
+            }
+          });
         }
         w->ins(std::move(cg.instrs));
         ++n;
@@ -1058,8 +1275,8 @@ struct UnrollLoop {
     auto op = ind->op;
     // for(i=l;i<r;i{op}=step);
     int32_t i0 = *l, i1 = *r, i2 = *step;
-    dbg("for(i=", i0, ";i", wi.cond->name(), i1, ";i=i", BinaryOp(op), i2,
-        "){...}\n");
+    // dbg("for(i=", i0, ";i", wi.cond->name(), i1, ";i=i", BinaryOp(op), i2,
+    //     "){...}\n");
     size_t cnt = 0;
     size_t MAX_UNROLL = parseIntArg(32, "max-unroll"),
            MAX_UNROLL_INSTR = parseIntArg(1024, "max-unroll-instr");
@@ -1067,7 +1284,7 @@ struct UnrollLoop {
       i0 = std::get<int32_t>(typed_compute(op, i0, i2));
       cnt += 1;
     }
-    dbg("cnt=", cnt, "  instr_cnt=", wi.instr_cnt, '\n');
+    // dbg("cnt=", cnt, "  instr_cnt=", wi.instr_cnt, '\n');
     if (cnt <= MAX_UNROLL) {
       if (cnt * wi.instr_cnt > MAX_UNROLL_INSTR)
         return 0;

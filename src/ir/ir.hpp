@@ -645,6 +645,72 @@ struct ArrayIndex : RegWriteInstr {
   void print(ostream &os) const override;
 };
 
+struct SIMDInstr : CallInstr {
+  enum Type {
+    VADD_I32 = 0,
+    VADD_F32 = 1,
+    VSUB_I32 = 2,
+    VSUB_F32 = 3,
+    VMUL_S32 = 4,
+    VMUL_F32 = 5,
+    VMLA_S32 = 6,
+    VMLA_F32 = 7,
+    VDUP_32 = 8,
+    VLDM = 9,
+    VSTM = 10,
+    VCVT_S32_F32 = 11,
+    VCVT_F32_S32 = 12,
+  } type;
+  std::optional<Reg> s1;
+  std::vector<int> regs;
+  SIMDInstr(Reg r, Func *f, Type _type, Reg _s1, std::vector<int> _regs)
+      : CallInstr(r, f, {}, ScalarType::Void), type(_type), s1(_s1),
+        regs(_regs) {
+    switch (type) {
+    case VDUP_32:
+    case VLDM:
+    case VSTM:
+      assert(regs.size() == 1);
+      break;
+    default:
+      assert(0);
+    }
+  }
+  SIMDInstr(Reg r, Func *f, Type _type, std::vector<int> _regs)
+      : CallInstr(r, f, {}, ScalarType::Void), type(_type), s1(std::nullopt),
+        regs(_regs) {
+    switch (type) {
+    case VADD_I32:
+    case VADD_F32:
+    case VSUB_I32:
+    case VSUB_F32:
+    case VMUL_S32:
+    case VMUL_F32:
+    case VMLA_S32:
+    case VMLA_F32:
+      assert(regs.size() == 3);
+      break;
+    case VCVT_S32_F32:
+    case VCVT_F32_S32:
+      assert(regs.size() == 2);
+      break;
+    default:
+      assert(0);
+    }
+  }
+  inline static const char *names[] = {
+      "vadd.i32", "vadd.f32",     "vsub.i32",    "vsub.f32", "vmul.s32",
+      "vmul.f32", "vmla.s32",     "vmla.f32",    "vdup.32",  "vldm",
+      "vstm",     "vcvt.s32.f32", "vcvt.f32.s32"};
+  const char *name() const { return names[(int)type]; }
+  void compute(typeless_scalar_t simd_regs[][4]);
+  int get_id(int x) const {
+    assert(0 <= x && x < 8);
+    return x + 8;
+  }
+  void print(ostream &os) const override;
+};
+
 // for ssa
 
 struct PhiInstr : RegWriteInstr {

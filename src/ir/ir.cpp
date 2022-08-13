@@ -157,6 +157,18 @@ void CallInstr::print(ostream &os) const {
     os << c;
   os << ')';
 }
+void SIMDInstr::print(ostream &os) const {
+  os << name() << ' ';
+  if (s1)
+    os << *s1 << ' ';
+  bool flag = 0;
+  for (int x : regs) {
+    if (flag)
+      os << ',';
+    os << 'q' << get_id(x);
+    flag = 1;
+  }
+}
 void PhiInstr::print(ostream &os) const {
   os << d1 << " = phi";
   char c = '(';
@@ -187,6 +199,9 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   f->pure = 1;
   f = new_LibFunc("__fixmod", 0);
   f->pure = 1;
+  f = new_LibFunc("__simd", 1);
+  f->in = 1;
+  f->out = 1;
 
   for (auto name : {"getint", "getch", "getfloat"}) {
     f = new_LibFunc(name, 0);
@@ -350,6 +365,14 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
     f1(u->s1);
     return u;
   }
+  Case(SIMDInstr, w, this) {
+    auto u = w;
+    if (copy)
+      u = new SIMDInstr(*w);
+    if (u->s1)
+      f1(*u->s1);
+    return u;
+  }
   Case(CallInstr, w, this) {
     auto u = w;
     if (copy)
@@ -379,6 +402,37 @@ typeless_scalar_t UnaryOpInstr::compute(typeless_scalar_t s1) {
 typeless_scalar_t BinaryOpInstr::compute(typeless_scalar_t s1,
                                          typeless_scalar_t s2) {
   return op.compute(s1, s2);
+}
+
+void SIMDInstr::compute(typeless_scalar_t simd_regs[][4]) {
+#define at_(j, type) simd_regs[regs[j]][i].type##_value()
+#define case_(op, type, bop, eq)                                               \
+  case op: {                                                                   \
+    for (int i = 0; i < 4; ++i) {                                              \
+      at_(0, type) eq at_(1, type)                                             \
+      bop at_(2, type);                                                        \
+    }                                                                          \
+    break;                                                                     \
+  }
+
+  switch (type) {
+  case VCVT_S32_F32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, int) = at_(1, float);
+    }
+    break;
+  case VCVT_F32_S32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, float) = at_(1, int);
+    }
+    break;
+    case_(VADD_I32, int, +, =) case_(VADD_F32, float, +, =)
+        case_(VSUB_I32, int, -, =) case_(VSUB_F32, float, -, =)
+            case_(VMUL_S32, int, *, =) case_(VMUL_F32, float, *, =)
+                case_(VMLA_S32, int, *, +=)
+                    case_(VMLA_F32, float, *, +=) default : assert(0);
+  }
+#undef case_
 }
 
 void map_use(NormalFunc *f, const std::unordered_map<Reg, Reg> &mp_reg) {
@@ -455,6 +509,7 @@ int exec(CompileUnit &c) {
     int id = -1, waiting_id = -1;
     bool waiting = 0;
     std::optional<std::pair<Reg, int32_t>> write_reg;
+    typeless_scalar_t simd_regs[8][4];
   } cur_thread;
   cur_thread.id = 0;
   std::queue<ThreadContext> threads;
@@ -568,6 +623,34 @@ int exec(CompileUnit &c) {
                   d1 = s1 + s2 * x->size;
           wReg(x->d1, d1);
         }
+        else Case(SIMDInstr, x, x0) {
+          switch (x->type) {
+          case SIMDInstr::VDUP_32: {
+            auto s1 = rReg(*x->s1);
+            for (int i = 0; i < 4; ++i) {
+              cur_thread.simd_regs[x->regs[0]][i] = s1;
+            }
+            break;
+          }
+          case SIMDInstr::VLDM: {
+            int s1 = rReg(*x->s1).int_value();
+            for (int i = 0; i < 4; ++i) {
+              cur_thread.simd_regs[x->regs[0]][i] = rMem(s1 + i * 4);
+            }
+            break;
+          }
+          case SIMDInstr::VSTM: {
+            int s1 = rReg(*x->s1).int_value();
+            for (int i = 0; i < 4; ++i) {
+              wMem(s1 + i * 4, cur_thread.simd_regs[x->regs[0]][i]);
+            }
+            break;
+          }
+          default:
+            x->compute(cur_thread.simd_regs);
+            break;
+          }
+        }
         else Case(LoadInstr, x, x0) {
           wReg(x->d1, rMem(rReg(x->addr).int_value() + x->offset));
         }
@@ -621,8 +704,8 @@ int exec(CompileUnit &c) {
 #define FLOAT_FMT "%a"
             if (x->f->name == "__create_threads") {
               assert(args.size() == 0);
-              threads.push(ThreadContext{cur, it, ++fork_cnt, -1, 0,
-                                         std::make_pair(x->d1, 0)});
+              threads.push(ThreadContext{
+                  cur, it, ++fork_cnt, -1, 0, std::make_pair(x->d1, 0), {}});
               cur_thread.waiting_id = fork_cnt;
               if (dbg_thread_on)
                 dbg(cur_thread.id, " fork ", fork_cnt, "\n");
