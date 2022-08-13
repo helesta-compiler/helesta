@@ -265,7 +265,7 @@ struct SIMDScheme {
       }
     }
     assert(max_r <= 8);
-    int n = std::min(2, 8 / max_r);
+    int n = std::min(4, 8 / max_r);
     if (n == 1)
       return;
     cnt *= n;
