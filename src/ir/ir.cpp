@@ -158,7 +158,7 @@ void CallInstr::print(ostream &os) const {
   os << ')';
 }
 void SIMDInstr::print(ostream &os) const {
-  os << d1 << " = ";
+  // os << d1 << " = ";
   os << name() << ' ';
   if (s1)
     os << *s1 << ' ';

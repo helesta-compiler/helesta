@@ -243,6 +243,12 @@ struct BB : Printable, Traversable<BB> {
     }
     ls.clear();
   }
+  void push1(decltype(instrs) &&ls) {
+    for (auto &x : ls) {
+      push1(x.release());
+    }
+    ls.clear();
+  }
   void replace(decltype(instrs) &&ls) {
     ins(std::move(ls));
     del();
