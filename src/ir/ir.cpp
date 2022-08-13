@@ -408,15 +408,6 @@ typeless_scalar_t BinaryOpInstr::compute(typeless_scalar_t s1,
 
 void SIMDInstr::compute(typeless_scalar_t simd_regs[][4]) {
 #define at_(j, type) simd_regs[regs[j]][i].type##_value()
-#define case_(op, type, bop, eq)                                               \
-  case op: {                                                                   \
-    for (int i = 0; i < 4; ++i) {                                              \
-      at_(0, type) eq at_(1, type)                                             \
-      bop at_(2, type);                                                        \
-    }                                                                          \
-    break;                                                                     \
-  }
-
   switch (type) {
   case VCVT_S32_F32:
     for (int i = 0; i < 4; ++i) {
@@ -428,11 +419,48 @@ void SIMDInstr::compute(typeless_scalar_t simd_regs[][4]) {
       at_(0, float) = at_(1, int);
     }
     break;
-    case_(VADD_I32, int, +, =) case_(VADD_F32, float, +, =)
-        case_(VSUB_I32, int, -, =) case_(VSUB_F32, float, -, =)
-            case_(VMUL_S32, int, *, =) case_(VMUL_F32, float, *, =)
-                case_(VMLA_S32, int, *, +=)
-                    case_(VMLA_F32, float, *, +=) default : assert(0);
+  case VADD_I32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, int) = at_(1, int) + at_(2, int);
+    }
+    break;
+  case VADD_F32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, float) = at_(1, float) + at_(2, float);
+    }
+    break;
+  case VSUB_I32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, int) = at_(1, int) - at_(2, int);
+    }
+    break;
+  case VSUB_F32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, float) = at_(1, float) - at_(2, float);
+    }
+    break;
+  case VMUL_S32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, int) = at_(1, int) * at_(2, int);
+    }
+    break;
+  case VMUL_F32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, float) = at_(1, float) * at_(2, float);
+    }
+    break;
+  case VMLA_S32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, int) += at_(1, int) * at_(2, int);
+    }
+    break;
+  case VMLA_F32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, float) += at_(1, float) * at_(2, float);
+    }
+    break;
+  default:
+    assert(0);
   }
 #undef case_
 }
