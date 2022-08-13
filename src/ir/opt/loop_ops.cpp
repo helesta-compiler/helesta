@@ -595,7 +595,8 @@ std::optional<SIMDScheme> ArrayReadWrite::loop_simd(BB *w, CompileUnit *ir) {
   auto ilr = S.get_ilr(w, 1);
   if (!ilr)
     return std::nullopt;
-  auto [i_, l, r, op] = *ilr;
+  auto [i_0, l, r, op] = *ilr;
+  auto i_ = i_0;
   if (!(op.less))
     return std::nullopt;
   auto &wi0 = S.loop_info.at(w);
