@@ -15,7 +15,7 @@ jobs:
         platform: x64
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build
+      run: cmake -B ${{github.workspace}}/build -DCLANG_FORMAT_PATH=/usr/local/bin/clang-format
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build -j6
