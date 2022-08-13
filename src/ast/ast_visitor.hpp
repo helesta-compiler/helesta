@@ -272,5 +272,6 @@ public:
 
   virtual antlrcpp::Any visitRelExp(SysYParser::RelExpContext *ctx) override;
 
-  virtual antlrcpp::Any visitConstExp(SysYParser::ConstExpContext *ctx) override;
+  virtual antlrcpp::Any
+  visitConstExp(SysYParser::ConstExpContext *ctx) override;
 };

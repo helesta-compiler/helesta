@@ -44,48 +44,9 @@ bool startswith(const string &s1, const string &s2) {
   return true;
 }
 
-#define check_int32(x)                                                         \
-  if ((x) > 2147483648ll)                                                      \
-  _throw InvalidLiteral("integer literal out of range")
+int32_t parse_int32_literal(const string &s) { return stoi(s); }
 
-int32_t parse_int32_literal(const string &s) {
-  int64_t ret = 0;
-  if (startswith(s, "0x") || startswith(s, "0X")) {
-    for (size_t i = 2; i < s.length(); ++i) {
-      if (s[i] >= '0' && s[i] <= '9') {
-        ret = ret * 16 + s[i] - '0';
-      } else if (s[i] >= 'a' && s[i] <= 'f') {
-        ret = ret * 16 + s[i] - 'a' + 10;
-      } else {
-        assert(s[i] >= 'A' && s[i] <= 'F');
-        ret = ret * 16 + s[i] - 'A' + 10;
-      }
-      check_int32(ret);
-    }
-  } else if (startswith(s, "0")) {
-    for (size_t i = 1; i < s.length(); ++i) {
-      if (s[i] >= '0' && s[i] <= '7') {
-        ret = ret * 8 + s[i] - '0';
-      } else
-        _throw InvalidLiteral("invalid octal interger literal");
-      check_int32(ret);
-    }
-  } else {
-    for (char ch : s) {
-      assert(ch >= '0' && ch <= '9');
-      ret = ret * 10 + ch - '0';
-      check_int32(ret);
-    }
-  }
-  if (ret <= INT_MAX)
-    return static_cast<int32_t>(ret);
-  else
-    return INT_MIN;
-}
-
-float parse_float_literal(const string &s) {
-  return stof(s); // parse float literal
-}
+float parse_float_literal(const string &s) { return stof(s); }
 
 static bool legal_char(char ch) {
   return isalpha(ch) || isdigit(ch) || ch == '_';

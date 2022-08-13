@@ -812,7 +812,6 @@ antlrcpp::Any ASTVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
   return nullptr;
 }
 
-
 antlrcpp::Any ASTVisitor::visitCond(SysYParser::CondContext *ctx) {
   mode = condition;
   antlrcpp::Any value = ctx->lexp()->accept(this);
