@@ -812,13 +812,10 @@ antlrcpp::Any ASTVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
   return nullptr;
 }
 
-antlrcpp::Any ASTVisitor::visitExp1(SysYParser::Exp1Context *ctx) {
-  return ctx->unaryExp()->accept(this);
-}
 
 antlrcpp::Any ASTVisitor::visitCond(SysYParser::CondContext *ctx) {
   mode = condition;
-  antlrcpp::Any value = ctx->exp()->accept(this);
+  antlrcpp::Any value = ctx->lexp()->accept(this);
   mode = normal;
   auto ret = to_CondJumpList(std::move(value));
   return ret;
@@ -1364,16 +1361,16 @@ antlrcpp::Any ASTVisitor::visitEqExp(SysYParser::EqExpContext *ctx) {
 antlrcpp::Any ASTVisitor::visitLAndExp(SysYParser::LAndExpContext *ctx) {
   if (mode == compile_time) {
     CompileTimeValue<int32_t>
-        lhs = ctx->exp(0)->accept(this).as<CompileTimeValueAny>(),
-        rhs = ctx->exp(1)->accept(this).as<CompileTimeValueAny>();
+        lhs = ctx->lexp(0)->accept(this).as<CompileTimeValueAny>(),
+        rhs = ctx->lexp(1)->accept(this).as<CompileTimeValueAny>();
     return lhs && rhs;
   } else if (mode == normal) {
-    IRValue lhs = to_IRValue(ctx->exp(0)->accept(this));
+    IRValue lhs = to_IRValue(ctx->lexp(0)->accept(this));
     IR::Reg lhs_value = _get_value(ScalarType::Int, lhs);
     IR::BB *lhs_end = cur_bb, *rhs_entry = new_BB(), *res_entry = new_BB();
     lhs_end->push(new IR::BranchInstr(lhs_value, rhs_entry, res_entry));
     cur_bb = rhs_entry;
-    IRValue rhs = to_IRValue(ctx->exp(1)->accept(this));
+    IRValue rhs = to_IRValue(ctx->lexp(1)->accept(this));
     IR::Reg rhs_value = _get_value(ScalarType::Int, rhs);
     cur_bb->push(new IR::JumpInstr(res_entry));
     IR::BB *rhs_end = cur_bb;
@@ -1388,11 +1385,11 @@ antlrcpp::Any ASTVisitor::visitLAndExp(SysYParser::LAndExpContext *ctx) {
     ret.reg = res_reg;
     return ret;
   } else {
-    CondJumpList lhs = to_CondJumpList(ctx->exp(0)->accept(this));
+    CondJumpList lhs = to_CondJumpList(ctx->lexp(0)->accept(this));
     cur_bb = new_BB();
     for (IR::BB **i : lhs.true_list)
       (*i) = cur_bb;
-    CondJumpList rhs = to_CondJumpList(ctx->exp(1)->accept(this));
+    CondJumpList rhs = to_CondJumpList(ctx->lexp(1)->accept(this));
     CondJumpList ret = std::move(rhs);
     for (IR::BB **i : lhs.false_list)
       ret.false_list.push_back(i);
@@ -1403,16 +1400,16 @@ antlrcpp::Any ASTVisitor::visitLAndExp(SysYParser::LAndExpContext *ctx) {
 antlrcpp::Any ASTVisitor::visitLOrExp(SysYParser::LOrExpContext *ctx) {
   if (mode == compile_time) {
     CompileTimeValue<int32_t>
-        lhs = ctx->exp(0)->accept(this).as<CompileTimeValueAny>(),
-        rhs = ctx->exp(1)->accept(this).as<CompileTimeValueAny>();
+        lhs = ctx->lexp(0)->accept(this).as<CompileTimeValueAny>(),
+        rhs = ctx->lexp(1)->accept(this).as<CompileTimeValueAny>();
     return lhs || rhs;
   } else if (mode == normal) {
-    IRValue lhs = to_IRValue(ctx->exp(0)->accept(this));
+    IRValue lhs = to_IRValue(ctx->lexp(0)->accept(this));
     IR::Reg lhs_value = _get_value(ScalarType::Int, lhs);
     IR::BB *lhs_end = cur_bb, *rhs_entry = new_BB(), *res_entry = new_BB();
     lhs_end->push(new IR::BranchInstr(lhs_value, res_entry, rhs_entry));
     cur_bb = rhs_entry;
-    IRValue rhs = to_IRValue(ctx->exp(1)->accept(this));
+    IRValue rhs = to_IRValue(ctx->lexp(1)->accept(this));
     IR::Reg rhs_value = _get_value(ScalarType::Int, rhs);
     cur_bb->push(new IR::JumpInstr(res_entry));
     IR::BB *rhs_end = cur_bb;
@@ -1427,11 +1424,11 @@ antlrcpp::Any ASTVisitor::visitLOrExp(SysYParser::LOrExpContext *ctx) {
     ret.reg = res_reg;
     return ret;
   } else {
-    CondJumpList lhs = to_CondJumpList(ctx->exp(0)->accept(this));
+    CondJumpList lhs = to_CondJumpList(ctx->lexp(0)->accept(this));
     cur_bb = new_BB();
     for (IR::BB **i : lhs.false_list)
       (*i) = cur_bb;
-    CondJumpList rhs = to_CondJumpList(ctx->exp(1)->accept(this));
+    CondJumpList rhs = to_CondJumpList(ctx->lexp(1)->accept(this));
     CondJumpList ret = std::move(rhs);
     for (IR::BB **i : lhs.true_list)
       ret.true_list.push_back(i);
@@ -1445,4 +1442,12 @@ antlrcpp::Any ASTVisitor::visitConstExp(SysYParser::ConstExpContext *ctx) {
   auto ret = ctx->exp()->accept(this);
   mode = normal;
   return ret;
+}
+
+antlrcpp::Any ASTVisitor::visitExp1(SysYParser::Exp1Context *ctx) {
+  return ctx->exp()->accept(this);
+}
+
+antlrcpp::Any ASTVisitor::visitExp2(SysYParser::Exp2Context *ctx) {
+  return ctx->unaryExp()->accept(this);
 }

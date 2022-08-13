@@ -49,7 +49,7 @@ stmt:
 	| 'continue' ';'						# continueStmt
 	| 'return' (exp)? ';'					# returnStmt;
 
-cond: exp;
+cond: lexp;
 
 lVal: Identifier ('[' exp ']')*;
 
@@ -71,13 +71,16 @@ funcRParams: funcRParam (',' funcRParam)*;
 
 funcRParam: exp # expAsRParam | STRING # stringAsRParam;
 
+lexp:
+	lexp '||' lexp		# lOrExp
+	| lexp '&&' lexp	# lAndExp
+	| exp				# exp1;
+
 exp:
-	exp '||' exp						# lOrExp
-	| exp '&&' exp						# lAndExp
-	| exp ('==' | '!=') exp				# eqExp
+	exp ('==' | '!=') exp				# eqExp
 	| exp ('<' | '>' | '<=' | '>=') exp	# relExp
 	| exp ('*' | '/' | '%') exp			# mulExp
 	| exp ('+' | '-') exp				# addExp
-	| unaryExp							# exp1;
+	| unaryExp							# exp2;
 
 constExp: exp;

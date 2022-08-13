@@ -175,15 +175,7 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual antlrcpp::Any visitEqExp(SysYParser::EqExpContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
   virtual antlrcpp::Any visitLOrExp(SysYParser::LOrExpContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual antlrcpp::Any visitAddExp(SysYParser::AddExpContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -191,11 +183,23 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual antlrcpp::Any visitMulExp(SysYParser::MulExpContext *ctx) override {
+  virtual antlrcpp::Any visitExp1(SysYParser::Exp1Context *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual antlrcpp::Any visitExp1(SysYParser::Exp1Context *ctx) override {
+  virtual antlrcpp::Any visitEqExp(SysYParser::EqExpContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual antlrcpp::Any visitAddExp(SysYParser::AddExpContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual antlrcpp::Any visitExp2(SysYParser::Exp2Context *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual antlrcpp::Any visitMulExp(SysYParser::MulExpContext *ctx) override {
     return visitChildren(ctx);
   }
 

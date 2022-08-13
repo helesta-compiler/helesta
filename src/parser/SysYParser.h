@@ -29,7 +29,8 @@ public:
     RuleFuncDef = 9, RuleFuncType = 10, RuleFuncFParams = 11, RuleFuncFParam = 12, 
     RuleBlock = 13, RuleBlockItem = 14, RuleStmt = 15, RuleCond = 16, RuleLVal = 17, 
     RulePrimaryExp = 18, RuleNumber = 19, RuleUnaryExp = 20, RuleUnaryOp = 21, 
-    RuleFuncRParams = 22, RuleFuncRParam = 23, RuleExp = 24, RuleConstExp = 25
+    RuleFuncRParams = 22, RuleFuncRParam = 23, RuleLexp = 24, RuleExp = 25, 
+    RuleConstExp = 26
   };
 
   SysYParser(antlr4::TokenStream *input);
@@ -66,6 +67,7 @@ public:
   class UnaryOpContext;
   class FuncRParamsContext;
   class FuncRParamContext;
+  class LexpContext;
   class ExpContext;
   class ConstExpContext; 
 
@@ -567,7 +569,7 @@ public:
   public:
     CondContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    ExpContext *exp();
+    LexpContext *lexp();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -789,6 +791,58 @@ public:
 
   FuncRParamContext* funcRParam();
 
+  class  LexpContext : public antlr4::ParserRuleContext {
+  public:
+    LexpContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+   
+    LexpContext() = default;
+    void copyFrom(LexpContext *context);
+    using antlr4::ParserRuleContext::copyFrom;
+
+    virtual size_t getRuleIndex() const override;
+
+   
+  };
+
+  class  LOrExpContext : public LexpContext {
+  public:
+    LOrExpContext(LexpContext *ctx);
+
+    std::vector<LexpContext *> lexp();
+    LexpContext* lexp(size_t i);
+    antlr4::tree::TerminalNode *LOR();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  LAndExpContext : public LexpContext {
+  public:
+    LAndExpContext(LexpContext *ctx);
+
+    std::vector<LexpContext *> lexp();
+    LexpContext* lexp(size_t i);
+    antlr4::tree::TerminalNode *LAND();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  Exp1Context : public LexpContext {
+  public:
+    Exp1Context(LexpContext *ctx);
+
+    ExpContext *exp();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  LexpContext* lexp();
+  LexpContext* lexp(int precedence);
   class  ExpContext : public antlr4::ParserRuleContext {
   public:
     ExpContext(antlr4::ParserRuleContext *parent, size_t invokingState);
@@ -816,19 +870,6 @@ public:
     virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
-  class  LOrExpContext : public ExpContext {
-  public:
-    LOrExpContext(ExpContext *ctx);
-
-    std::vector<ExpContext *> exp();
-    ExpContext* exp(size_t i);
-    antlr4::tree::TerminalNode *LOR();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
   class  AddExpContext : public ExpContext {
   public:
     AddExpContext(ExpContext *ctx);
@@ -843,13 +884,11 @@ public:
     virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
-  class  LAndExpContext : public ExpContext {
+  class  Exp2Context : public ExpContext {
   public:
-    LAndExpContext(ExpContext *ctx);
+    Exp2Context(ExpContext *ctx);
 
-    std::vector<ExpContext *> exp();
-    ExpContext* exp(size_t i);
-    antlr4::tree::TerminalNode *LAND();
+    UnaryExpContext *unaryExp();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 
@@ -865,17 +904,6 @@ public:
     antlr4::tree::TerminalNode *Multiplication();
     antlr4::tree::TerminalNode *Division();
     antlr4::tree::TerminalNode *Modulo();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  class  Exp1Context : public ExpContext {
-  public:
-    Exp1Context(ExpContext *ctx);
-
-    UnaryExpContext *unaryExp();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 
@@ -917,6 +945,7 @@ public:
 
 
   virtual bool sempred(antlr4::RuleContext *_localctx, size_t ruleIndex, size_t predicateIndex) override;
+  bool lexpSempred(LexpContext *_localctx, size_t predicateIndex);
   bool expSempred(ExpContext *_localctx, size_t predicateIndex);
 
 private:
