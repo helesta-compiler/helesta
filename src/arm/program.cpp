@@ -599,13 +599,8 @@ std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
   info << "reg_n = " << ctx->reg_n << '\n';
   stat->spill_cnt = 0;
   ColoringAllocator *allocator = nullptr;
-  if (ctx->reg_n <= 1500) { // TODO: check this parameter
-    info << "using IRCColoringAllocator\n";
-    allocator = new IRCColoringAllocator<type>(ctx);
-  } else {
-    info << "using SimpleColoringAllocator\n";
-    allocator = new SimpleColoringAllocator<type>(ctx);
-  }
+  info << "using IRCColoringAllocator\n";
+  allocator = new IRCColoringAllocator<type>(ctx);
   while (true) {
     allocator->clear();
     std::vector<int> ret = allocator->run(stat);
