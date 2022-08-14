@@ -930,7 +930,7 @@ ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
 
 antlrcpp::Any ASTVisitor::visitNumber(SysYParser::NumberContext *ctx) {
   if (ctx->IntLiteral() != 0) {
-    return parse_int32_literal(ctx->getText());
+    return parse_int32_literal(ctx->IntLiteral()->getText());
   } else {
     return parse_float_literal(ctx->FloatLiteral()->getText());
     // int32_t(stof(ctx->FloatLiteral()->getText()));
@@ -1071,7 +1071,7 @@ antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
       cur_bb->push(new IR::UnaryOpInstr(
           res_value, rhs_value, IR::UnaryOp(type, IR::UnaryCompute::LNOT)));
       break;
-    default:; //+, do nothing
+    default: //+, do nothing
       assert(op == '+');
     }
     ret.reg = res_value;
