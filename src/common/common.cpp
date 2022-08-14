@@ -136,6 +136,7 @@ string Configuration::get_arg(string key, string default_value) {
 pair<string, string> parse_arg(int argc, char *argv[]) {
   string input, output;
   global_config.give_up = false;
+  global_config.disabled_passes.insert("par");
   for (int i = 1; i < argc; ++i) {
     string cur{argv[i]};
     if (startswith(cur, "-")) {
