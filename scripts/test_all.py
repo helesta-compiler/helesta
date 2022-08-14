@@ -138,5 +138,6 @@ if __name__ == '__main__':
     with open(args.benchmark_summary_path, 'w') as f:
         f.write("## Overall\n\n")
         f.write(pd.DataFrame([{"hele": hele_sum, "gcc": gcc_sum, "clang": clang_sum}]).to_markdown() + "\n\n")
+        results = sorted(results, key=lambda d: d['testcase'])
         f.write("## Cases\n\n")
         f.write(pd.DataFrame(results).to_markdown() + "\n\n")
