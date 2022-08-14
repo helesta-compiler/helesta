@@ -32,7 +32,6 @@ jobs:
 
   push-to-raspberry-pi:
     runs-on: ubuntu-latest
-    concurrency: raspberry
     needs: build-and-format
 
     steps:
@@ -58,6 +57,11 @@ jobs:
         proxy_host: 140.143.248.164
         proxy_password: ${{ secrets.PASSWORD }}
         proxy_username: helesta 
+
+  run-on-raspberry-pi:
+    runs-on: ubuntu-latest
+    concurrency: raspberry
+    needs: push-to-raspberry-pi
       
     - name: Run Testcases
       uses: fifsky/ssh-action@master
@@ -65,7 +69,7 @@ jobs:
         host: ${{ secrets.HOST }}
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
-        command: python3 /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/testcases
+        command: python3 /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/testcases
 
     - name: Benchmark
       if: ${{ contains(github.event.head_commit.message, '$bench') }}  
@@ -74,7 +78,7 @@ jobs:
         host: ${{ secrets.HOST }}
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
-        command: python3 /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/testcases --benchmark --benchmark_summary_path /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/summary.md
+        command: python3 /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/testcases --benchmark --benchmark_summary_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/summary.md
 
     - name: Pull Benchmark Summary From Raspberry Pi
       if: ${{ contains(github.event.head_commit.message, '$bench') }}  
@@ -85,7 +89,7 @@ jobs:
         username: pi
         insecure_password: ${{ secrets.PASSWORD }}
         port: 2004
-        source: /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/summary.md
+        source: /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/summary.md
         target: "summary.md"
         proxy_host: ${{ secrets.HOST }}
         insecure_proxy_password: ${{ secrets.PASSWORD }}
