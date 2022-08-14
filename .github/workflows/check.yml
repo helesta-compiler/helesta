@@ -117,7 +117,7 @@ jobs:
         host: ${{ secrets.HOST }}
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
-        command: python3 /home/pi/github-action/${{ needs.push-to-raspberry-pi.outputs.run_id }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.outputs.run_id }}/testcases --benchmark --benchmark_summary_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.outputs.run_id }}/summary.md
+        command: python3 /home/pi/github-action/${{ needs.push-to-raspberry-pi.outputs.run_id }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.outputs.run_id }}/testcases --benchmark --benchmark_summary_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.outputs.run_id }}/summary.md --fast
 
     - name: Pull Benchmark Summary From Raspberry Pi
       if: ${{ contains(github.event.head_commit.message, '$bench') }}  
