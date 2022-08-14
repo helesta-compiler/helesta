@@ -35,9 +35,12 @@ jobs:
     needs: build-and-format
 
     steps:
-    - name: Set Run Token
+    - name: Gen Run Token
       id: generate-uuid
       uses: filipstefansson/uuid-action@v1
+
+    - name: Set Run Token to Env
+      run: echo "RUN_ID=${{ steps.generate-uuid.outputs.uuid }}" >> $GITHUB_ENV
 
     - name: Pull Artifatcs
       uses: actions/download-artifact@v3
@@ -53,7 +56,7 @@ jobs:
         password: ${{ secrets.PASSWORD }}
         port: 2004
         source: "testcases,scripts/test_all.py"
-        target: github-action/${{ steps.generate-uuid.outputs.uuid }}
+        target: github-action/${{ env.RUN_ID }}
         proxy_host: 140.143.248.164
         proxy_password: ${{ secrets.PASSWORD }}
         proxy_username: helesta 
@@ -69,7 +72,7 @@ jobs:
         host: ${{ secrets.HOST }}
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
-        command: python3 /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/testcases
+        command: python3 /home/pi/github-action/${{ env.RUN_ID }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ env.RUN_ID }}/testcases
 
     - name: Benchmark
       if: ${{ contains(github.event.head_commit.message, '$bench') }}  
@@ -78,7 +81,7 @@ jobs:
         host: ${{ secrets.HOST }}
         user: ${{ secrets.USERNAME }}
         pass: ${{ secrets.PASSWORD }}
-        command: python3 /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/testcases --benchmark --benchmark_summary_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/summary.md
+        command: python3 /home/pi/github-action/${{ env.RUN_ID }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ env.RUN_ID }}/testcases --benchmark --benchmark_summary_path /home/pi/github-action/${{ env.RUN_ID }}/summary.md
 
     - name: Pull Benchmark Summary From Raspberry Pi
       if: ${{ contains(github.event.head_commit.message, '$bench') }}  
@@ -89,7 +92,7 @@ jobs:
         username: pi
         insecure_password: ${{ secrets.PASSWORD }}
         port: 2004
-        source: /home/pi/github-action/${{ needs.push-to-raspberry-pi.steps.generate-uuid.outputs.uuid }}/summary.md
+        source: /home/pi/github-action/${{ env.RUN_ID }}/summary.md
         target: "summary.md"
         proxy_host: ${{ secrets.HOST }}
         insecure_proxy_password: ${{ secrets.PASSWORD }}
