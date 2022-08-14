@@ -23,7 +23,12 @@ jobs:
       run: cmake --build ${{github.workspace}}/build -j6
 
     - name: Compile Testcases
+      if: ${{ ! contains(github.event.head_commit.message, '$fast') }}  
       run: python3 ./scripts/run_all.py --fuzz no-func-inline --fuzz no-opt
+
+    - name: Compile Testcases
+      if: ${{ contains(github.event.head_commit.message, '$fast') }}  
+      run: python3 ./scripts/run_all.py --fuzz no-func-inline --fuzz no-opt --fast
 
     - uses: actions/upload-artifact@v3
       if: ${{ ! contains(github.event.head_commit.message, '$fast') }}  
