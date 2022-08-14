@@ -122,8 +122,8 @@ if __name__ == '__main__':
                 result['passed'] = (out is not None) and (out == std)
                 result['hele elapsed'] = elapsed
                 hele_sum += elapsed
-                _, elapsed = run_with('g++', src_file, in_file, args.lib_src_path, args.include_path)
                 if not args.fast:
+                    _, elapsed = run_with('g++', src_file, in_file, args.lib_src_path, args.include_path)
                     gcc_sum += elapsed
                     result['gcc elapsed'] = elapsed
                     _, elapsed = run_with('clang++', src_file, in_file, args.lib_src_path, args.include_path)
