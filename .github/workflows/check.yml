@@ -1,8 +1,8 @@
-name: check
+name: Sanity Check
 on: [push]
 
 jobs:
-  build:
+  build-and-format:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,18 +16,35 @@ jobs:
     - name: Configure CMake
       run: cmake -DCLANG_FORMAT_EXE=${{ env.LLVM_PATH }}/bin/clang-format -DCMAKE_CXX_COMPILER=${{ env.LLVM_PATH }}/bin/clang++ -B ${{github.workspace}}/build
 
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build -j6
-
     - name: Format Check
       run: cmake --build ${{github.workspace}}/build --target format_check
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build -j6
 
     - name: Compile Testcases
       run: python3 ./scripts/run_all.py --fuzz no-func-inline --fuzz no-opt
 
+    - uses: actions/upload-artifact@v3
+      with:
+        name: asms-ins-outs
+        path: ./testcases
+
+  push-to-raspberry-pi:
+    runs-on: ubuntu-latest
+    concurrency: raspberry
+    needs: build-and-format
+
+    steps:
     - name: Set Run Token
       id: generate-uuid
       uses: filipstefansson/uuid-action@v1
+
+    - name: Pull Artifatcs
+      uses: actions/download-artifact@v3
+      with:
+        name: asms-ins-outs
+        path: ./testcases
 
     - name: Push Intermediates to Raspberry Pi
       uses: appleboy/scp-action@master
@@ -43,7 +60,6 @@ jobs:
         proxy_username: helesta 
       
     - name: Run Testcases
-      concurrency: raspberry-pi
       uses: fifsky/ssh-action@master
       with:
         host: ${{ secrets.HOST }}
@@ -52,7 +68,6 @@ jobs:
         command: python3 /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/testcases
 
     - name: Benchmark
-      concurrency: raspberry-pi
       if: ${{ contains(github.event.head_commit.message, '$bench') }}  
       uses: fifsky/ssh-action@master
       with:
