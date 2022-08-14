@@ -26,9 +26,16 @@ jobs:
       run: python3 ./scripts/run_all.py --fuzz no-func-inline --fuzz no-opt
 
     - uses: actions/upload-artifact@v3
+      if: ${{ ! contains(github.event.head_commit.message, '$fast') }}  
       with:
         name: asms-ins-outs
         path: ./testcases
+
+    - uses: actions/upload-artifact@v3
+      if: ${{ contains(github.event.head_commit.message, '$fast') }}  
+      with:
+        name: asms-ins-outs
+        path: ./testcases/performance
 
     - uses: actions/upload-artifact@v3
       with:
@@ -45,10 +52,18 @@ jobs:
       uses: filipstefansson/uuid-action@v1
 
     - name: Pull Testcases
+      if: ${{ ! contains(github.event.head_commit.message, '$fast') }}  
       uses: actions/download-artifact@v3
       with:
         name: asms-ins-outs
         path: ./testcases
+
+    - name: Pull Testcases
+      if: ${{ contains(github.event.head_commit.message, '$fast') }}  
+      uses: actions/download-artifact@v3
+      with:
+        name: asms-ins-outs
+        path: ./testcases/performance
 
     - name: Pull Scripts
       uses: actions/download-artifact@v3
@@ -87,7 +102,16 @@ jobs:
         command: python3 /home/pi/github-action/${{ needs.push-to-raspberry-pi.outputs.run_id }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.outputs.run_id }}/testcases
 
     - name: Benchmark
-      if: ${{ contains(github.event.head_commit.message, '$bench') }}  
+      if: ${{ contains(github.event.head_commit.message, '$bench') && ! contains(github.event.head_commit.message, '$fast') }}  
+      uses: fifsky/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        user: ${{ secrets.USERNAME }}
+        pass: ${{ secrets.PASSWORD }}
+        command: python3 /home/pi/github-action/${{ needs.push-to-raspberry-pi.outputs.run_id }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.outputs.run_id }}/testcases --benchmark --benchmark_summary_path /home/pi/github-action/${{ needs.push-to-raspberry-pi.outputs.run_id }}/summary.md
+
+    - name: Benchmark
+      if: ${{ contains(github.event.head_commit.message, '$bench') && contains(github.event.head_commit.message, '$fast') }}  
       uses: fifsky/ssh-action@master
       with:
         host: ${{ secrets.HOST }}
