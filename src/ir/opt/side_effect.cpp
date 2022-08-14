@@ -339,7 +339,8 @@ template <ScalarType Type, typename T> struct GlobalInitToGlobalConst {
         if (w.mustbe) {
           assert(w.mustbe->first == mem);
           auto offset = w.mustbe->second;
-          T v = (mp.kv.count(offset) ? mp.kv.at(offset) : mem->at<T>(offset));
+          T v = (mp.kv.count(offset) ? mp.kv.at(offset)
+                                     : mem->template at<T>(offset));
           pb.f->entry->replace(new LoadConst(ld->d1, v));
         } else {
           mp.locked = 1;
@@ -655,6 +656,7 @@ void DAG_IR_ALL::remove_unused_memobj() {
   });
 }
 
+void load_store_offset(NormalFunc *);
 void split_live_range(NormalFunc *);
 void remove_phi(NormalFunc *);
 void code_reorder(NormalFunc *);
@@ -673,6 +675,7 @@ DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
   if (type == BEFORE_BACKEND) {
     ir->for_each([&](NormalFunc *f) {
       code_reorder(f);
+      load_store_offset(f);
       split_live_range(f);
       remove_phi(f);
       code_reorder(f);

@@ -176,6 +176,15 @@ template <class T, class F> void remove_if_vec(T &ls, F f) {
   ls.resize(std::remove_if(ls.begin(), ls.end(), f) - ls.begin());
 }
 
+template <class Out, class T>
+Out &operator<<(Out &out, std::optional<T> const &v) {
+  if (v)
+    out << "optional(" << *v << ')';
+  else
+    out << "nullopt";
+  return out;
+}
+
 inline void _dbg1() {}
 template <class T1, class... T2> void _dbg1(const T1 &x, const T2 &...xs) {
   if (global_config.log_level > 1)

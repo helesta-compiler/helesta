@@ -581,6 +581,7 @@ struct LoadInstr : RegWriteInstr {
   // d1 = M[addr]
   LoadInstr(Reg d1, Reg addr) : RegWriteInstr(d1), addr(addr) {}
   Reg addr;
+  int32_t offset = 0;
   void print(ostream &os) const override;
 };
 
@@ -590,6 +591,7 @@ struct StoreInstr : Instr {
   StoreInstr(Reg addr, Reg s1) : addr(addr), s1(s1) {}
   Reg addr;
   Reg s1;
+  int32_t offset = 0;
   void print(ostream &os) const override;
 };
 
