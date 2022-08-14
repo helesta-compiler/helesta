@@ -186,7 +186,7 @@ Out &operator<<(Out &out, std::optional<T> const &v) {
 }
 
 inline void _dbg1() {}
-template <class T1, class... T2> void _dbg1(const T1 &x, const T2 &...xs) {
+template <class T1, class... T2> void _dbg1(const T1 &x, const T2 &... xs) {
   if (global_config.log_level > 1)
     return;
   std::cerr << x;

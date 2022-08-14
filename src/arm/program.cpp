@@ -795,7 +795,10 @@ SYS_clone = 120
 CLONE_VM = 256
 SIGCHLD = 17
 __create_threads:
-    push {r4, r5, r6, r7}
+	vmov s28, r4
+	vmov s29, r5
+	vmov s30, r6
+	vmov s31, r7
     mov r0, #(CLONE_VM | SIGCHLD)
     mov r1, sp
     mov r2, #0
@@ -804,7 +807,10 @@ __create_threads:
     mov r6, #0
     mov r7, #SYS_clone
     swi #0
-    pop {r4, r5, r6, r7}
+    vmov r4, s28
+    vmov r5, s29
+    vmov r6, s30
+    vmov r7, s31
     bx lr
 
 SYS_waitid = 280
@@ -812,9 +818,14 @@ SYS_exit = 1
 P_ALL = 0
 WEXITED = 4
 __join_threads:
-    sub sp, sp, #16
+    dsb
+	isb
+	sub sp, sp, #16
     cmp r0, #0
 	bne .L01
+	vmov s28, r4
+	vmov s29, r5
+	vmov s30, r6
 	vmov s31, r7
     mov r0, #P_ALL
     mov r1, #0
@@ -822,6 +833,9 @@ __join_threads:
     mov r3, #WEXITED
     mov r7, #SYS_waitid
     swi #0
+    vmov r4, s28
+    vmov r5, s29
+    vmov r6, s30
     vmov r7, s31
     add sp, sp, #16
     bx lr
