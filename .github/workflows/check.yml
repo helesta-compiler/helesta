@@ -43,6 +43,7 @@ jobs:
         proxy_username: helesta 
       
     - name: Run Testcases
+      concurrency: raspberry-pi
       uses: fifsky/ssh-action@master
       with:
         host: ${{ secrets.HOST }}
@@ -51,6 +52,7 @@ jobs:
         command: python3 /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/scripts/test_all.py --testcase_path /home/pi/github-action/${{ steps.generate-uuid.outputs.uuid }}/testcases
 
     - name: Benchmark
+      concurrency: raspberry-pi
       if: ${{ contains(github.event.head_commit.message, '$bench') }}  
       uses: fifsky/ssh-action@master
       with:
