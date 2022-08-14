@@ -65,7 +65,8 @@ jobs:
     runs-on: ubuntu-latest
     concurrency: raspberry
     needs: push-to-raspberry-pi
-      
+    
+    steps:
     - name: Run Testcases
       uses: fifsky/ssh-action@master
       with:
