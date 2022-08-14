@@ -14,7 +14,7 @@ jobs:
         version: "14.0"
 
     - name: Configure CMake
-      run: cmake -DCLANG_FORMAT_EXE=${{ env.LLVM_PATH }}/bin/clang-format -B ${{github.workspace}}/build
+      run: cmake -DCLANG_FORMAT_EXE=${{ env.LLVM_PATH }}/bin/clang-format -DCMAKE_CXX_COMPILER=${{ env.LLVM_PATH }}/bin/clang++ -B ${{github.workspace}}/build
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build -j6
