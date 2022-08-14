@@ -907,10 +907,12 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
         BB *bb = S.f->new_BB();
         auto &p1 = loops[i];
         p1.exit->map_BB(partial_map(next, bb));
-        if (i == 1)
-          cg.call(join, ScalarType::Void,
+        if (i != cnt) {
+		  for(size_t j=i;j<cnt;++j)
+		  cg.call(join, ScalarType::Void,
                   {{cg.lc(0), ScalarType::Int}}); // wait
-        if (i != 1)
+		}
+		if (i != 1)
           cg.call(join, ScalarType::Void,
                   {{cg.lc(1), ScalarType::Int}}); // exit
         cg.jump(tail);

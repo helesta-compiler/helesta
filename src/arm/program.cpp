@@ -827,7 +827,7 @@ __join_threads:
 	vmov s29, r5
 	vmov s30, r6
 	vmov s31, r7
-    mov r0, #P_ALL
+    mov r0, #-1
     mov r1, #0
     mov r2, #0
     mov r3, #WEXITED
