@@ -64,57 +64,6 @@ void MappingInfo::set_maybe_float_assign(Reg &r1, Reg &r2) {
   }
 }
 
-void Func::replace_pseduo_inst() {
-  for (auto &block : blocks) {
-    auto &insts = block->insts;
-    for (auto it = insts.begin(); it != insts.end(); ++it) {
-      Inst *inst = it->get();
-      if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
-        if (bop->op == RegRegInst::Mod) {
-          auto dst = bop->dst;
-          auto s1 = bop->lhs;
-          auto s2 = bop->rhs;
-          insts.insert(it,
-                       make_unique<RegRegInst>(RegRegInst::Div, dst, s1, s2));
-          *it = make_unique<ML>(ML::Mls, dst, s2, dst, s1);
-        }
-      }
-    }
-  }
-}
-
-template <class T, class F>
-void reverse_for_each_del(std::list<T> &ls, const F &f) {
-  for (auto it = ls.end(); it != ls.begin();) {
-    auto it0 = it;
-    if (f(*--it)) {
-      ls.erase(it);
-      it = it0;
-    }
-  }
-}
-
-void Func::dce() {
-  calc_live();
-  for (auto &block : blocks) {
-    auto live = block->live_out;
-    bool use_cpsr = false;
-    reverse_for_each_del(block->insts, [&](std::unique_ptr<Inst> &cur) -> bool {
-      bool used = cur->side_effect();
-      used |= (cur->change_cpsr() && use_cpsr);
-      for (Reg r : cur->def_reg())
-        if ((r.is_machine() && !r.is_allocable()) || live.count(r))
-          used = true;
-      if (!used)
-        return 1;
-      use_cpsr &= !cur->change_cpsr();
-      use_cpsr |= cur->use_cpsr();
-      cur->update_live(live);
-      return 0;
-    });
-  }
-}
-
 void Func::erase_def_use(const OccurPoint &p, Inst *inst) {
   for (Reg r : inst->def_reg())
     reg_def[r.id].erase(p);
@@ -240,72 +189,6 @@ void Func::replace_with_reg_alloc(const vector<int> &int_reg_alloc,
         if (i->is_pseudo())
           i->id = i->type == ScalarType::Int ? int_reg_alloc[i->id]
                                              : float_reg_alloc[i->id];
-}
-
-void Func::replace_complex_inst() {
-  for (auto &block : blocks) {
-    int32_t sp_offset = 0;
-    for (auto i = block->insts.begin(); i != block->insts.end(); ++i) {
-      (*i)->maintain_sp(sp_offset);
-      InstCond cond = (*i)->cond;
-      if (auto load_stk = (*i)->as<LoadStack>()) {
-        int32_t total_offset =
-            load_stk->src->position + load_stk->offset - sp_offset;
-        if (!load_store_offset_range(total_offset)) {
-          Reg dst = load_stk->dst;
-          Reg tmp = dst;
-          tmp.type = ScalarType::Int;
-          insert(block->insts, i, set_cond(load_imm(tmp, total_offset), cond));
-          *i = set_cond(
-              make_unique<ComplexLoad>(dst, Reg(sp, ScalarType::Int), tmp),
-              cond);
-        }
-      } else if (auto load_stk_addr = (*i)->as<LoadStackAddr>()) {
-        int32_t total_offset =
-            load_stk_addr->src->position + load_stk_addr->offset - sp_offset;
-        Reg dst = load_stk_addr->dst;
-        replace(
-            block->insts, i,
-            set_cond(reg_imm_sum(dst, Reg(sp, ScalarType::Int), total_offset),
-                     cond));
-      } else if (auto load_stk_offset = (*i)->as<LoadStackOffset>()) {
-        int32_t total_offset = load_stk_offset->src->position +
-                               load_stk_offset->offset - sp_offset;
-        Reg dst = load_stk_offset->dst;
-        replace(block->insts, i, set_cond(load_imm(dst, total_offset), cond));
-      }
-    }
-  }
-}
-
-void Func::remove_trivial_inst() {
-  for (auto &block : blocks) {
-    std::unordered_map<int32_t, int32_t> const_info;
-    block->for_each([&](Inst *inst) {
-      if (auto mov = dynamic_cast<MoveReg *>(inst)) {
-        if (mov->dst.type == mov->src.type && mov->dst == mov->src) {
-          block->del();
-          return;
-        }
-      }
-      if (auto mov = dynamic_cast<MoveImm *>(inst)) {
-        if (mov->op == MoveImm::Mov && const_info.count(mov->dst.id)) {
-          if (const_info.at(mov->dst.id) == mov->src) {
-            block->del();
-            return;
-          }
-        }
-        if (mov->op == MoveImm::Mov && mov->cond == InstCond::Always) {
-          const_info[mov->dst.id] = mov->src;
-        } else {
-          const_info.erase(mov->dst.id);
-        }
-        return;
-      }
-      for (auto r : inst->def_reg())
-        const_info.erase(r.id);
-    });
-  }
 }
 
 void Func::print(ostream &out) {

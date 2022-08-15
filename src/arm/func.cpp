@@ -229,8 +229,6 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     }
   }
 
-  replace_pseduo_inst();
-  PassEnabled("dce") dce();
   if (global_config.args.count("ir2")) {
     ir_func->for_each([&](IR::BB *bb0) {
       std::cerr << "================================\n";
@@ -241,8 +239,6 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
 }
 
 void Func::gen_asm(std::ostream &out) {
-  replace_complex_inst();
-  remove_trivial_inst();
   out << '\n' << name << ":\n";
   ctx.prologue(out);
   for (auto &block : blocks)
