@@ -599,7 +599,7 @@ std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
   info << "reg_n = " << ctx->reg_n << '\n';
   stat->spill_cnt = 0;
   ColoringAllocator *allocator = nullptr;
-  if (ctx->reg_n <= 2000) { // TODO: check this parameter
+  if (ctx->reg_n <= 20) { // TODO: check this parameter
     info << "using IRCColoringAllocator\n";
     allocator = new IRCColoringAllocator<type>(ctx);
   } else {
