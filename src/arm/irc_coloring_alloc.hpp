@@ -177,7 +177,7 @@ private:
     assert(id >= RegConvention<type>::Count);
     for (int i : interfere_edge[id]) {
       interfere_edge[i].erase(id);
-      if (interfere_edge[i].size() ==
+      if (interfere_edge[i].size() <=
               RegConvention<type>::ALLOCABLE_REGISTER_COUNT - 1 &&
           i >= RegConvention<type>::Count && move_edges[i].empty())
         simplify_worklist.push(i);
@@ -320,14 +320,16 @@ private:
       if (move_edges[i].empty()) {
         continue;
       }
-      if (interfere_edge[i].size() < RegConvention<type>::Count) {
+      if (interfere_edge[i].size() <
+          RegConvention<type>::ALLOCABLE_REGISTER_COUNT) {
         if (selected_freeze < 0) {
           selected_freeze = i;
           continue;
         }
         if (interfere_edge[i].size() > interfere_edge[selected_freeze].size()) {
           selected_freeze = i;
-          if (interfere_edge[i].size() == RegConvention<type>::Count - 1) {
+          if (interfere_edge[i].size() ==
+              RegConvention<type>::ALLOCABLE_REGISTER_COUNT - 1) {
             break;
           }
         }
