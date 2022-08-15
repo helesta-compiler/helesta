@@ -351,17 +351,19 @@ private:
     // double optimal_value = 0.0;
     // const double epsilon = 1e-5;
     for (int i : remain_pesudo_nodes) {
-        if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end())
-          if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end() ||
-              func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end())
-            if (selected_spill == -1 ||
-                interfere_edge[i].size() > interfere_edge[selected_spill].size())
-              selected_spill = i;
+      if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end())
+        if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end() ||
+            func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end())
+          if (selected_spill == -1 ||
+              interfere_edge[i].size() > interfere_edge[selected_spill].size())
+            selected_spill = i;
       if (selected_spill == -1) {
         for (int i : remain_pesudo_nodes) {
-          if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end()) {
+          if (func->spilling_reg.find(Reg(i, type)) ==
+              func->spilling_reg.end()) {
             if (selected_spill == -1 ||
-                interfere_edge[i].size() > interfere_edge[selected_spill].size()) {
+                interfere_edge[i].size() >
+                    interfere_edge[selected_spill].size()) {
               selected_spill = i;
             }
           }
