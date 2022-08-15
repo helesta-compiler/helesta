@@ -348,20 +348,23 @@ private:
   int select_spill() {
     int selected_spill = -1;
     // TODO: get a better policy to select the node
-    double optimal_value = 0.0;
+    // double optimal_value = 0.0;
     // const double epsilon = 1e-5;
     for (int i : remain_pesudo_nodes) {
-      if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end()) {
-        double cur_value = 0.0;
-        if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end() ||
-            func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end()) {
-          cur_value = (double)(interfere_edge[i].size() + 1000) * 1.0;
-        } else {
-          cur_value = (double)(interfere_edge[i].size() * 1.0);
-        }
-        if (selected_spill == -1 || cur_value > optimal_value) {
-          selected_spill = i;
-          optimal_value = cur_value;
+        if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end())
+          if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end() ||
+              func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end())
+            if (selected_spill == -1 ||
+                interfere_edge[i].size() > interfere_edge[selected_spill].size())
+              selected_spill = i;
+      if (selected_spill == -1) {
+        for (int i : remain_pesudo_nodes) {
+          if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end()) {
+            if (selected_spill == -1 ||
+                interfere_edge[i].size() > interfere_edge[selected_spill].size()) {
+              selected_spill = i;
+            }
+          }
         }
       }
     }
