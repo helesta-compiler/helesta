@@ -73,8 +73,8 @@ funcRParam: exp # expAsRParam | STRING # stringAsRParam;
 
 lexp:
 	exp					# exp1
-	| lexp '||' lexp	# lOrExp
-	| lexp '&&' lexp	# lAndExp;
+	| lexp '&&' lexp	# lAndExp
+	| lexp '||' lexp	# lOrExp;
 
 exp:
 	unaryExp							# exp2
