@@ -29,6 +29,7 @@ struct Program {
   Program(IR::CompileUnit *ir);
   void gen_global_var_asm(std::ostream &out);
   void gen_asm(std::ostream &out);
+  void allocate_register();
 };
 
 } // namespace ARMv7
