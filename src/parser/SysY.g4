@@ -72,9 +72,9 @@ funcRParams: funcRParam (',' funcRParam)*;
 funcRParam: exp # expAsRParam | STRING # stringAsRParam;
 
 lexp:
-	lexp '||' lexp		# lOrExp
-	| lexp '&&' lexp	# lAndExp
-	| exp				# exp1;
+	exp					# exp1
+	| lexp '||' lexp	# lOrExp
+	| lexp '&&' lexp	# lAndExp;
 
 exp:
 	unaryExp							# exp2
