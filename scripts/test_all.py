@@ -13,6 +13,7 @@ def parse_args():
     parser.add_argument("--lib_src_path", default="/home/pi/github-action/sylib.c")
     parser.add_argument("--include_path", default="/home/pi/github-action/sylib.h")
     parser.add_argument("--benchmark", action='store_true')
+    parser.add_argument("--fast", action='store_true')
     parser.add_argument("--benchmark_summary_path", default='/home/pi/github-action/summary.md')
     parser.add_argument("--benchmark_data_path", default='/home/pi/data/performance/')
     parser.add_argument('--koba_path', default='/home/pi/kobayashi-compiler/build/compiler')
@@ -121,22 +122,24 @@ if __name__ == '__main__':
                 result['passed'] = (out is not None) and (out == std)
                 result['hele elapsed'] = elapsed
                 hele_sum += elapsed
-                _, elapsed = run_with('g++', src_file, in_file, args.lib_src_path, args.include_path)
-                gcc_sum += elapsed
-                result['gcc elapsed'] = elapsed
-                _, elapsed = run_with('clang++', src_file, in_file, args.lib_src_path, args.include_path)
-                clang_sum += elapsed
-                result['clang elapsed'] = elapsed
-                res = run_koba(args.koba_path, src_file, in_file, args.lib_path)
-                if res is None:
-                    result['koba elapsed'] = "N/A"
-                else:
-                    result['koba elapsed'] = res[1]
+                if not args.fast:
+                    _, elapsed = run_with('g++', src_file, in_file, args.lib_src_path, args.include_path)
+                    gcc_sum += elapsed
+                    result['gcc elapsed'] = elapsed
+                    _, elapsed = run_with('clang++', src_file, in_file, args.lib_src_path, args.include_path)
+                    clang_sum += elapsed
+                    result['clang elapsed'] = elapsed
+                    res = run_koba(args.koba_path, src_file, in_file, args.lib_path)
+                    if res is None:
+                        result['koba elapsed'] = "N/A"
+                    else:
+                        result['koba elapsed'] = res[1]
                 results.append(result)
     if not args.benchmark:
         exit(0)
     with open(args.benchmark_summary_path, 'w') as f:
         f.write("## Overall\n\n")
         f.write(pd.DataFrame([{"hele": hele_sum, "gcc": gcc_sum, "clang": clang_sum}]).to_markdown() + "\n\n")
+        results = sorted(results, key=lambda d: d['testcase'])
         f.write("## Cases\n\n")
         f.write(pd.DataFrame(results).to_markdown() + "\n\n")

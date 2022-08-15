@@ -190,7 +190,7 @@ struct CallGraph {
               return;
             }
             Reg r = ret->s1 = f->new_Reg();
-            auto lc = new LoadConst(r, 0);
+            auto lc = new LoadConst(r, 0.0f);
             bb->push1(lc);
             fi.defs[r] = lc;
             flag = 1;
