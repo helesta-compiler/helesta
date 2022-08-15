@@ -861,6 +861,21 @@ __unlock:
 	str r1, [r0]
 	bx lr
 
+__barrier:
+	ldrex r3, [r0]
+	cmp r3, #0
+	moveq r3, r3, r1
+	sub r3, r3, #1
+	strex r2, r3, [r0]
+	cmp r2, #0
+	bne __barrier
+	dmb
+.L03:
+	ldr r1, [r0]
+	cmp r1, #0
+	bne .L03
+	bx lr
+
 __nop:
     mov r0, #64
 .L02:

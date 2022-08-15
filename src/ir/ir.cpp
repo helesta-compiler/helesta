@@ -207,6 +207,9 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   f = new_LibFunc("__nop", 1);
   f->in = 1;
   f->out = 1;
+  f = new_LibFunc("__barrier", 1);
+  f->in = 1;
+  f->out = 1;
   f = new_LibFunc("__umulmod", 0);
   f->pure = 1;
   f = new_LibFunc("__u_c_np1_2_mod", 0);
