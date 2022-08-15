@@ -844,6 +844,28 @@ __join_threads:
     mov r7, #SYS_exit
     swi #0
 
+SYS_sched_setaffinity = 241
+__bind_core:
+	vmov s28, r4
+	vmov s29, r5
+	vmov s30, r6
+	vmov s31, r7
+	sub sp, sp, #1024
+	add r2, sp, r0, LSL #2
+	mov r3, #1
+	lsl r3, r3, r0
+	str r3, [r2,#0]
+	mov r0, #0
+	mov r1, #4
+	mov r7, #SYS_sched_setaffinity
+	swi #0
+	add sp, sp, #1024
+    vmov r4, s28
+    vmov r5, s29
+    vmov r6, s30
+    vmov r7, s31
+    bx lr
+
 __lock:
     ldrex r1, [r0]
 	cmp r1, #1
