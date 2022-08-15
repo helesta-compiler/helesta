@@ -3399,17 +3399,18 @@ SysYParser::ExpContext* SysYParser::exp(int precedence) {
         _errHandler->sync(this);
         switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 32, _ctx)) {
         case 1: {
-          auto newContext = _tracker.createInstance<EqExpContext>(_tracker.createInstance<ExpContext>(parentContext, parentState));
+          auto newContext = _tracker.createInstance<MulExpContext>(_tracker.createInstance<ExpContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleExp);
           setState(312);
 
-          if (!(precpred(_ctx, 5))) throw FailedPredicateException(this, "precpred(_ctx, 5)");
+          if (!(precpred(_ctx, 4))) throw FailedPredicateException(this, "precpred(_ctx, 4)");
           setState(313);
           _la = _input->LA(1);
-          if (!(_la == SysYParser::EQ
-
-          || _la == SysYParser::NEQ)) {
+          if (!((((_la & ~ 0x3fULL) == 0) &&
+            ((1ULL << _la) & ((1ULL << SysYParser::Multiplication)
+            | (1ULL << SysYParser::Division)
+            | (1ULL << SysYParser::Modulo))) != 0))) {
           _errHandler->recoverInline(this);
           }
           else {
@@ -3417,18 +3418,41 @@ SysYParser::ExpContext* SysYParser::exp(int precedence) {
             consume();
           }
           setState(314);
-          exp(6);
+          exp(5);
           break;
         }
 
         case 2: {
-          auto newContext = _tracker.createInstance<RelExpContext>(_tracker.createInstance<ExpContext>(parentContext, parentState));
+          auto newContext = _tracker.createInstance<AddExpContext>(_tracker.createInstance<ExpContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleExp);
           setState(315);
 
-          if (!(precpred(_ctx, 4))) throw FailedPredicateException(this, "precpred(_ctx, 4)");
+          if (!(precpred(_ctx, 3))) throw FailedPredicateException(this, "precpred(_ctx, 3)");
           setState(316);
+          _la = _input->LA(1);
+          if (!(_la == SysYParser::Minus
+
+          || _la == SysYParser::Addition)) {
+          _errHandler->recoverInline(this);
+          }
+          else {
+            _errHandler->reportMatch(this);
+            consume();
+          }
+          setState(317);
+          exp(4);
+          break;
+        }
+
+        case 3: {
+          auto newContext = _tracker.createInstance<RelExpContext>(_tracker.createInstance<ExpContext>(parentContext, parentState));
+          _localctx = newContext;
+          pushNewRecursionContext(newContext, startState, RuleExp);
+          setState(318);
+
+          if (!(precpred(_ctx, 2))) throw FailedPredicateException(this, "precpred(_ctx, 2)");
+          setState(319);
           _la = _input->LA(1);
           if (!((((_la & ~ 0x3fULL) == 0) &&
             ((1ULL << _la) & ((1ULL << SysYParser::LT)
@@ -3441,47 +3465,23 @@ SysYParser::ExpContext* SysYParser::exp(int precedence) {
             _errHandler->reportMatch(this);
             consume();
           }
-          setState(317);
-          exp(5);
-          break;
-        }
-
-        case 3: {
-          auto newContext = _tracker.createInstance<MulExpContext>(_tracker.createInstance<ExpContext>(parentContext, parentState));
-          _localctx = newContext;
-          pushNewRecursionContext(newContext, startState, RuleExp);
-          setState(318);
-
-          if (!(precpred(_ctx, 3))) throw FailedPredicateException(this, "precpred(_ctx, 3)");
-          setState(319);
-          _la = _input->LA(1);
-          if (!((((_la & ~ 0x3fULL) == 0) &&
-            ((1ULL << _la) & ((1ULL << SysYParser::Multiplication)
-            | (1ULL << SysYParser::Division)
-            | (1ULL << SysYParser::Modulo))) != 0))) {
-          _errHandler->recoverInline(this);
-          }
-          else {
-            _errHandler->reportMatch(this);
-            consume();
-          }
           setState(320);
-          exp(4);
+          exp(3);
           break;
         }
 
         case 4: {
-          auto newContext = _tracker.createInstance<AddExpContext>(_tracker.createInstance<ExpContext>(parentContext, parentState));
+          auto newContext = _tracker.createInstance<EqExpContext>(_tracker.createInstance<ExpContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleExp);
           setState(321);
 
-          if (!(precpred(_ctx, 2))) throw FailedPredicateException(this, "precpred(_ctx, 2)");
+          if (!(precpred(_ctx, 1))) throw FailedPredicateException(this, "precpred(_ctx, 1)");
           setState(322);
           _la = _input->LA(1);
-          if (!(_la == SysYParser::Minus
+          if (!(_la == SysYParser::EQ
 
-          || _la == SysYParser::Addition)) {
+          || _la == SysYParser::NEQ)) {
           _errHandler->recoverInline(this);
           }
           else {
@@ -3489,7 +3489,7 @@ SysYParser::ExpContext* SysYParser::exp(int precedence) {
             consume();
           }
           setState(323);
-          exp(3);
+          exp(2);
           break;
         }
 
@@ -3589,10 +3589,10 @@ bool SysYParser::lexpSempred(LexpContext *_localctx, size_t predicateIndex) {
 
 bool SysYParser::expSempred(ExpContext *_localctx, size_t predicateIndex) {
   switch (predicateIndex) {
-    case 2: return precpred(_ctx, 5);
-    case 3: return precpred(_ctx, 4);
-    case 4: return precpred(_ctx, 3);
-    case 5: return precpred(_ctx, 2);
+    case 2: return precpred(_ctx, 4);
+    case 3: return precpred(_ctx, 3);
+    case 4: return precpred(_ctx, 2);
+    case 5: return precpred(_ctx, 1);
 
   default:
     break;
@@ -3711,8 +3711,8 @@ SysYParser::Initializer::Initializer() {
     0xa, 0xc, 0xe, 0x10, 0x12, 0x14, 0x16, 0x18, 0x1a, 0x1c, 0x1e, 0x20, 
     0x22, 0x24, 0x26, 0x28, 0x2a, 0x2c, 0x2e, 0x30, 0x32, 0x34, 0x36, 0x2, 
     0xa, 0x3, 0x2, 0x4, 0x5, 0x3, 0x2, 0x4, 0x6, 0x4, 0x2, 0x29, 0x29, 0x2c, 
-    0x2c, 0x4, 0x2, 0x1a, 0x1b, 0x1d, 0x1d, 0x3, 0x2, 0x23, 0x24, 0x3, 0x2, 
-    0x25, 0x28, 0x3, 0x2, 0x1e, 0x20, 0x4, 0x2, 0x1a, 0x1a, 0x1d, 0x1d, 
+    0x2c, 0x4, 0x2, 0x1a, 0x1b, 0x1d, 0x1d, 0x3, 0x2, 0x1e, 0x20, 0x4, 0x2, 
+    0x1a, 0x1a, 0x1d, 0x1d, 0x3, 0x2, 0x25, 0x28, 0x3, 0x2, 0x23, 0x24, 
     0x2, 0x15f, 0x2, 0x3c, 0x3, 0x2, 0x2, 0x2, 0x4, 0x43, 0x3, 0x2, 0x2, 
     0x2, 0x6, 0x45, 0x3, 0x2, 0x2, 0x2, 0x8, 0x51, 0x3, 0x2, 0x2, 0x2, 0xa, 
     0x53, 0x3, 0x2, 0x2, 0x2, 0xc, 0x6d, 0x3, 0x2, 0x2, 0x2, 0xe, 0x6f, 
@@ -3865,13 +3865,13 @@ SysYParser::Initializer::Initializer() {
     0x2, 0x2, 0x134, 0x132, 0x3, 0x2, 0x2, 0x2, 0x134, 0x135, 0x3, 0x2, 
     0x2, 0x2, 0x135, 0x33, 0x3, 0x2, 0x2, 0x2, 0x136, 0x134, 0x3, 0x2, 0x2, 
     0x2, 0x137, 0x138, 0x8, 0x1b, 0x1, 0x2, 0x138, 0x139, 0x5, 0x2a, 0x16, 
-    0x2, 0x139, 0x148, 0x3, 0x2, 0x2, 0x2, 0x13a, 0x13b, 0xc, 0x7, 0x2, 
+    0x2, 0x139, 0x148, 0x3, 0x2, 0x2, 0x2, 0x13a, 0x13b, 0xc, 0x6, 0x2, 
     0x2, 0x13b, 0x13c, 0x9, 0x6, 0x2, 0x2, 0x13c, 0x147, 0x5, 0x34, 0x1b, 
-    0x8, 0x13d, 0x13e, 0xc, 0x6, 0x2, 0x2, 0x13e, 0x13f, 0x9, 0x7, 0x2, 
-    0x2, 0x13f, 0x147, 0x5, 0x34, 0x1b, 0x7, 0x140, 0x141, 0xc, 0x5, 0x2, 
+    0x7, 0x13d, 0x13e, 0xc, 0x5, 0x2, 0x2, 0x13e, 0x13f, 0x9, 0x7, 0x2, 
+    0x2, 0x13f, 0x147, 0x5, 0x34, 0x1b, 0x6, 0x140, 0x141, 0xc, 0x4, 0x2, 
     0x2, 0x141, 0x142, 0x9, 0x8, 0x2, 0x2, 0x142, 0x147, 0x5, 0x34, 0x1b, 
-    0x6, 0x143, 0x144, 0xc, 0x4, 0x2, 0x2, 0x144, 0x145, 0x9, 0x9, 0x2, 
-    0x2, 0x145, 0x147, 0x5, 0x34, 0x1b, 0x5, 0x146, 0x13a, 0x3, 0x2, 0x2, 
+    0x5, 0x143, 0x144, 0xc, 0x3, 0x2, 0x2, 0x144, 0x145, 0x9, 0x9, 0x2, 
+    0x2, 0x145, 0x147, 0x5, 0x34, 0x1b, 0x4, 0x146, 0x13a, 0x3, 0x2, 0x2, 
     0x2, 0x146, 0x13d, 0x3, 0x2, 0x2, 0x2, 0x146, 0x140, 0x3, 0x2, 0x2, 
     0x2, 0x146, 0x143, 0x3, 0x2, 0x2, 0x2, 0x147, 0x14a, 0x3, 0x2, 0x2, 
     0x2, 0x148, 0x146, 0x3, 0x2, 0x2, 0x2, 0x148, 0x149, 0x3, 0x2, 0x2, 

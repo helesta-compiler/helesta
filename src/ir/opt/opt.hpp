@@ -4,8 +4,7 @@
 
 std::map<IR::Reg, int> build_use_count(IR::NormalFunc *func);
 std::map<IR::Reg, IR::RegWriteInstr *> build_defs(IR::NormalFunc *func);
-std::map<IR::BB *, std::vector<IR::BB *>> build_prev(IR::NormalFunc *func);
-void dag_ir(IR::CompileUnit *ir, bool last = 0);
+std::map<IR::BB *, std::vector<IR::BB *>> build_prev(IR::NormalFunc *func); void dag_ir(IR::CompileUnit *ir, bool last = 0);
 
 void mem2reg(IR::CompileUnit *);
 void ssa_construction(IR::NormalFunc *, const std::unordered_set<IR::Reg> &);
@@ -43,6 +42,7 @@ inline void gcm(IR::CompileUnit *ir) {
 }
 
 inline void optimize_ir(IR::CompileUnit *ir) {
+  ir->print(std::cerr);
   if (global_config.args["pp"] == "0")
     pretty_print(ir);
   PassEnabled("opt") {
@@ -88,4 +88,5 @@ inline void optimize_ir(IR::CompileUnit *ir) {
   if (global_config.args["pp"] == "1")
     pretty_print(ir);
   PassEnabled("del-phi") before_backend(ir);
+  ir->print(std::cerr);
 }

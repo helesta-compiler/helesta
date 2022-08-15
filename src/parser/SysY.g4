@@ -77,10 +77,10 @@ lexp:
 	| exp				# exp1;
 
 exp:
-	exp ('==' | '!=') exp				# eqExp
-	| exp ('<' | '>' | '<=' | '>=') exp	# relExp
+	unaryExp							# exp2
 	| exp ('*' | '/' | '%') exp			# mulExp
 	| exp ('+' | '-') exp				# addExp
-	| unaryExp							# exp2;
+	| exp ('<' | '>' | '<=' | '>=') exp	# relExp
+	| exp ('==' | '!=') exp				# eqExp;
 
 constExp: exp;
