@@ -835,8 +835,6 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
     auto [i_, l, r, op] = *ilr;
     if (!(op.less))
       return 0;
-    if (flag)
-      return loop_parallel_ex(w, ir);
     if (!flag) {
       dbg(">>> loop_parallel\n");
       if (dbg_on)
@@ -990,6 +988,8 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
   if (w->disable_parallel)
     return 0;
+  if (dependent(w) && loop_parallel(w, ir))
+    return 1;
   auto &wi0 = S.loop_info.at(w);
   // auto &wi = loop_info.at(w);
   // bool dbg_on = (global_config.args["dbg-par"] == "1");
@@ -1011,7 +1011,9 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
         return 0;
       if (dependent(u))
         return 0;
-      // auto [i,l,r,op] = *u_ilr;
+      auto [i, l, r, op] = *u_ilr;
+      if (wi0.defs.count(l) || wi0.defs.count(r))
+        return 0;
       ch_loops.push_back(u);
       u_ilrs[u] = *u_ilr;
     } else {
@@ -1146,15 +1148,42 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
       cg.branch(v == cg.lc(0), tail, bb);
     }
     bb->push(std::move(cg.instrs));
+
+    p1.exit = bb;
   }
 
-  for (size_t i = 0; i <= cnt; ++i) {
-    loops[i].exit->map_BB(partial_map(next, tail));
-  }
+  loops[0].exit->map_BB(partial_map(next, tail));
+
   next->map_BB(partial_map(p0.exit, tail));
 
   cg.jump(next);
   tail->push(std::move(cg.instrs));
+
+  umap<Reg, Reg> mp_reg;
+  for (auto [r, rw] : wi0.defs) {
+    if (wi0.use_count[r] != S.use_count[r]) {
+      Reg d1 = S.f->new_Reg();
+      mp_reg[r] = d1;
+      auto phi = new PhiInstr(d1);
+      tail->push1(phi);
+      for (size_t i = 0; i <= cnt; ++i) {
+        auto &p1 = loops[i];
+        phi->add_use(p1.regs.at(r), p1.exit);
+      }
+    }
+  }
+
+  uset<BB *> bbs;
+  for (size_t i = 0; i <= cnt; ++i) {
+    for (auto &kv : loops[i].bbs) {
+      bbs.insert(kv.second);
+    }
+  }
+  S.f->for_each([&](BB *bb) {
+    if (!bbs.count(bb)) {
+      bb->map_use(partial_map(mp_reg));
+    }
+  });
 
   for (size_t i = 0; i <= cnt; ++i) {
     for (auto &kv : loops[i].bbs) {
@@ -1416,7 +1445,7 @@ struct UnrollLoop {
     PassDisabled("par") return 0;
     if (!last)
       return 0;
-    return arw.loop_parallel(w, ir);
+    return arw.loop_parallel_ex(w, ir);
   }
   void _unroll_simple_for_loop(BB *w, size_t cnt, Reg i, Reg l, Reg r,
                                CmpOp op) {

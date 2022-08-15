@@ -864,7 +864,7 @@ __unlock:
 __barrier:
 	ldrex r3, [r0]
 	cmp r3, #0
-	moveq r3, r3, r1
+	moveq r3, r1
 	sub r3, r3, #1
 	strex r2, r3, [r0]
 	cmp r2, #0
