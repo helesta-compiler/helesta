@@ -472,9 +472,11 @@ struct ArrayReadWrite : SimpleLoopVisitor {
     }
   }
   std::optional<SIMDScheme> loop_simd(BB *w, CompileUnit *ir);
-  bool loop_parallel(BB *w, CompileUnit *ir);
   bool loop_parallel_ex(BB *w, CompileUnit *ir);
   bool simplify_reduction_var(BB *w, CompileUnit *ir);
+
+private:
+  bool loop_parallel(BB *w, CompileUnit *ir);
 };
 
 struct LoopCopyTool {
@@ -988,7 +990,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
   if (w->disable_parallel)
     return 0;
-  if (dependent(w) && loop_parallel(w, ir))
+  if (!dependent(w) && loop_parallel(w, ir))
     return 1;
   auto &wi0 = S.loop_info.at(w);
   // auto &wi = loop_info.at(w);
