@@ -64,271 +64,6 @@ void MappingInfo::set_maybe_float_assign(Reg &r1, Reg &r2) {
   }
 }
 
-void handle_params(Func *ctx, MappingInfo &info, Block *entry,
-                   IR::NormalFunc *ir_func) {
-  int int_arg_cnt = 0, float_arg_cnt = 0;
-  for (auto arg_type : ir_func->arg_types) {
-    Reg cur_reg = info.new_reg();
-    if (arg_type == ScalarType::Int) {
-      if (int_arg_cnt <
-          RegConvention<ScalarType::Int>::ARGUMENT_REGISTER_COUNT) {
-        entry->push_back(std::make_unique<MoveReg>(
-            cur_reg,
-            Reg(RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[int_arg_cnt],
-                ScalarType::Int)));
-      } else {
-        unique_ptr<StackObject> t = make_unique<StackObject>();
-        t->size = INT_SIZE;
-        t->position = -1;
-        entry->push_back(make_unique<LoadStack>(cur_reg, 0, t.get()));
-        ctx->caller_stack_object.push_back(std::move(t));
-      }
-      int_arg_cnt += 1;
-    } else if (arg_type == ScalarType::Float) {
-      info.set_float(cur_reg);
-      if (float_arg_cnt <
-          RegConvention<ScalarType::Float>::ARGUMENT_REGISTER_COUNT) {
-        entry->push_back(std::make_unique<MoveReg>(
-            cur_reg,
-            Reg(RegConvention<
-                    ScalarType::Float>::ARGUMENT_REGISTERS[float_arg_cnt],
-                ScalarType::Float)));
-      } else {
-        unique_ptr<StackObject> t = make_unique<StackObject>();
-        t->size = INT_SIZE;
-        t->position = -1;
-        entry->push_back(make_unique<LoadStack>(cur_reg, 0, t.get()));
-        ctx->caller_stack_object.push_back(std::move(t));
-      }
-      float_arg_cnt += 1;
-    } else
-      assert(false);
-    ctx->args.push_back(cur_reg);
-  }
-}
-
-Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
-    : name(_name), entry(nullptr), reg_n(0) {
-  MappingInfo info;
-  for (size_t i = 0; i < ir_func->scope.objects.size(); ++i) {
-    IR::MemObject *cur = ir_func->scope.objects[i].get();
-    if (cur->size == 0)
-      continue;
-    unique_ptr<StackObject> res = make_unique<StackObject>();
-    res->size = cur->size;
-    res->position = -1;
-    info.obj_mapping[cur] = res.get();
-    stack_objects.push_back(std::move(res));
-  }
-  entry = new Block(".entry_" + name);
-  blocks.emplace_back(entry);
-  for (size_t i = 0; i < ir_func->bbs.size(); ++i) {
-    IR::BB *cur = ir_func->bbs[i].get();
-    string cur_name = ".L" + std::to_string(prog->block_n++);
-    unique_ptr<Block> res = make_unique<Block>(cur_name);
-    info.block_mapping[cur] = res.get();
-    info.rev_block_mapping[res.get()] = cur;
-    blocks.push_back(std::move(res));
-  }
-  handle_params(this, info, entry, ir_func);
-  Block *real_entry = info.block_mapping[ir_func->entry];
-  if (blocks[1].get() != real_entry)
-    entry->push_back(make_unique<Branch>(real_entry));
-  entry->out_edge.push_back(real_entry);
-  real_entry->in_edge.push_back(entry);
-  map<Reg, CmpInfo> cmp_info;
-  for (size_t i = 0; i < blocks.size(); ++i)
-    if (blocks[i].get() != entry) {
-      IR::BB *cur_ir_bb = info.rev_block_mapping[blocks[i].get()];
-      Block *next_block = nullptr;
-      if (i + 1 < blocks.size())
-        next_block = blocks[i + 1].get();
-      blocks[i]->construct(cur_ir_bb, this, &info, next_block,
-                           cmp_info); // maintain in_edge, out_edge,
-                                      // reg_mapping, ignore phi function
-    }
-  reg_n = info.reg_n;
-  float_regs = std::move(info.float_regs);
-  for (auto &block : blocks) {
-    for (auto &inst : block->insts) {
-      for (Reg *r : inst->regs()) {
-        if (r->is_pseudo())
-          r->type = float_regs.count(*r) ? ScalarType::Float : ScalarType::Int;
-      }
-    }
-  }
-
-  PassEnabled("mi") merge_inst();
-  replace_pseduo_inst();
-  PassEnabled("dce") dce();
-  if (global_config.args.count("ir2")) {
-    ir_func->for_each([&](IR::BB *bb0) {
-      std::cerr << "================================\n";
-      std::cerr << *bb0;
-      info.block_mapping[bb0]->print(std::cerr);
-    });
-  }
-}
-
-std::pair<int64_t, int> div_opt(int32_t A0) {
-  int ex = __builtin_ctz(A0);
-  int32_t A = A0 >> ex;
-  int64_t L = 1ll << 32;
-  int log2L = 32;
-  while (L / (A - L % A) < (1ll << 31))
-    L <<= 1, ++log2L;
-  int64_t B = L / A + 1;
-  int s = ex + log2L - 32;
-  assert(0 <= B && B < (1ll << 32));
-  // std::cerr << ">>> div_any: " << A0 << ' ' << B << ' ' << s << std::endl;
-  return {B, s};
-}
-
-void Func::merge_inst() {
-  for (auto &block : blocks) {
-    auto &insts = block->insts;
-    for (auto it = insts.begin(); it != insts.end(); ++it) {
-      visit(insts, it);
-      Inst *inst = it->get();
-      if (auto cmp = dynamic_cast<RegRegCmp *>(inst)) {
-        if (!constant_reg.count(cmp->rhs))
-          continue;
-        int32_t v = constant_reg[cmp->rhs];
-        if (is_legal_immediate(v)) {
-          Ins(new RegImmCmp(RegImmCmp::Cmp, cmp->lhs, v));
-          Del();
-        }
-      } else if (auto bop = dynamic_cast<RegRegInst *>(inst)) {
-        if (bop->shift.w)
-          continue;
-        if (!constant_reg.count(bop->rhs))
-          continue;
-        int32_t v = constant_reg[bop->rhs];
-        switch (bop->op) {
-        case RegRegInst::Add:
-        case RegRegInst::Sub: {
-          auto op =
-              bop->op == RegRegInst::Add ? RegImmInst::Add : RegImmInst::Sub;
-          if (is_legal_immediate(v)) {
-            RegImm(op, bop->dst, bop->lhs, v);
-            Del();
-          }
-          break;
-        }
-        case RegRegInst::Mul: {
-          if (v <= 1)
-            break;
-          int32_t log2v = __builtin_ctz(v);
-          int32_t v0 = 1 << log2v;
-          if (v == v0) {
-            RegImm(RegImmInst::Lsl, bop->dst, bop->lhs, log2v);
-            Del();
-          } else if (__builtin_popcount(v - v0) == 1) {
-            int32_t s = __builtin_ctz(v - v0);
-            RegReg(RegRegInst::Add, bop->dst, bop->lhs, bop->lhs,
-                   Shift(Shift::LSL, s - log2v));
-            if (log2v)
-              RegImm(RegImmInst::Lsl, bop->dst, bop->dst, log2v);
-            Del();
-          } else if (__builtin_popcount(v + v0) == 1) {
-            int32_t s = __builtin_ctz(v + v0);
-            RegReg(RegRegInst::RevSub, bop->dst, bop->lhs, bop->lhs,
-                   Shift(Shift::LSL, s - log2v));
-            if (log2v)
-              RegImm(RegImmInst::Lsl, bop->dst, bop->dst, log2v);
-            Del();
-          }
-          break;
-        }
-        case RegRegInst::Div:
-          if (v > 1 && v == (v & -v)) {
-            int32_t log2v = __builtin_ctz(v);
-            assert(v == (1 << log2v));
-            auto r0 = bop->lhs;
-            auto r1 = bop->dst;
-            auto r2 = bop->dst;
-            if (v == 2) {
-              RegReg(RegRegInst::Add, r2, r0, r0, Shift(Shift::LSR, 31));
-            } else {
-              RegImm(RegImmInst::Asr, r1, r0, 31);
-              RegReg(RegRegInst::Add, r2, r0, r1,
-                     Shift(Shift::LSR, 32 - log2v));
-            }
-            RegImm(RegImmInst::Asr, bop->dst, r2, log2v);
-            Del();
-          } else if (v > 1) {
-            auto [B, s] = div_opt(v);
-            Reg lo = Reg(r4, ScalarType::Int);
-            Reg hi = Reg(r5, ScalarType::Int);
-            int32_t B0 = B & 0x7fffffff;
-            Reg x = bop->lhs;
-            Ins(load_imm(lo, B0));
-            Ins(new SMulL(lo, hi, x, lo));
-            if (B & (1ll << 31)) {
-              RegReg(RegRegInst::Add, hi, hi, x, Shift(Shift::ASR, 1));
-              RegReg(RegRegInst::And, lo, x, lo, Shift(Shift::LSR, 31));
-              RegReg(RegRegInst::Add, hi, hi, lo);
-            }
-            RegImm(RegImmInst::Asr, bop->dst, hi, s);
-            RegReg(RegRegInst::Add, bop->dst, bop->dst, hi,
-                   Shift(Shift::LSR, 31));
-            Del();
-          }
-          break;
-        case RegRegInst::Mod:
-          if (v > 1 && v == (v & -v)) {
-            int32_t log2v = __builtin_ctz(v);
-            assert(v == (1 << log2v));
-            auto r0 = bop->lhs;
-            auto r1 = bop->dst;
-            auto r2 = bop->dst;
-            auto r3 = bop->dst;
-            if (v == 2) {
-              RegReg(RegRegInst::Add, r2, r0, r0, Shift(Shift::LSR, 31));
-            } else {
-              RegImm(RegImmInst::Asr, r1, r0, 31);
-              RegReg(RegRegInst::Add, r2, r0, r1,
-                     Shift(Shift::LSR, 32 - log2v));
-            }
-            if (is_legal_immediate(v - 1)) {
-              RegImm(RegImmInst::Bic, r3, r2, v - 1);
-              RegReg(RegRegInst::Sub, bop->dst, r0, r3);
-            } else {
-              RegImm(RegImmInst::Lsr, r3, r2, log2v);
-              RegReg(RegRegInst::Sub, bop->dst, r0, r3,
-                     Shift(Shift::LSL, log2v));
-            }
-            Del();
-          } else if (v > 1) {
-            auto [B, s] = div_opt(v);
-            Reg lo = Reg(r4, ScalarType::Int);
-            Reg hi = Reg(r5, ScalarType::Int);
-            int32_t B0 = B & 0x7fffffff;
-            Reg x = bop->lhs;
-            Ins(load_imm(lo, B0));
-            Ins(new SMulL(lo, hi, x, lo));
-            if (B & (1ll << 31)) {
-              RegReg(RegRegInst::Add, hi, hi, x, Shift(Shift::ASR, 1));
-              RegReg(RegRegInst::And, lo, x, lo, Shift(Shift::LSR, 31));
-              RegReg(RegRegInst::Add, hi, hi, lo);
-            }
-            RegImm(RegImmInst::Asr, bop->dst, hi, s);
-            RegReg(RegRegInst::Add, bop->dst, bop->dst, hi,
-                   Shift(Shift::LSR, 31));
-            Ins(load_imm(lo, v));
-            RegReg(RegRegInst::Mul, bop->dst, bop->dst, lo);
-            RegReg(RegRegInst::Sub, bop->dst, x, bop->dst);
-            Del();
-          }
-          break;
-        default:
-          break;
-        }
-      }
-    }
-  }
-}
-
 void Func::replace_pseduo_inst() {
   for (auto &block : blocks) {
     auto &insts = block->insts;
@@ -447,6 +182,12 @@ void Func::calc_live() {
   }
 }
 
+void Program::allocate_register() {
+  for (auto &f : funcs) {
+    f->allocate_register();
+  }
+}
+
 vector<int> Func::get_in_deg() {
   size_t n = blocks.size();
   map<Block *, size_t> pos;
@@ -487,33 +228,6 @@ vector<int> Func::get_branch_in_deg() {
       if (Branch *b = inst->as<Branch>()) {
         ++ret[pos[b->target]];
       }
-  }
-  return ret;
-}
-
-bool Func::check_store_stack() {
-  bool ret = true;
-  for (auto &block : blocks) {
-    int32_t sp_offset = 0;
-    for (auto i = block->insts.begin(); i != block->insts.end(); ++i) {
-      (*i)->maintain_sp(sp_offset);
-      InstCond cond = (*i)->cond;
-      if (auto store_stk = (*i)->as<StoreStack>()) {
-        int32_t total_offset =
-            store_stk->target->position + store_stk->offset - sp_offset;
-        if (!load_store_offset_range(total_offset)) {
-          Reg imm(reg_n++, ScalarType::Int);
-          block->insts.insert(
-              i, set_cond(make_unique<LoadStackOffset>(imm, store_stk->offset,
-                                                       store_stk->target),
-                          cond));
-          *i = set_cond(make_unique<ComplexStore>(
-                            store_stk->src, Reg(sp, ScalarType::Int), imm),
-                        cond);
-          ret = false;
-        }
-      }
-    }
   }
   return ret;
 }
@@ -591,20 +305,6 @@ void Func::remove_trivial_inst() {
       for (auto r : inst->def_reg())
         const_info.erase(r.id);
     });
-  }
-}
-
-template <ScalarType type>
-std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
-  info << "register allocation for function: " << ctx->name << '\n';
-  info << "reg_n = " << ctx->reg_n << '\n';
-  stat->spill_cnt = 0;
-  info << "using SimpleColoringAllocator\n";
-  while (true) {
-    SimpleColoringAllocator<type> allocator(ctx);
-    std::vector<int> ret = allocator.run(stat);
-    if (stat->succeed)
-      return ret;
   }
 }
 

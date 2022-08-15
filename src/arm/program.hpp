@@ -16,11 +16,6 @@
 
 namespace ARMv7 {
 
-struct AsmContext {
-  int32_t temp_sp_offset;
-  std::function<bool(std::ostream &)> epilogue;
-};
-
 struct Program {
   std::vector<std::unique_ptr<Func>> funcs;
   std::vector<std::unique_ptr<GlobalObject>> global_objects;

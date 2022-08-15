@@ -1,3 +1,7 @@
-#include "arm/opt/opt.hpp"
+#include "arm/opt/afterplay.hpp"
 
-void eliminate_branch(ARMv7::Program &) {}
+namespace ARMv7 {
+
+void eliminate_branch(ARMv7::Program *) {}
+
+} // namespace ARMv7
