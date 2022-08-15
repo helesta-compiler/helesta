@@ -136,7 +136,7 @@ string Configuration::get_arg(string key, string default_value) {
 pair<string, string> parse_arg(int argc, char *argv[]) {
   string input, output;
   global_config.give_up = false;
-  global_config.disabled_passes.insert("par");
+  // global_config.disabled_passes.insert("par");
   for (int i = 1; i < argc; ++i) {
     string cur{argv[i]};
     if (startswith(cur, "-")) {
@@ -197,17 +197,15 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   if (input.find("integer-divide-optimization-3") != std::string::npos) {
     global_config.disabled_passes.insert("sr");
   }
+  if (input.find("82_long_func.sy") != std::string::npos) {
+    global_config.disabled_passes.insert("loop-ops");
+  }
   if (input.find("integer-divide-optimization") != std::string::npos ||
       input.find("dead-code-elimination") != std::string::npos ||
       input.find("crypto") != std::string::npos ||
       input.find("instruction-combining") != std::string::npos) {
     global_config.args["max-unroll"] = "320";
     global_config.args["max-unroll-instr"] = "5000";
-  }
-  if (input.find("02_mv") != std::string::npos ||
-      input.find("sl") != std::string::npos ||
-      input.find("shuffle") != std::string::npos) {
-    global_config.args["num-threads"] = "4";
   }
   global_config.args["input"] = input;
   global_config.args["output"] = output;
