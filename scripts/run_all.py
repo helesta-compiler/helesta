@@ -9,13 +9,18 @@ def parse_args():
     parser.add_argument('--data_dir', default='./testcases/')
     parser.add_argument('--compiler_path', default='./build/compiler')
     parser.add_argument('--fuzz', action='append')
+    parser.add_argument('--fast', action='store_true')
     args = parser.parse_args()
     return args
 
 
 def run_with(args):
+    if args.fuzz is None:
+        args.fuzz = []
     for mod in os.listdir(args.data_dir):
         mod_path = os.path.join(args.data_dir, mod)
+        if args.fast and mod != 'performance':
+            continue
         for o in args.fuzz:
             if mod == "performance":
                 continue
