@@ -88,6 +88,9 @@ struct MemObject : Printable {
   bool is_const = 0;
   // computed in optimize_passes
 
+  bool is_volatile = 0;
+  // cannot be optimized
+
   std::vector<MemSize> dims;
   // only for int array, array dim size
 
@@ -843,7 +846,7 @@ struct CodeGen {
     return a.cg->reg(r);                                                       \
   }
     bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD) bop(<, LESS)
-        bop(<=, LEQ)
+        bop(<=, LEQ) bop(==, EQ) bop(!=, NEQ)
 #undef bop
   };
   RegRef reg(Reg r) { return RegRef{r, this}; }
@@ -852,6 +855,25 @@ struct CodeGen {
     instrs.emplace_back(new LoadConst<int32_t>(r, x));
     return reg(r);
   }
+  RegRef la(MemObject *x) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadAddr(r, x));
+    return reg(r);
+  }
+  RegRef ld_volatile(CompileUnit *ir, RegRef x) {
+    auto f = ir->lib_funcs.at("__ld_volatile").get();
+    return call(f, ScalarType::Int, {{x, ScalarType::Int}});
+  }
+  void st_volatile(CompileUnit *ir, RegRef x, RegRef y) {
+    auto f = ir->lib_funcs.at("__st_volatile").get();
+    call(f, ScalarType::Int, {{x, ScalarType::Int}, {y, ScalarType::Int}});
+  }
+  RegRef ld(RegRef x) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadInstr(r, x.r));
+    return reg(r);
+  }
+  void st(RegRef x, RegRef y) { instrs.emplace_back(new StoreInstr(x.r, y.r)); }
   void branch(RegRef cond, BB *target1, BB *target0) {
     instrs.emplace_back(new BranchInstr(cond.r, target1, target0));
   }

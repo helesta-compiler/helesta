@@ -192,6 +192,21 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   f = new_LibFunc("__join_threads", 1);
   f->in = 1;
   f->out = 1;
+  f = new_LibFunc("__lock", 1);
+  f->in = 1;
+  f->out = 1;
+  f = new_LibFunc("__unlock", 1);
+  f->in = 1;
+  f->out = 1;
+  f = new_LibFunc("__ld_volatile", 1);
+  f->in = 1;
+  f->out = 1;
+  f = new_LibFunc("__st_volatile", 1);
+  f->in = 1;
+  f->out = 1;
+  f = new_LibFunc("__nop", 1);
+  f->in = 1;
+  f->out = 1;
   f = new_LibFunc("__umulmod", 0);
   f->pure = 1;
   f = new_LibFunc("__u_c_np1_2_mod", 0);
@@ -739,7 +754,21 @@ int exec(CompileUnit &c) {
           }
           else {
 #define FLOAT_FMT "%a"
-            if (x->f->name == "__create_threads") {
+            if (x->f->name == "__lock") {
+              assert(args.size() == 1);
+              int addr = args[0].int_value();
+              if (rMem(addr).int_value() == 0) {
+                wMem(addr, 1);
+              } else {
+                threads.push(cur_thread);
+                schedule();
+              }
+              continue;
+            } else if (x->f->name == "__unlock") {
+              assert(args.size() == 1);
+              int addr = args[0].int_value();
+              wMem(addr, 0);
+            } else if (x->f->name == "__create_threads") {
               assert(args.size() == 0);
               threads.push(ThreadContext{
                   cur, it, ++fork_cnt, -1, 0, std::make_pair(x->d1, 0), {}});

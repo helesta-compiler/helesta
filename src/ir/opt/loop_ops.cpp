@@ -850,6 +850,17 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       BB *head = S.f->new_BB();
       BB *bb1 = S.f->new_BB();
       BB *tail = S.f->new_BB();
+      auto new_global_var = [&](std::string name) {
+        MemObject *mem = ir->scope.new_MemObject(name);
+        mem->size = 4;
+        mem->global = 1;
+        mem->scalar_type = ScalarType::Int;
+        mem->is_volatile = 1;
+        return mem;
+      };
+      auto mutex = new_global_var("mutex_" + w->name);
+      auto barrier = new_global_var("barrier_" + w->name);
+
       CodeGen cg(S.f);
 
       auto n = cg.reg(r) - cg.reg(l);
@@ -862,6 +873,13 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 
       auto fork = ir->lib_funcs.at("__create_threads").get();
       auto join = ir->lib_funcs.at("__join_threads").get();
+      auto lock = ir->lib_funcs.at("__lock").get();
+      auto unlock = ir->lib_funcs.at("__unlock").get();
+      auto nop = ir->lib_funcs.at("__nop").get();
+      // auto putint = ir->lib_funcs.at("putint").get();
+      // auto putch = ir->lib_funcs.at("putch").get();
+
+      cg.st(cg.la(barrier), cg.lc(cnt - 1));
 
       auto l0 = cg.reg(l);
       auto step = n / cg.lc(cnt);
@@ -902,20 +920,36 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
           }
         });
       }
-      std::vector<BB *> joins;
       for (size_t i = 1; i <= cnt; ++i) {
         BB *bb = S.f->new_BB();
         auto &p1 = loops[i];
         p1.exit->map_BB(partial_map(next, bb));
-        if (i != cnt) {
-          for (size_t j = i; j < cnt; ++j)
-            cg.call(join, ScalarType::Void,
-                    {{cg.lc(0), ScalarType::Int}}); // wait
-        }
-        if (i != 1)
+        /*if (i != cnt) {
+          cg.call(join, ScalarType::Void,
+                  {{cg.lc(0), ScalarType::Int}}); // wait
+        }*/
+        if (i != 1) {
+          auto _mutex = cg.la(mutex);
+          cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+          auto t = cg.la(barrier);
+          cg.st_volatile(ir, t, cg.ld_volatile(ir, t) - cg.lc(1));
+          cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
           cg.call(join, ScalarType::Void,
                   {{cg.lc(1), ScalarType::Int}}); // exit
-        cg.jump(tail);
+          cg.jump(tail);
+        } else {
+          // auto _mutex = cg.la(mutex);
+          // cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+
+          cg.call(nop, ScalarType::Void);
+          auto t = cg.la(barrier);
+          auto v = cg.ld_volatile(ir, t);
+          // cg.call(putint, ScalarType::Void, {{v, ScalarType::Int}});
+          // cg.call(putch, ScalarType::Void, {{cg.lc(10), ScalarType::Int}});
+
+          // cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+          cg.branch(v == cg.lc(0), tail, bb);
+        }
         bb->push(std::move(cg.instrs));
       }
 

@@ -844,6 +844,31 @@ __join_threads:
     mov r7, #SYS_exit
     swi #0
 
+__lock:
+    ldrex r1, [r0]
+	cmp r1, #1
+	beq __lock
+	mov r1, #1
+	strex r2, r1, [r0]
+	cmp r2, #0
+	bne __lock
+	dmb
+	bx lr
+
+__unlock:
+    dmb
+	mov r1, #0
+	str r1, [r0]
+	bx lr
+
+__nop:
+    mov r0, #64
+.L02:
+    sub r0, r0, #1
+	cmp r0, #0
+	bne .L02
+	bx lr
+
 __umulmod:
 	push    {r11, lr}
 	umull   r3, r12, r1, r0
