@@ -344,7 +344,13 @@ void checkIR(NormalFunc *f) {
       }
       Case(BranchInstr, br, x) { assert(br->target1 != br->target0); }
       Case(RegWriteInstr, rw, x) { assert(rw == defs.at(rw->d1)); }
-      x->map_use([&](Reg &r) { assert(defs.count(r)); });
+      x->map_use([&](Reg &r) {
+        if (!defs.count(r)) {
+          dbg(*bb);
+          dbg(*x, " : ", r, " not defined\n");
+          assert(0);
+        }
+      });
     });
     assert(bb->instrs.size() > 0);
     Case(ControlInstr, _, bb->back()) { (void)_; }

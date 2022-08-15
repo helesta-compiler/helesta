@@ -656,6 +656,21 @@ void DAG_IR_ALL::remove_unused_memobj() {
   });
 }
 
+void remove_placeholder_call(NormalFunc *f) {
+  f->for_each([&](BB *bb) {
+    bb->for_each([&](Instr *x) {
+      Case(CallInstr, call, x) {
+        if (call->f->name == "__ld_volatile") {
+          bb->replace(new LoadInstr(call->d1, call->args.at(0).first));
+        } else if (call->f->name == "__st_volatile") {
+          bb->replace(
+              new StoreInstr(call->args.at(0).first, call->args.at(1).first));
+        }
+      }
+    });
+  });
+}
+
 void load_store_offset(NormalFunc *);
 void split_live_range(NormalFunc *);
 void remove_phi(NormalFunc *);
@@ -675,6 +690,7 @@ DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
   if (type == BEFORE_BACKEND) {
     ir->for_each([&](NormalFunc *f) {
       code_reorder(f);
+      remove_placeholder_call(f);
       load_store_offset(f);
       split_live_range(f);
       remove_phi(f);

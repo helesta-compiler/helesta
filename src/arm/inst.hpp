@@ -644,6 +644,32 @@ struct RegImmCmp : Inst {
   virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
 };
 
+struct SIMD : Inst {
+  std::optional<Reg> src;
+  IR::SIMDInstr *ir;
+  SIMD(std::optional<Reg> _src, IR::SIMDInstr *_ir) : src(_src), ir(_ir) {}
+
+  virtual std::vector<Reg> def_reg() override {
+    if (ir->type == IR::SIMDInstr::VDUP_32) {
+      return {Reg{RegConvention<ScalarType::Int>::ARGUMENT_REGISTERS[0],
+                  ScalarType::Int}};
+    }
+    return {};
+  }
+  virtual std::vector<Reg> use_reg() override {
+    if (src)
+      return {*src};
+    return {};
+  }
+  virtual bool side_effect() override { return true; }
+  virtual std::vector<Reg *> regs() override {
+    if (src)
+      return {&*src};
+    return {};
+  }
+  virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
+};
+
 struct Branch : Inst {
   Block *target;
   Branch(Block *_target);
