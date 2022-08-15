@@ -842,7 +842,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 
       std::deque<LoopCopyTool> loops;
       loops.emplace_back(wi0.bbs, w, w, S.f);
-      size_t cnt = parseIntArg(2, "num-threads");
+      size_t cnt = parseIntArg(4, "num-threads");
       for (size_t i = 1; i <= cnt; ++i) {
         loops.emplace_back(loops[0]);
         loops.back().copy(std::string(":") + std::to_string(i) + ":");
@@ -1028,7 +1028,7 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
 
   std::deque<LoopCopyTool> loops;
   loops.emplace_back(wi0.bbs, w, w, S.f);
-  size_t cnt = parseIntArg(2, "num-threads");
+  size_t cnt = parseIntArg(4, "num-threads");
   for (size_t i = 1; i <= cnt; ++i) {
     loops.emplace_back(loops[0]);
     loops.back().copy(std::string(":") + std::to_string(i) + ":");
@@ -1051,6 +1051,7 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
   };
   auto mutex = new_global_var("mutex_" + w->name);
   auto barrier = new_global_var("barrier_" + w->name);
+  auto barrier1 = new_global_var("barrier1_" + w->name);
   auto barrier2 = new_global_var("barrier2_" + w->name);
 
   CodeGen cg(S.f);
@@ -1098,6 +1099,9 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
       mp(l);
       mp(r);
       CodeGen cg2(S.f);
+      cg2.call(on_barrier, ScalarType::Void,
+               {{cg2.la(barrier1), ScalarType::Int},
+                {cg2.lc(cnt), ScalarType::Int}});
       cg2.call(on_barrier, ScalarType::Void,
                {{cg2.la(barrier2), ScalarType::Int},
                 {cg2.lc(cnt), ScalarType::Int}});
