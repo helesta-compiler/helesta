@@ -355,7 +355,7 @@ private:
         double cur_value = 0.0;
         if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end() ||
             func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end()) {
-          cur_value = (double)interfere_edge[i].size() * 1.0;
+          cur_value = (double)(interfere_edge[i].size() + 1000) * 1.0;
         } else {
           cur_value = (double)(interfere_edge[i].size() * 1.0);
         }
