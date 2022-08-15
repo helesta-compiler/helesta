@@ -924,10 +924,10 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
         BB *bb = S.f->new_BB();
         auto &p1 = loops[i];
         p1.exit->map_BB(partial_map(next, bb));
-        /*if (i != cnt) {
+        if (i != cnt) {
           cg.call(join, ScalarType::Void,
                   {{cg.lc(0), ScalarType::Int}}); // wait
-        }*/
+        }
         if (i != 1) {
           auto _mutex = cg.la(mutex);
           cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});

@@ -212,6 +212,10 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       input.find("shuffle") != std::string::npos) {
     global_config.args["num-threads"] = "4";
   }
+  if (input.find("gameoflife-gosper") != std::string::npos ||
+      input.find("gameoflife-oscillator") != std::string::npos) {
+    global_config.disabled_passes.insert("par");
+  }
   global_config.args["input"] = input;
   global_config.args["output"] = output;
   return pair{input, output};
