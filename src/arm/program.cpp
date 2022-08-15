@@ -818,8 +818,6 @@ SYS_exit = 1
 P_ALL = 0
 WEXITED = 4
 __join_threads:
-    dsb
-	isb
 	sub sp, sp, #16
     cmp r0, #0
 	bne .L01

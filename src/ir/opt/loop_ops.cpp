@@ -834,6 +834,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       if (dbg_on)
         print_cfg(S.f);
 
+      bool use_mutex = 1;
       std::deque<LoopCopyTool> loops;
       loops.emplace_back(wi0.bbs, w, w, S.f);
       size_t cnt = parseIntArg(2, "num-threads");
@@ -929,26 +930,25 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
                   {{cg.lc(0), ScalarType::Int}}); // wait
         }
         if (i != 1) {
-          auto _mutex = cg.la(mutex);
-          cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
-          auto t = cg.la(barrier);
-          cg.st_volatile(ir, t, cg.ld_volatile(ir, t) - cg.lc(1));
-          cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+          if (use_mutex) {
+            auto _mutex = cg.la(mutex);
+            cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+            auto t = cg.la(barrier);
+            cg.st_volatile(ir, t, cg.ld_volatile(ir, t) - cg.lc(1));
+            cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+          }
           cg.call(join, ScalarType::Void,
                   {{cg.lc(1), ScalarType::Int}}); // exit
           cg.jump(tail);
         } else {
-          // auto _mutex = cg.la(mutex);
-          // cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
-
-          cg.call(nop, ScalarType::Void);
-          auto t = cg.la(barrier);
-          auto v = cg.ld_volatile(ir, t);
-          // cg.call(putint, ScalarType::Void, {{v, ScalarType::Int}});
-          // cg.call(putch, ScalarType::Void, {{cg.lc(10), ScalarType::Int}});
-
-          // cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
-          cg.branch(v == cg.lc(0), tail, bb);
+          if (use_mutex) {
+            cg.call(nop, ScalarType::Void);
+            auto t = cg.la(barrier);
+            auto v = cg.ld_volatile(ir, t);
+            cg.branch(v == cg.lc(0), tail, bb);
+          } else {
+            cg.jump(tail);
+          }
         }
         bb->push(std::move(cg.instrs));
       }
