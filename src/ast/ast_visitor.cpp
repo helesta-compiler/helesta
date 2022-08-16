@@ -1290,8 +1290,8 @@ antlrcpp::Any ASTVisitor::visitRelExp(SysYParser::RelExpContext *ctx) {
     rev = true;
   }
   if (mode == compile_time) {
-    CompileTimeValueAny lhs = ctx->exp(0)->accept(this),
-                        rhs = ctx->exp(1)->accept(this), res;
+    CompileTimeValueAny lhs = ctx->lexp(0)->accept(this),
+                        rhs = ctx->lexp(1)->accept(this), res;
     if (rev)
       std::swap(lhs, rhs);
     if (opt == IR::BinaryCompute::LESS)
@@ -1302,8 +1302,8 @@ antlrcpp::Any ASTVisitor::visitRelExp(SysYParser::RelExpContext *ctx) {
   }
   ValueMode prev_mode = mode;
   mode = normal;
-  IRValue lhs = to_IRValue(ctx->exp(0)->accept(this)),
-          rhs = to_IRValue(ctx->exp(1)->accept(this));
+  IRValue lhs = to_IRValue(ctx->lexp(0)->accept(this)),
+          rhs = to_IRValue(ctx->lexp(1)->accept(this));
   ScalarType type = (lhs.type.scalar_type == ScalarType::Float ||
                              rhs.type.scalar_type == ScalarType::Float
                          ? ScalarType::Float
@@ -1330,8 +1330,8 @@ antlrcpp::Any ASTVisitor::visitEqExp(SysYParser::EqExpContext *ctx) {
   else
     opt = IR::BinaryCompute::NEQ;
   if (mode == compile_time) {
-    CompileTimeValueAny lhs = ctx->exp(0)->accept(this),
-                        rhs = ctx->exp(1)->accept(this), res;
+    CompileTimeValueAny lhs = ctx->lexp(0)->accept(this),
+                        rhs = ctx->lexp(1)->accept(this), res;
     if (opt == IR::BinaryCompute::EQ)
       res = (lhs == rhs);
     else
@@ -1340,8 +1340,8 @@ antlrcpp::Any ASTVisitor::visitEqExp(SysYParser::EqExpContext *ctx) {
   }
   ValueMode prev_mode = mode;
   mode = normal;
-  IRValue lhs = to_IRValue(ctx->exp(0)->accept(this)),
-          rhs = to_IRValue(ctx->exp(1)->accept(this));
+  IRValue lhs = to_IRValue(ctx->lexp(0)->accept(this)),
+          rhs = to_IRValue(ctx->lexp(1)->accept(this));
   ScalarType type = (lhs.type.scalar_type == ScalarType::Float ||
                              rhs.type.scalar_type == ScalarType::Float
                          ? ScalarType::Float
