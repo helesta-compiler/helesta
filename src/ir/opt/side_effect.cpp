@@ -676,6 +676,7 @@ void split_live_range(NormalFunc *);
 void remove_phi(NormalFunc *);
 void code_reorder(NormalFunc *);
 void remove_trivial_BB(NormalFunc *);
+void merge_BB(NormalFunc *);
 void mod2div(NormalFunc *);
 void muldiv(NormalFunc *);
 
@@ -696,6 +697,7 @@ DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
       remove_phi(f);
       code_reorder(f);
       remove_trivial_BB(f);
+      merge_BB(f);
     });
     compute_data_offset(*ir);
     return;
