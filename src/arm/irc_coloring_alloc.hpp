@@ -379,7 +379,7 @@ private:
     }
     interfere_edge[selected_spill].clear();
     for (auto &move_neighbor : move_edges[selected_spill]) {
-      move_edges[move_neighbor.first].erase(move_neighbor.second);
+      move_edges[move_neighbor.first].erase(selected_spill);
     }
     move_edges[selected_spill].clear();
     return selected_spill;
