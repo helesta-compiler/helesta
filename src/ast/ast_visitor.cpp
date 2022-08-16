@@ -89,11 +89,6 @@ IRValue ASTVisitor::to_IRValue(antlrcpp::Any value) {
 }
 
 CondJumpList ASTVisitor::to_CondJumpList(antlrcpp::Any value) {
-  if (value.is<IRValue>()) {
-    debug << __FUNCTION__ << " value: " << value.as<IRValue>() << '\n';
-  } else {
-    debug << __FUNCTION__ << " value: " << value.isNull() << '\n';
-  }
   if (value.isNull())
     _throw VoidFuncReturnValueUsed();
   if (value.is<CondJumpList>())
@@ -175,9 +170,6 @@ IR::Reg ASTVisitor::get_value(int lineno, ScalarType type,
     }
     break;
   default:
-    debug << "???\n";
-    debug << value.type.scalar_type << '\n';
-    debug << value.type << '\n';
     assert(false);
   }
   return ret;
@@ -820,14 +812,9 @@ antlrcpp::Any ASTVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
   return nullptr;
 }
 
-antlrcpp::Any ASTVisitor::visitExp(SysYParser::ExpContext *ctx) {
-  return ctx->addExp()->accept(this);
-}
-
 antlrcpp::Any ASTVisitor::visitCond(SysYParser::CondContext *ctx) {
-  debug << __FUNCTION__ << '\n';
   mode = condition;
-  antlrcpp::Any value = ctx->lOrExp()->accept(this);
+  antlrcpp::Any value = ctx->lexp()->accept(this);
   mode = normal;
   auto ret = to_CondJumpList(std::move(value));
   return ret;
@@ -943,7 +930,7 @@ ASTVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
 
 antlrcpp::Any ASTVisitor::visitNumber(SysYParser::NumberContext *ctx) {
   if (ctx->IntLiteral() != 0) {
-    return parse_int32_literal(ctx->getText());
+    return parse_int32_literal(ctx->IntLiteral()->getText());
   } else {
     return parse_float_literal(ctx->FloatLiteral()->getText());
     // int32_t(stof(ctx->FloatLiteral()->getText()));
@@ -1084,7 +1071,7 @@ antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
       cur_bb->push(new IR::UnaryOpInstr(
           res_value, rhs_value, IR::UnaryOp(type, IR::UnaryCompute::LNOT)));
       break;
-    default:; //+, do nothing
+    default: //+, do nothing
       assert(op == '+');
     }
     ret.reg = res_value;
@@ -1162,17 +1149,12 @@ ASTVisitor::visitStringAsRParam(SysYParser::StringAsRParamContext *ctx) {
   return ir_obj;
 }
 
-antlrcpp::Any ASTVisitor::visitMul1(SysYParser::Mul1Context *ctx) {
-  return ctx->unaryExp()->accept(this);
-}
-
-antlrcpp::Any ASTVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
+antlrcpp::Any ASTVisitor::visitMulExp(SysYParser::MulExpContext *ctx) {
   char op = ctx->children[1]->getText()[0];
   assert(op == '*' || op == '/' || op == '%');
-  debug << __FUNCTION__ << " op: " << op << '\n';
   if (mode == compile_time) {
-    CompileTimeValueAny lhs = ctx->mulExp()->accept(this),
-                        rhs = ctx->unaryExp()->accept(this), res;
+    CompileTimeValueAny lhs = ctx->exp(0)->accept(this),
+                        rhs = ctx->exp(1)->accept(this), res;
     switch (op) {
     case '*':
       res = lhs * rhs;
@@ -1188,8 +1170,8 @@ antlrcpp::Any ASTVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
   }
   ValueMode prev_mode = mode;
   mode = normal;
-  IRValue lhs = to_IRValue(ctx->mulExp()->accept(this)),
-          rhs = to_IRValue(ctx->unaryExp()->accept(this));
+  IRValue lhs = to_IRValue(ctx->exp(0)->accept(this)),
+          rhs = to_IRValue(ctx->exp(1)->accept(this));
   ScalarType type = (lhs.type.scalar_type == ScalarType::Float ||
                              rhs.type.scalar_type == ScalarType::Float
                          ? ScalarType::Float
@@ -1217,17 +1199,12 @@ antlrcpp::Any ASTVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
   return ret;
 }
 
-antlrcpp::Any ASTVisitor::visitAdd1(SysYParser::Add1Context *ctx) {
-  return ctx->mulExp()->accept(this);
-}
-
-antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
+antlrcpp::Any ASTVisitor::visitAddExp(SysYParser::AddExpContext *ctx) {
   char op = ctx->children[1]->getText()[0];
   assert(op == '+' || op == '-');
-  debug << __FUNCTION__ << " op: " << op << '\n';
   if (mode == compile_time) {
-    CompileTimeValueAny lhs = ctx->addExp()->accept(this),
-                        rhs = ctx->mulExp()->accept(this), res;
+    CompileTimeValueAny lhs = ctx->exp(0)->accept(this),
+                        rhs = ctx->exp(1)->accept(this), res;
     switch (op) {
     case '+':
       res = lhs + rhs;
@@ -1240,8 +1217,8 @@ antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
   }
   ValueMode prev_mode = mode;
   mode = normal;
-  IRValue lhs = to_IRValue(ctx->addExp()->accept(this)),
-          rhs = to_IRValue(ctx->mulExp()->accept(this));
+  IRValue lhs = to_IRValue(ctx->exp(0)->accept(this)),
+          rhs = to_IRValue(ctx->exp(1)->accept(this));
   if (rhs.type.is_array()) {
     std::swap(lhs, rhs);
   }
@@ -1294,15 +1271,9 @@ antlrcpp::Any ASTVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
   return ret;
 }
 
-antlrcpp::Any ASTVisitor::visitRel1(SysYParser::Rel1Context *ctx) {
-  debug << __FUNCTION__ << '\n';
-  return ctx->addExp()->accept(this);
-}
-
-antlrcpp::Any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
+antlrcpp::Any ASTVisitor::visitRelExp(SysYParser::RelExpContext *ctx) {
   string ops = ctx->children[1]->getText();
   assert(ops == "<" || ops == ">" || ops == "<=" || ops == ">=");
-  debug << __FUNCTION__ << " op: " << ops << '\n';
   IR::BinaryCompute opt;
   bool rev;
   if (ops == "<") {
@@ -1319,8 +1290,8 @@ antlrcpp::Any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
     rev = true;
   }
   if (mode == compile_time) {
-    CompileTimeValueAny lhs = ctx->relExp()->accept(this),
-                        rhs = ctx->addExp()->accept(this), res;
+    CompileTimeValueAny lhs = ctx->lexp(0)->accept(this),
+                        rhs = ctx->lexp(1)->accept(this), res;
     if (rev)
       std::swap(lhs, rhs);
     if (opt == IR::BinaryCompute::LESS)
@@ -1331,8 +1302,8 @@ antlrcpp::Any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
   }
   ValueMode prev_mode = mode;
   mode = normal;
-  IRValue lhs = to_IRValue(ctx->relExp()->accept(this)),
-          rhs = to_IRValue(ctx->addExp()->accept(this));
+  IRValue lhs = to_IRValue(ctx->lexp(0)->accept(this)),
+          rhs = to_IRValue(ctx->lexp(1)->accept(this));
   ScalarType type = (lhs.type.scalar_type == ScalarType::Float ||
                              rhs.type.scalar_type == ScalarType::Float
                          ? ScalarType::Float
@@ -1344,37 +1315,23 @@ antlrcpp::Any ASTVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
   cur_bb->push(new IR::BinaryOpInstr(res_reg, lhs_reg, rhs_reg,
                                      IR::BinaryOp(type, opt)));
   IRValue ret(ScalarType::Int);
-  debug << __FUNCTION__ << " ret.type.scalar_type: " << ret.type.scalar_type
-        << " == " << ScalarType::Int << '\n';
-  debug << __FUNCTION__ << " ret.type: " << ret.type << '\n';
   ret.is_left_value = false;
   ret.reg = res_reg;
   mode = prev_mode;
-  debug << __FUNCTION__ << " ret: " << ret << '\n';
   return ret;
 }
 
-antlrcpp::Any ASTVisitor::visitEq1(SysYParser::Eq1Context *ctx) {
-  debug << __FUNCTION__ << '\n';
-  auto ret = ctx->relExp()->accept(this);
-  if (ret.is<IRValue>()) {
-    debug << __FUNCTION__ << " ret: " << ret.as<IRValue>() << '\n';
-  }
-  return ret;
-}
-
-antlrcpp::Any ASTVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
+antlrcpp::Any ASTVisitor::visitEqExp(SysYParser::EqExpContext *ctx) {
   string ops = ctx->children[1]->getText();
   assert(ops == "==" || ops == "!=");
-  debug << __FUNCTION__ << " op: " << ops << '\n';
   IR::BinaryCompute opt;
   if (ops == "==")
     opt = IR::BinaryCompute::EQ;
   else
     opt = IR::BinaryCompute::NEQ;
   if (mode == compile_time) {
-    CompileTimeValueAny lhs = ctx->eqExp()->accept(this),
-                        rhs = ctx->relExp()->accept(this), res;
+    CompileTimeValueAny lhs = ctx->lexp(0)->accept(this),
+                        rhs = ctx->lexp(1)->accept(this), res;
     if (opt == IR::BinaryCompute::EQ)
       res = (lhs == rhs);
     else
@@ -1383,8 +1340,8 @@ antlrcpp::Any ASTVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
   }
   ValueMode prev_mode = mode;
   mode = normal;
-  IRValue lhs = to_IRValue(ctx->eqExp()->accept(this)),
-          rhs = to_IRValue(ctx->relExp()->accept(this));
+  IRValue lhs = to_IRValue(ctx->lexp(0)->accept(this)),
+          rhs = to_IRValue(ctx->lexp(1)->accept(this));
   ScalarType type = (lhs.type.scalar_type == ScalarType::Float ||
                              rhs.type.scalar_type == ScalarType::Float
                          ? ScalarType::Float
@@ -1400,29 +1357,19 @@ antlrcpp::Any ASTVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
   return ret;
 }
 
-antlrcpp::Any ASTVisitor::visitLAnd1(SysYParser::LAnd1Context *ctx) {
-  debug << __FUNCTION__ << '\n';
-  auto ret = ctx->eqExp()->accept(this);
-  if (ret.is<IRValue>()) {
-    debug << __FUNCTION__ << " ret: " << ret.as<IRValue>() << '\n';
-  }
-  return ret;
-}
-
-antlrcpp::Any ASTVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
-  debug << __FUNCTION__ << '\n';
+antlrcpp::Any ASTVisitor::visitLAndExp(SysYParser::LAndExpContext *ctx) {
   if (mode == compile_time) {
     CompileTimeValue<int32_t>
-        lhs = ctx->lAndExp()->accept(this).as<CompileTimeValueAny>(),
-        rhs = ctx->eqExp()->accept(this).as<CompileTimeValueAny>();
+        lhs = ctx->lexp(0)->accept(this).as<CompileTimeValueAny>(),
+        rhs = ctx->lexp(1)->accept(this).as<CompileTimeValueAny>();
     return lhs && rhs;
   } else if (mode == normal) {
-    IRValue lhs = to_IRValue(ctx->lAndExp()->accept(this));
+    IRValue lhs = to_IRValue(ctx->lexp(0)->accept(this));
     IR::Reg lhs_value = _get_value(ScalarType::Int, lhs);
     IR::BB *lhs_end = cur_bb, *rhs_entry = new_BB(), *res_entry = new_BB();
     lhs_end->push(new IR::BranchInstr(lhs_value, rhs_entry, res_entry));
     cur_bb = rhs_entry;
-    IRValue rhs = to_IRValue(ctx->eqExp()->accept(this));
+    IRValue rhs = to_IRValue(ctx->lexp(1)->accept(this));
     IR::Reg rhs_value = _get_value(ScalarType::Int, rhs);
     cur_bb->push(new IR::JumpInstr(res_entry));
     IR::BB *rhs_end = cur_bb;
@@ -1437,44 +1384,31 @@ antlrcpp::Any ASTVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
     ret.reg = res_reg;
     return ret;
   } else {
-    /*auto j1 = ctx->lAndExp()->accept(this);
-        if(j1.is<IRValue>()){
-                debug<<__FUNCTION__<<" j1: "<<j1.as<IRValue>()<<'\n';
-        }else{
-                debug<<__FUNCTION__<<" j1: "<<j1.isNull()<<'\n';
-        }*/
-    CondJumpList lhs = to_CondJumpList(ctx->lAndExp()->accept(this));
+    CondJumpList lhs = to_CondJumpList(ctx->lexp(0)->accept(this));
     cur_bb = new_BB();
     for (IR::BB **i : lhs.true_list)
       (*i) = cur_bb;
-    CondJumpList rhs = to_CondJumpList(ctx->eqExp()->accept(this));
+    CondJumpList rhs = to_CondJumpList(ctx->lexp(1)->accept(this));
     CondJumpList ret = std::move(rhs);
     for (IR::BB **i : lhs.false_list)
       ret.false_list.push_back(i);
-    // debug<<__FUNCTION__<<" ret: "<<ret<<'\n';
     return ret;
   }
 }
 
-antlrcpp::Any ASTVisitor::visitLOr1(SysYParser::LOr1Context *ctx) {
-  debug << __FUNCTION__ << '\n';
-  return ctx->lAndExp()->accept(this);
-}
-
-antlrcpp::Any ASTVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
-  debug << __FUNCTION__ << '\n';
+antlrcpp::Any ASTVisitor::visitLOrExp(SysYParser::LOrExpContext *ctx) {
   if (mode == compile_time) {
     CompileTimeValue<int32_t>
-        lhs = ctx->lOrExp()->accept(this).as<CompileTimeValueAny>(),
-        rhs = ctx->lAndExp()->accept(this).as<CompileTimeValueAny>();
+        lhs = ctx->lexp(0)->accept(this).as<CompileTimeValueAny>(),
+        rhs = ctx->lexp(1)->accept(this).as<CompileTimeValueAny>();
     return lhs || rhs;
   } else if (mode == normal) {
-    IRValue lhs = to_IRValue(ctx->lOrExp()->accept(this));
+    IRValue lhs = to_IRValue(ctx->lexp(0)->accept(this));
     IR::Reg lhs_value = _get_value(ScalarType::Int, lhs);
     IR::BB *lhs_end = cur_bb, *rhs_entry = new_BB(), *res_entry = new_BB();
     lhs_end->push(new IR::BranchInstr(lhs_value, res_entry, rhs_entry));
     cur_bb = rhs_entry;
-    IRValue rhs = to_IRValue(ctx->lAndExp()->accept(this));
+    IRValue rhs = to_IRValue(ctx->lexp(1)->accept(this));
     IR::Reg rhs_value = _get_value(ScalarType::Int, rhs);
     cur_bb->push(new IR::JumpInstr(res_entry));
     IR::BB *rhs_end = cur_bb;
@@ -1489,11 +1423,11 @@ antlrcpp::Any ASTVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
     ret.reg = res_reg;
     return ret;
   } else {
-    CondJumpList lhs = to_CondJumpList(ctx->lOrExp()->accept(this));
+    CondJumpList lhs = to_CondJumpList(ctx->lexp(0)->accept(this));
     cur_bb = new_BB();
     for (IR::BB **i : lhs.false_list)
       (*i) = cur_bb;
-    CondJumpList rhs = to_CondJumpList(ctx->lAndExp()->accept(this));
+    CondJumpList rhs = to_CondJumpList(ctx->lexp(1)->accept(this));
     CondJumpList ret = std::move(rhs);
     for (IR::BB **i : lhs.true_list)
       ret.true_list.push_back(i);
@@ -1504,7 +1438,15 @@ antlrcpp::Any ASTVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
 antlrcpp::Any ASTVisitor::visitConstExp(SysYParser::ConstExpContext *ctx) {
   assert(mode == normal);
   mode = compile_time;
-  auto ret = ctx->addExp()->accept(this);
+  auto ret = ctx->exp()->accept(this);
   mode = normal;
   return ret;
+}
+
+antlrcpp::Any ASTVisitor::visitExp1(SysYParser::Exp1Context *ctx) {
+  return ctx->exp()->accept(this);
+}
+
+antlrcpp::Any ASTVisitor::visitExp2(SysYParser::Exp2Context *ctx) {
+  return ctx->unaryExp()->accept(this);
 }
