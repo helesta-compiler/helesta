@@ -162,6 +162,10 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       Reg addr = info->from_ir_reg(store->addr),
           src = info->from_ir_reg(store->s1);
       push_back(std::make_unique<Store>(src, addr, store->offset));
+    } else if (auto simd = dynamic_cast<IR::SIMDInstr *>(cur)) {
+      push_back(std::make_unique<SIMD>(
+          simd->s1 ? std::optional(info->from_ir_reg(*simd->s1)) : std::nullopt,
+          simd));
     } else if (auto jump = dynamic_cast<IR::JumpInstr *>(cur)) {
       Block *jump_target = info->block_mapping[jump->target];
       if (jump_target != next_block)

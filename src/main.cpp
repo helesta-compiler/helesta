@@ -31,6 +31,7 @@ int main(int argc, char **argv) {
   std::pair<std::string, std::string> filename = parse_arg(argc, argv);
 
   if (global_config.give_up) {
+    std::cerr << "give up" << std::endl;
     exit(255);
   }
 

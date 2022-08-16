@@ -88,6 +88,9 @@ struct MemObject : Printable {
   bool is_const = 0;
   // computed in optimize_passes
 
+  bool is_volatile = 0;
+  // cannot be optimized
+
   std::vector<MemSize> dims;
   // only for int array, array dim size
 
@@ -240,6 +243,12 @@ struct BB : Printable, Traversable<BB> {
   void push(decltype(instrs) &&ls) {
     for (auto &x : ls) {
       push(x.release());
+    }
+    ls.clear();
+  }
+  void push1(decltype(instrs) &&ls) {
+    for (auto &x : ls) {
+      push1(x.release());
     }
     ls.clear();
   }
@@ -645,6 +654,76 @@ struct ArrayIndex : RegWriteInstr {
   void print(ostream &os) const override;
 };
 
+struct SIMDInstr : CallInstr {
+  enum Type {
+    VADD_I32 = 0,
+    VADD_F32 = 1,
+    VSUB_I32 = 2,
+    VSUB_F32 = 3,
+    VMUL_S32 = 4,
+    VMUL_F32 = 5,
+    VMLA_S32 = 6,
+    VMLA_F32 = 7,
+    VDUP_32 = 8,
+    VLDM = 9,
+    VSTM = 10,
+    VCVT_S32_F32 = 11,
+    VCVT_F32_S32 = 12,
+  } type;
+  std::optional<Reg> s1;
+  std::vector<int> regs;
+  int size = 0;
+  SIMDInstr(Reg r, Func *f, Type _type, Reg _s1, std::vector<int> _regs)
+      : CallInstr(r, f, {}, ScalarType::Void), type(_type), s1(_s1),
+        regs(_regs) {
+    switch (type) {
+    case VDUP_32:
+      assert(regs.size() == 1);
+      break;
+    case VLDM:
+    case VSTM:
+      assert(regs.size() == 1);
+      size = 1;
+      break;
+    default:
+      assert(0);
+    }
+  }
+  SIMDInstr(Reg r, Func *f, Type _type, std::vector<int> _regs)
+      : CallInstr(r, f, {}, ScalarType::Void), type(_type), s1(std::nullopt),
+        regs(_regs) {
+    switch (type) {
+    case VADD_I32:
+    case VADD_F32:
+    case VSUB_I32:
+    case VSUB_F32:
+    case VMUL_S32:
+    case VMUL_F32:
+    case VMLA_S32:
+    case VMLA_F32:
+      assert(regs.size() == 3);
+      break;
+    case VCVT_S32_F32:
+    case VCVT_F32_S32:
+      assert(regs.size() == 2);
+      break;
+    default:
+      assert(0);
+    }
+  }
+  inline static const char *names[] = {
+      "vadd.i32", "vadd.f32",     "vsub.i32",    "vsub.f32", "vmul.s32",
+      "vmul.f32", "vmla.s32",     "vmla.f32",    "vdup.32",  "vldm",
+      "vstm",     "vcvt.s32.f32", "vcvt.f32.s32"};
+  const char *name() const { return names[(int)type]; }
+  void compute(typeless_scalar_t simd_regs[][4]);
+  int get_id(int x) const {
+    assert(0 <= x && x < 8);
+    return x + 8;
+  }
+  void print(ostream &os) const override;
+};
+
 // for ssa
 
 struct PhiInstr : RegWriteInstr {
@@ -767,7 +846,7 @@ struct CodeGen {
     return a.cg->reg(r);                                                       \
   }
     bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD) bop(<, LESS)
-        bop(<=, LEQ)
+        bop(<=, LEQ) bop(==, EQ) bop(!=, NEQ)
 #undef bop
   };
   RegRef reg(Reg r) { return RegRef{r, this}; }
@@ -776,6 +855,25 @@ struct CodeGen {
     instrs.emplace_back(new LoadConst<int32_t>(r, x));
     return reg(r);
   }
+  RegRef la(MemObject *x) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadAddr(r, x));
+    return reg(r);
+  }
+  RegRef ld_volatile(CompileUnit *ir, RegRef x) {
+    auto f = ir->lib_funcs.at("__ld_volatile").get();
+    return call(f, ScalarType::Int, {{x, ScalarType::Int}});
+  }
+  void st_volatile(CompileUnit *ir, RegRef x, RegRef y) {
+    auto f = ir->lib_funcs.at("__st_volatile").get();
+    call(f, ScalarType::Int, {{x, ScalarType::Int}, {y, ScalarType::Int}});
+  }
+  RegRef ld(RegRef x) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadInstr(r, x.r));
+    return reg(r);
+  }
+  void st(RegRef x, RegRef y) { instrs.emplace_back(new StoreInstr(x.r, y.r)); }
   void branch(RegRef cond, BB *target1, BB *target0) {
     instrs.emplace_back(new BranchInstr(cond.r, target1, target0));
   }

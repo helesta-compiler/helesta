@@ -17,6 +17,8 @@ make format
 make format_check
 ```
 
+Every push to this repo triggers GitHub workflow to verity the sanity of the code. You can add `$bench` to commit message to generate benchmark summary in the action page. One integral benchmark costs around 1 hour. Use `$bench` with `$fast` in the commit message to reduce the running time to 20 minutes. Fast benchmark simply ignores the testcases for correctness and skip benchmark for other reference compilers.
+
 ## Setup
 
 ### Parser Generator
