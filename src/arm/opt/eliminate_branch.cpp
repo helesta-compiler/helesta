@@ -9,7 +9,7 @@ struct EBNode {
   Block *block;
 
   inline bool ok() const {
-    if (insts.size() > 1) {
+    if (insts.size() > 2) {
       return false;
     }
     if (in_deg_cnt > 0) {
