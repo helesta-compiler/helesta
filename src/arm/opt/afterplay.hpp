@@ -11,6 +11,7 @@ void remove_trivial_inst(Program *);
 inline void afterplay(Program *prog) {
   replace_complex_inst(prog);
   remove_trivial_inst(prog);
+  eliminate_branch(prog);
 }
 
 } // namespace ARMv7

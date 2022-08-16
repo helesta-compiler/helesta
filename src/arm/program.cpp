@@ -164,23 +164,6 @@ vector<int> Func::get_in_deg() {
   return ret;
 }
 
-vector<int> Func::get_branch_in_deg() {
-  size_t n = blocks.size();
-  map<Block *, size_t> pos;
-  for (size_t i = 0; i < n; ++i)
-    pos[blocks[i].get()] = i;
-  vector<int> ret;
-  ret.resize(n, 0);
-  for (size_t i = 0; i < n; ++i) {
-    auto &block = blocks[i];
-    for (auto &inst : block->insts)
-      if (Branch *b = inst->as<Branch>()) {
-        ++ret[pos[b->target]];
-      }
-  }
-  return ret;
-}
-
 void Func::replace_with_reg_alloc(const vector<int> &int_reg_alloc,
                                   const vector<int> &float_reg_alloc) {
   for (auto &block : blocks)
