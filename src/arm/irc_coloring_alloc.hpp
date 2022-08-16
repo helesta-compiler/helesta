@@ -353,7 +353,7 @@ private:
     return true;
   }
 
-  int get_exp(int m, int n) {
+  int get_exp(int m, int n) { // m^n
     if (n == 0) {
       return 1;
     }
@@ -406,27 +406,6 @@ private:
           optimal_weight = cur_weight;
         }
       }
-
-      // if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end())
-      //   if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end()
-      //   ||
-      //       func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end())
-      //     if (selected_spill == -1 ||
-      //         interfere_edge[i].size() >
-      //         interfere_edge[selected_spill].size())
-      //       selected_spill = i;
-      // if (selected_spill == -1) {
-      //   for (int i : remain_pesudo_nodes) {
-      //     if (func->spilling_reg.find(Reg(i, type)) ==
-      //         func->spilling_reg.end()) {
-      //       if (selected_spill == -1 ||
-      //           interfere_edge[i].size() >
-      //               interfere_edge[selected_spill].size()) {
-      //         selected_spill = i;
-      //       }
-      //     }
-      //   }
-      // }
     }
     assert(selected_spill != -1);
     remain_pesudo_nodes.erase(selected_spill);
