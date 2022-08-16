@@ -13,8 +13,9 @@ inline void afterplay(Program *prog) {
   replace_complex_inst(prog);
   remove_trivial_inst(prog);
   PassEnabled("eliminate-branch") {
-    while (eliminate_branch(prog))
+    while (eliminate_branch(prog)) {
       remove_empty_blocks(prog);
+    }
   }
 }
 } // namespace ARMv7
