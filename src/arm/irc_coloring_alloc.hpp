@@ -542,7 +542,7 @@ private:
     for (int i = ((int)select_stack.size()) - 1; i >= 0; --i) {
       auto &cur_node = select_stack[i];
       assert(ans[cur_node.first] == -1);
-      assert(get_alias(cur_node.first) == cur_node.first);
+      assert(alias[cur_node.first] == cur_node.first);
       bool flag[RegConvention<type>::Count] = {};
       for (int neighbor : cur_node.second) {
         flag[ans[get_alias(neighbor)]] = true;

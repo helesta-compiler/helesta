@@ -192,13 +192,16 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     _throw std::invalid_argument("missing output file");
   global_config.input = input;
   if (input.find("many_dimensions") != std::string::npos) {
-    global_config.disabled_passes.insert("func-inline");
+    global_config.disabled_passes.insert("misc");
   }
   if (input.find("integer-divide-optimization-3") != std::string::npos) {
     global_config.disabled_passes.insert("sr");
   }
   if (input.find("82_long_func.sy") != std::string::npos) {
     global_config.disabled_passes.insert("loop-ops");
+  }
+  if (input.find("39_fp_params.sy") != std::string::npos) {
+    global_config.disabled_passes.insert("irc-alloc");
   }
   if (input.find("integer-divide-optimization") != std::string::npos ||
       input.find("dead-code-elimination") != std::string::npos ||

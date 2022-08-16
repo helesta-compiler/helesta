@@ -57,27 +57,45 @@ template <> struct RegConvention<ScalarType::Int> {
 
 template <> struct RegConvention<ScalarType::Float> {
   static constexpr int Count = 32;
-  static constexpr int ALLOCABLE_REGISTER_COUNT = 28;
+  static constexpr int ALLOCABLE_REGISTER_COUNT = 32;
   static constexpr int ARGUMENT_REGISTER_COUNT = 4;
   static constexpr int ARGUMENT_REGISTERS[ARGUMENT_REGISTER_COUNT] = {0, 1, 2,
                                                                       3};
   static constexpr RegisterUsage REGISTER_USAGE[Count] = {
-      RegisterUsage::caller_save, RegisterUsage::caller_save,
-      RegisterUsage::caller_save, RegisterUsage::caller_save, // s0..s3
-      RegisterUsage::callee_save, RegisterUsage::callee_save,
-      RegisterUsage::callee_save, RegisterUsage::callee_save,
-      RegisterUsage::callee_save, RegisterUsage::callee_save,
-      RegisterUsage::callee_save, RegisterUsage::callee_save,
-      RegisterUsage::callee_save, RegisterUsage::callee_save,
-      RegisterUsage::callee_save, RegisterUsage::callee_save, // s4..s15
-      RegisterUsage::caller_save, RegisterUsage::caller_save,
-      RegisterUsage::caller_save, RegisterUsage::caller_save,
-      RegisterUsage::caller_save, RegisterUsage::caller_save,
-      RegisterUsage::caller_save, RegisterUsage::caller_save,
-      RegisterUsage::caller_save, RegisterUsage::caller_save,
-      RegisterUsage::caller_save, RegisterUsage::caller_save, // s16..s27
-      RegisterUsage::special,     RegisterUsage::special,
-      RegisterUsage::special,     RegisterUsage::special, // s28..s31
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save, // s0..s3
+      RegisterUsage::callee_save,
+      RegisterUsage::callee_save,
+      RegisterUsage::callee_save,
+      RegisterUsage::callee_save,
+      RegisterUsage::callee_save,
+      RegisterUsage::callee_save,
+      RegisterUsage::callee_save,
+      RegisterUsage::callee_save,
+      RegisterUsage::callee_save,
+      RegisterUsage::callee_save,
+      RegisterUsage::callee_save,
+      RegisterUsage::callee_save, // s4..s15
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save, // s16..s27
+      // RegisterUsage::special,     RegisterUsage::special,
+      // RegisterUsage::special,     RegisterUsage::special, // s28..s31
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
+      RegisterUsage::caller_save,
   };
   static constexpr bool allocable(int reg_id) {
     return REGISTER_USAGE[reg_id] == RegisterUsage::caller_save ||
