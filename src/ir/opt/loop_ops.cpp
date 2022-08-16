@@ -881,6 +881,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 
       auto fork = ir->lib_funcs.at("__create_threads").get();
       auto join = ir->lib_funcs.at("__join_threads").get();
+      auto bind_core = ir->lib_funcs.at("__bind_core").get();
       auto lock = ir->lib_funcs.at("__lock").get();
       auto unlock = ir->lib_funcs.at("__unlock").get();
       auto nop = ir->lib_funcs.at("__nop").get();
@@ -900,12 +901,12 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       for (size_t i = 1; i <= cnt; ++i) {
         auto &p1 = loops[i];
         auto l0_0 = l0.r;
-        BB *bb1_0 = bb1;
+        BB *new_entry = S.f->new_BB();
 
         if (i < cnt) {
           BB *bb2 = S.f->new_BB();
           auto r0 = l0 + step;
-          cg.branch(cg.call(fork, ScalarType::Int), p1.entry, bb2);
+          cg.branch(cg.call(fork, ScalarType::Int), new_entry, bb2);
           bb1->push(std::move(cg.instrs));
           bb1 = bb2;
           l0 = r0;
@@ -917,14 +918,17 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
           }
           else assert(0);
         } else {
-          cg.jump(p1.entry);
+          cg.jump(new_entry);
           bb1->push(std::move(cg.instrs));
         }
+        cg.call(bind_core, ScalarType::Void, {{cg.lc(i - 1), ScalarType::Int}});
+        cg.jump(p1.entry);
+        new_entry->push(std::move(cg.instrs));
 
         p1.entry->map_phi_use([&](Reg &r, BB *&bb) {
           if (bb == prev) {
             r = l0_0;
-            bb = bb1_0;
+            bb = new_entry;
           }
         });
       }
