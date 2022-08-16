@@ -110,7 +110,8 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       if (binary->op.type == IR::BinaryCompute::ADD ||
           binary->op.type == IR::BinaryCompute::SUB ||
           binary->op.type == IR::BinaryCompute::MUL ||
-          binary->op.type == IR::BinaryCompute::DIV) {
+          binary->op.type == IR::BinaryCompute::DIV ||
+          binary->op.type == IR::BinaryCompute::MOD) {
         push_back(std::make_unique<RegRegInst>(
             RegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
       } else if (binary->op.type == IR::BinaryCompute::FADD ||
