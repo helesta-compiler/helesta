@@ -44,7 +44,7 @@ bool startswith(const string &s1, const string &s2) {
   return true;
 }
 
-int32_t parse_int32_literal(const string &s) { return stoi(s); }
+int32_t parse_int32_literal(const string &s) { return stoi(s, 0, 0); }
 
 float parse_float_literal(const string &s) { return stof(s); }
 
