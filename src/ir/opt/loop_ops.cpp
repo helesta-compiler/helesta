@@ -921,7 +921,9 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
           cg.jump(new_entry);
           bb1->push(std::move(cg.instrs));
         }
-        cg.call(bind_core, ScalarType::Void, {{cg.lc(i - 1), ScalarType::Int}});
+        cg.call(bind_core, ScalarType::Void,
+                {{cg.lc(i - 1), ScalarType::Int},
+                 {cg.lc(1 << (i - 1)), ScalarType::Int}});
         cg.jump(p1.entry);
         new_entry->push(std::move(cg.instrs));
 
@@ -970,6 +972,9 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       }
       next->map_BB(partial_map(p0.exit, tail));
 
+      cg.call(bind_core, ScalarType::Void,
+              {{cg.lc(0), ScalarType::Int},
+               {cg.lc((1 << 4) - 1), ScalarType::Int}});
       cg.jump(next);
       tail->push(std::move(cg.instrs));
 
@@ -1093,7 +1098,9 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
       cg.jump(new_entry);
       bb1->push(std::move(cg.instrs));
     }
-    cg.call(bind_core, ScalarType::Void, {{cg.lc(i - 1), ScalarType::Int}});
+    cg.call(bind_core, ScalarType::Void,
+            {{cg.lc(i - 1), ScalarType::Int},
+             {cg.lc(1 << (i - 1)), ScalarType::Int}});
     cg.jump(p1.entry);
     new_entry->push(std::move(cg.instrs));
   }
@@ -1171,6 +1178,9 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
 
   next->map_BB(partial_map(p0.exit, tail));
 
+  cg.call(
+      bind_core, ScalarType::Void,
+      {{cg.lc(0), ScalarType::Int}, {cg.lc((1 << 4) - 1), ScalarType::Int}});
   cg.jump(next);
   tail->push(std::move(cg.instrs));
 

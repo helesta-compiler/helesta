@@ -852,9 +852,7 @@ __bind_core:
 	vmov s31, r7
 	sub sp, sp, #1024
 	add r2, sp, r0, LSL #2
-	mov r3, #1
-	lsl r3, r3, r0
-	str r3, [r2,#0]
+	str r1, [r2,#0]
 	mov r0, #0
 	mov r1, #4
 	mov r7, #SYS_sched_setaffinity
