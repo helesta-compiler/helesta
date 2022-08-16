@@ -177,7 +177,7 @@ private:
     assert(id >= RegConvention<type>::Count);
     for (int i : interfere_edge[id]) {
       interfere_edge[i].erase(id);
-      if (interfere_edge[i].size() <=
+      if (interfere_edge[i].size() ==
               RegConvention<type>::ALLOCABLE_REGISTER_COUNT - 1 &&
           i >= RegConvention<type>::Count && move_edges[i].empty())
         simplify_worklist.push(i);
