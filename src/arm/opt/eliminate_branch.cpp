@@ -53,15 +53,19 @@ struct EBContext {
         entry = nodes.back().get();
     }
     for (auto &node : nodes) {
-      auto last = node->insts.back().get();
-      if (auto branch = dynamic_cast<Branch *>(last)) {
-        auto target = branch->target;
-        assert(target != nullptr);
-        auto it = b2ebnode.find(target);
-        assert(it != b2ebnode.end());
-        auto next = it->second;
-        node->next = next;
-        next->in_deg_cnt += 1;
+      for (auto &i : node->insts) {
+        if (auto branch = dynamic_cast<Branch *>(i.get())) {
+          auto target = branch->target;
+          assert(target != nullptr);
+          auto it = b2ebnode.find(target);
+          assert(it != b2ebnode.end());
+          auto next = it->second;
+          next->in_deg_cnt += 1;
+        }
+      }
+      if (auto branch = dynamic_cast<Branch *>(node->insts.back().get())) {
+        auto it = b2ebnode.find(branch->target);
+        node->next = it->second;
       }
     }
   }
@@ -90,9 +94,6 @@ struct EBContext {
       }
       nodes[i + 1]->set_conditional(logical_not(nodes[i]->insts.back()->cond));
       nodes[i]->insts.pop_back();
-      std::move(nodes[i + 1]->insts.begin(), nodes[i + 1]->insts.end(),
-                std::back_inserter(nodes[i]->insts));
-      nodes[i + 1]->insts.clear();
       return true;
     }
     return false;

@@ -6,8 +6,10 @@ namespace ARMv7 {
 void remove_empty_blocks(Func *f) {
   std::set<Block *> dests;
   for (auto &b : f->blocks) {
-    if (auto branch = dynamic_cast<Branch *>(b->insts.back().get())) {
-      dests.insert(branch->target);
+    for (auto &i : b->insts) {
+      if (auto branch = dynamic_cast<Branch *>(i.get())) {
+        dests.insert(branch->target);
+      }
     }
   }
   f->blocks.erase(std::remove_if(f->blocks.begin(), f->blocks.end(),
