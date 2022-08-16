@@ -21,7 +21,6 @@ void call_graph(IR::CompileUnit *);
 void remove_unused_BB(IR::CompileUnit *ir);
 void before_backend(IR::CompileUnit *ir);
 void before_gcm(IR::CompileUnit *ir);
-void special(IR::CompileUnit *ir);
 void pretty_print(IR::CompileUnit *ir);
 
 void checkIR(IR::NormalFunc *f);
@@ -53,7 +52,6 @@ inline void optimize_ir(IR::CompileUnit *ir) {
     gcm(ir);
     gvn(ir);
     PassEnabled("misc") {
-      special(ir);
       call_graph(ir);
       dag_ir(ir);
       gvn(ir);
