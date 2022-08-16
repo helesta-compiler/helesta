@@ -316,8 +316,9 @@ void Func::merge_inst() {
             RegReg(RegRegInst::Add, bop->dst, bop->dst, hi,
                    Shift(Shift::LSR, 31));
             Ins(load_imm(lo, v));
-            RegReg(RegRegInst::Mul, bop->dst, bop->dst, lo);
-            RegReg(RegRegInst::Sub, bop->dst, x, bop->dst);
+            // RegReg(RegRegInst::Mul, bop->dst, bop->dst, lo);
+            // RegReg(RegRegInst::Sub, bop->dst, x, bop->dst);
+            Ins(new ML(ML::Mls, bop->dst, bop->dst, lo, x));
             Del();
           }
           break;
