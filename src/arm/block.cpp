@@ -9,7 +9,7 @@
 #include "arm/program.hpp"
 
 namespace ARMv7 {
-Block::Block(std::string _name) : name(_name), label_used(false) {}
+Block::Block(std::string _name) : name(_name), label_used(false), depth(0) {}
 
 void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
                       Block *next_block, std::map<Reg, CmpInfo> &cmp_info) {

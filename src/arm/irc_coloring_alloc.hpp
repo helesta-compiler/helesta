@@ -34,6 +34,7 @@ private:
   std::set<int> remain_pesudo_nodes;
   std::vector<int> def_cnt;
   std::vector<int> use_cnt;
+  std::vector<int> depth_info;
 
   bool is_neighbor(int x, int y) {
     assert(x >= 0 && x < (int)interfere_edge.size());
@@ -64,11 +65,13 @@ private:
     alias.resize(func->reg_n, -1);
     def_cnt.resize(func->reg_n, 0);
     use_cnt.resize(func->reg_n, 0);
+    depth_info.resize(func->reg_n, 0);
     std::fill(occur.begin(), occur.end(), 0);
     std::fill(interfere_edge.begin(), interfere_edge.end(), std::set<int>{});
     func->calc_live();
     std::vector<int> temp, new_nodes;
     for (auto &block : func->blocks) {
+      int cur_block_depth = block->depth;
       std::set<Reg> live = block->live_out;
       for (auto it = live.begin(); it != live.end();) {
         if (it->type != type) {
@@ -119,6 +122,7 @@ private:
               (r.is_pseudo() || RegConvention<type>::allocable(r.id))) {
             assert(r.id >= 0);
             ++def_cnt[r.id];
+            depth_info[r.id] = std::max(depth_info[r.id], cur_block_depth);
             occur[r.id] = 1;
             live.erase(r);
           }
@@ -128,6 +132,7 @@ private:
               (r.is_pseudo() || RegConvention<type>::allocable(r.id))) {
             assert(r.id >= 0);
             ++use_cnt[r.id];
+            depth_info[r.id] = std::max(depth_info[r.id], cur_block_depth);
             occur[r.id] = 1;
             if (live.find(r) == live.end()) {
               for (Reg o : live) {
@@ -242,6 +247,7 @@ private:
   }
 
   void combine(int u, int v) {
+    assert(u >= RegConvention<type>::Count || v >= RegConvention<type>::Count);
     if (v < RegConvention<type>::Count) {
       std::swap(u, v);
     }
@@ -347,30 +353,80 @@ private:
     return true;
   }
 
+  int get_exp(int m, int n) {
+    if (n == 0) {
+      return 1;
+    }
+    if (n == 1) {
+      return m;
+    }
+    if (n % 2 == 0) {
+      return get_exp(m * m, n / 2);
+    } else {
+      return m * get_exp(m * m, n / 2);
+    }
+  }
+
   int select_spill() {
     int selected_spill = -1;
     // TODO: get a better policy to select the node
-    // double optimal_value = 0.0;
-    // const double epsilon = 1e-5;
+    int optimal_depth = 0;
+    int optimal_weight = 0;
+    auto cmp_value = [&](int x, int y) {
+      // cmp y*4^x
+      if (x == optimal_depth) {
+        return y > optimal_weight;
+      } else if (x > optimal_depth) {
+        if (x - optimal_depth > 15) {
+          return true;
+        }
+        return get_exp(4, x - optimal_depth) > (y / optimal_weight);
+      } else {
+        if (optimal_depth - x > 15) {
+          return false;
+        }
+        return get_exp(4, optimal_depth - x) < (y / optimal_weight);
+      }
+    };
     for (int i : remain_pesudo_nodes) {
-      if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end())
-        if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end() ||
-            func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end())
-          if (selected_spill == -1 ||
-              interfere_edge[i].size() > interfere_edge[selected_spill].size())
-            selected_spill = i;
-      if (selected_spill == -1) {
-        for (int i : remain_pesudo_nodes) {
-          if (func->spilling_reg.find(Reg(i, type)) ==
-              func->spilling_reg.end()) {
-            if (selected_spill == -1 ||
-                interfere_edge[i].size() >
-                    interfere_edge[selected_spill].size()) {
-              selected_spill = i;
-            }
-          }
+      if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end()) {
+        int cur_depth = depth_info[i];
+        int cur_weight;
+        if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end()) {
+          cur_weight = interfere_edge[i].size() + use_cnt[i];
+        } else if (func->symbol_reg.find(Reg(i, type)) !=
+                   func->symbol_reg.end()) {
+          cur_weight = interfere_edge[i].size() + use_cnt[i] * 2;
+        } else {
+          cur_weight = interfere_edge[i].size() + (use_cnt[i] + def_cnt[i]) * 5;
+        }
+        if (selected_spill == -1 || cmp_value(cur_depth, cur_weight)) {
+          selected_spill = i;
+          optimal_depth = cur_depth;
+          optimal_weight = cur_weight;
         }
       }
+
+      // if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end())
+      //   if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end()
+      //   ||
+      //       func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end())
+      //     if (selected_spill == -1 ||
+      //         interfere_edge[i].size() >
+      //         interfere_edge[selected_spill].size())
+      //       selected_spill = i;
+      // if (selected_spill == -1) {
+      //   for (int i : remain_pesudo_nodes) {
+      //     if (func->spilling_reg.find(Reg(i, type)) ==
+      //         func->spilling_reg.end()) {
+      //       if (selected_spill == -1 ||
+      //           interfere_edge[i].size() >
+      //               interfere_edge[selected_spill].size()) {
+      //         selected_spill = i;
+      //       }
+      //     }
+      //   }
+      // }
     }
     assert(selected_spill != -1);
     remain_pesudo_nodes.erase(selected_spill);

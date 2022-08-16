@@ -126,6 +126,7 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
     IR::BB *cur = ir_func->bbs[i].get();
     string cur_name = ".L" + std::to_string(prog->block_n++);
     unique_ptr<Block> res = make_unique<Block>(cur_name);
+    res->depth = ir_func->bbs[i]->depth;
     info.block_mapping[cur] = res.get();
     info.rev_block_mapping[res.get()] = cur;
     blocks.push_back(std::move(res));
