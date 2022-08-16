@@ -136,6 +136,9 @@ public:
   virtual void enterStringAsRParam(SysYParser::StringAsRParamContext * /*ctx*/) override { }
   virtual void exitStringAsRParam(SysYParser::StringAsRParamContext * /*ctx*/) override { }
 
+  virtual void enterEqExp(SysYParser::EqExpContext * /*ctx*/) override { }
+  virtual void exitEqExp(SysYParser::EqExpContext * /*ctx*/) override { }
+
   virtual void enterLOrExp(SysYParser::LOrExpContext * /*ctx*/) override { }
   virtual void exitLOrExp(SysYParser::LOrExpContext * /*ctx*/) override { }
 
@@ -145,8 +148,8 @@ public:
   virtual void enterExp1(SysYParser::Exp1Context * /*ctx*/) override { }
   virtual void exitExp1(SysYParser::Exp1Context * /*ctx*/) override { }
 
-  virtual void enterEqExp(SysYParser::EqExpContext * /*ctx*/) override { }
-  virtual void exitEqExp(SysYParser::EqExpContext * /*ctx*/) override { }
+  virtual void enterRelExp(SysYParser::RelExpContext * /*ctx*/) override { }
+  virtual void exitRelExp(SysYParser::RelExpContext * /*ctx*/) override { }
 
   virtual void enterAddExp(SysYParser::AddExpContext * /*ctx*/) override { }
   virtual void exitAddExp(SysYParser::AddExpContext * /*ctx*/) override { }
@@ -156,9 +159,6 @@ public:
 
   virtual void enterMulExp(SysYParser::MulExpContext * /*ctx*/) override { }
   virtual void exitMulExp(SysYParser::MulExpContext * /*ctx*/) override { }
-
-  virtual void enterRelExp(SysYParser::RelExpContext * /*ctx*/) override { }
-  virtual void exitRelExp(SysYParser::RelExpContext * /*ctx*/) override { }
 
   virtual void enterConstExp(SysYParser::ConstExpContext * /*ctx*/) override { }
   virtual void exitConstExp(SysYParser::ConstExpContext * /*ctx*/) override { }

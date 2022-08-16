@@ -72,15 +72,15 @@ funcRParams: funcRParam (',' funcRParam)*;
 funcRParam: exp # expAsRParam | STRING # stringAsRParam;
 
 lexp:
-	exp					# exp1
-	| lexp '&&' lexp	# lAndExp
-	| lexp '||' lexp	# lOrExp;
+	exp										# exp1
+	| lexp ('<' | '>' | '<=' | '>=') lexp	# relExp
+	| lexp ('==' | '!=') lexp				# eqExp
+	| lexp '&&' lexp						# lAndExp
+	| lexp '||' lexp						# lOrExp;
 
 exp:
-	unaryExp							# exp2
-	| exp ('*' | '/' | '%') exp			# mulExp
-	| exp ('+' | '-') exp				# addExp
-	| exp ('<' | '>' | '<=' | '>=') exp	# relExp
-	| exp ('==' | '!=') exp				# eqExp;
+	unaryExp					# exp2
+	| exp ('*' | '/' | '%') exp	# mulExp
+	| exp ('+' | '-') exp		# addExp;
 
 constExp: exp;

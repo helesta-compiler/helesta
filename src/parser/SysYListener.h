@@ -134,6 +134,9 @@ public:
   virtual void enterStringAsRParam(SysYParser::StringAsRParamContext *ctx) = 0;
   virtual void exitStringAsRParam(SysYParser::StringAsRParamContext *ctx) = 0;
 
+  virtual void enterEqExp(SysYParser::EqExpContext *ctx) = 0;
+  virtual void exitEqExp(SysYParser::EqExpContext *ctx) = 0;
+
   virtual void enterLOrExp(SysYParser::LOrExpContext *ctx) = 0;
   virtual void exitLOrExp(SysYParser::LOrExpContext *ctx) = 0;
 
@@ -143,8 +146,8 @@ public:
   virtual void enterExp1(SysYParser::Exp1Context *ctx) = 0;
   virtual void exitExp1(SysYParser::Exp1Context *ctx) = 0;
 
-  virtual void enterEqExp(SysYParser::EqExpContext *ctx) = 0;
-  virtual void exitEqExp(SysYParser::EqExpContext *ctx) = 0;
+  virtual void enterRelExp(SysYParser::RelExpContext *ctx) = 0;
+  virtual void exitRelExp(SysYParser::RelExpContext *ctx) = 0;
 
   virtual void enterAddExp(SysYParser::AddExpContext *ctx) = 0;
   virtual void exitAddExp(SysYParser::AddExpContext *ctx) = 0;
@@ -154,9 +157,6 @@ public:
 
   virtual void enterMulExp(SysYParser::MulExpContext *ctx) = 0;
   virtual void exitMulExp(SysYParser::MulExpContext *ctx) = 0;
-
-  virtual void enterRelExp(SysYParser::RelExpContext *ctx) = 0;
-  virtual void exitRelExp(SysYParser::RelExpContext *ctx) = 0;
 
   virtual void enterConstExp(SysYParser::ConstExpContext *ctx) = 0;
   virtual void exitConstExp(SysYParser::ConstExpContext *ctx) = 0;

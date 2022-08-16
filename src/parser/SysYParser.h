@@ -804,6 +804,20 @@ public:
    
   };
 
+  class  EqExpContext : public LexpContext {
+  public:
+    EqExpContext(LexpContext *ctx);
+
+    std::vector<LexpContext *> lexp();
+    LexpContext* lexp(size_t i);
+    antlr4::tree::TerminalNode *EQ();
+    antlr4::tree::TerminalNode *NEQ();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
   class  LOrExpContext : public LexpContext {
   public:
     LOrExpContext(LexpContext *ctx);
@@ -841,6 +855,22 @@ public:
     virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
+  class  RelExpContext : public LexpContext {
+  public:
+    RelExpContext(LexpContext *ctx);
+
+    std::vector<LexpContext *> lexp();
+    LexpContext* lexp(size_t i);
+    antlr4::tree::TerminalNode *LT();
+    antlr4::tree::TerminalNode *GT();
+    antlr4::tree::TerminalNode *LE();
+    antlr4::tree::TerminalNode *GE();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
   LexpContext* lexp();
   LexpContext* lexp(int precedence);
   class  ExpContext : public antlr4::ParserRuleContext {
@@ -854,20 +884,6 @@ public:
     virtual size_t getRuleIndex() const override;
 
    
-  };
-
-  class  EqExpContext : public ExpContext {
-  public:
-    EqExpContext(ExpContext *ctx);
-
-    std::vector<ExpContext *> exp();
-    ExpContext* exp(size_t i);
-    antlr4::tree::TerminalNode *EQ();
-    antlr4::tree::TerminalNode *NEQ();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
   class  AddExpContext : public ExpContext {
@@ -904,22 +920,6 @@ public:
     antlr4::tree::TerminalNode *Multiplication();
     antlr4::tree::TerminalNode *Division();
     antlr4::tree::TerminalNode *Modulo();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  class  RelExpContext : public ExpContext {
-  public:
-    RelExpContext(ExpContext *ctx);
-
-    std::vector<ExpContext *> exp();
-    ExpContext* exp(size_t i);
-    antlr4::tree::TerminalNode *LT();
-    antlr4::tree::TerminalNode *GT();
-    antlr4::tree::TerminalNode *LE();
-    antlr4::tree::TerminalNode *GE();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 

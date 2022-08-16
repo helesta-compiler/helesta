@@ -99,21 +99,21 @@ public:
 
     virtual antlrcpp::Any visitStringAsRParam(SysYParser::StringAsRParamContext *context) = 0;
 
+    virtual antlrcpp::Any visitEqExp(SysYParser::EqExpContext *context) = 0;
+
     virtual antlrcpp::Any visitLOrExp(SysYParser::LOrExpContext *context) = 0;
 
     virtual antlrcpp::Any visitLAndExp(SysYParser::LAndExpContext *context) = 0;
 
     virtual antlrcpp::Any visitExp1(SysYParser::Exp1Context *context) = 0;
 
-    virtual antlrcpp::Any visitEqExp(SysYParser::EqExpContext *context) = 0;
+    virtual antlrcpp::Any visitRelExp(SysYParser::RelExpContext *context) = 0;
 
     virtual antlrcpp::Any visitAddExp(SysYParser::AddExpContext *context) = 0;
 
     virtual antlrcpp::Any visitExp2(SysYParser::Exp2Context *context) = 0;
 
     virtual antlrcpp::Any visitMulExp(SysYParser::MulExpContext *context) = 0;
-
-    virtual antlrcpp::Any visitRelExp(SysYParser::RelExpContext *context) = 0;
 
     virtual antlrcpp::Any visitConstExp(SysYParser::ConstExpContext *context) = 0;
 
