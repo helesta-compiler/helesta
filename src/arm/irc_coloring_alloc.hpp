@@ -378,14 +378,14 @@ private:
         return y > optimal_weight;
       } else if (x > optimal_depth) {
         if (x - optimal_depth > 15) {
-          return true;
-        }
-        return get_exp(4, x - optimal_depth) > (y / optimal_weight);
-      } else {
-        if (optimal_depth - x > 15) {
           return false;
         }
-        return get_exp(4, optimal_depth - x) < (y / optimal_weight);
+        return get_exp(4, x - optimal_depth) < (optimal_weight / y);
+      } else {
+        if (optimal_depth - x > 15) {
+          return true;
+        }
+        return get_exp(4, optimal_depth - x) > (y / optimal_weight);
       }
     };
     for (int i : remain_pesudo_nodes) {
