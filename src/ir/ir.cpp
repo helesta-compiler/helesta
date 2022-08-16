@@ -192,6 +192,9 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   f = new_LibFunc("__join_threads", 1);
   f->in = 1;
   f->out = 1;
+  f = new_LibFunc("__bind_core", 1);
+  f->in = 1;
+  f->out = 1;
   f = new_LibFunc("__lock", 1);
   f->in = 1;
   f->out = 1;

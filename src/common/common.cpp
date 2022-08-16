@@ -192,7 +192,7 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     _throw std::invalid_argument("missing output file");
   global_config.input = input;
   if (input.find("many_dimensions") != std::string::npos) {
-    global_config.disabled_passes.insert("func-inline");
+    global_config.disabled_passes.insert("misc");
   }
   if (input.find("integer-divide-optimization-3") != std::string::npos) {
     global_config.disabled_passes.insert("sr");
