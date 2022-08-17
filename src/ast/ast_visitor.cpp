@@ -138,39 +138,19 @@ IR::Reg ASTVisitor::get_value(int lineno, ScalarType type,
   if (value.type.is_array())
     ___assert(lineno, 0, "", __FILE__);
   IR::Reg ret = get_value(lineno, value);
-  switch (value.type.scalar_type) {
-  case ScalarType::Int:
+  if (value.type.scalar_type != type) {
+    IR::Reg temp = new_reg();
     switch (type) {
     case ScalarType::Int:
+      cur_bb->push(new IR::UnaryOpInstr(temp, ret, IR::UnaryCompute::F2I));
       break;
-    case ScalarType::Float: {
-      IR::Reg temp = new_reg();
-      cur_bb->push(
-          new IR::UnaryOpInstr(temp, ret, IR::UnaryOp(IR::UnaryCompute::I2F)));
-      ret = temp;
-      break;
-    }
-    default:
-      assert(false);
-    }
-    break;
-  case ScalarType::Float:
-    switch (type) {
-    case ScalarType::Int: {
-      IR::Reg temp = new_reg();
-      cur_bb->push(
-          new IR::UnaryOpInstr(temp, ret, IR::UnaryOp(IR::UnaryCompute::F2I)));
-      ret = temp;
-      break;
-    }
     case ScalarType::Float:
+      cur_bb->push(new IR::UnaryOpInstr(temp, ret, IR::UnaryCompute::I2F));
       break;
     default:
       assert(false);
     }
-    break;
-  default:
-    assert(false);
+    ret = temp;
   }
   return ret;
 }
