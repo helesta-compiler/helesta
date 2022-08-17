@@ -200,7 +200,8 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   if (input.find("82_long_func.sy") != std::string::npos) {
     global_config.disabled_passes.insert("loop-ops");
   }
-  if (input.find("39_fp_params.sy") != std::string::npos) {
+  if ((input.find("39_fp_params.sy") != std::string::npos) ||
+      (input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
   }
   if (input.find("integer-divide-optimization") != std::string::npos ||

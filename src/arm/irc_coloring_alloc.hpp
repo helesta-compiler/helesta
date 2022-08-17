@@ -419,7 +419,6 @@ private:
         }
       }
     }
-    info << optimal_depth << " " << optimal_weight << "\n";
     assert(selected_spill != -1);
     remain_pesudo_nodes.erase(selected_spill);
     for (int neighbor : interfere_edge[selected_spill]) {
