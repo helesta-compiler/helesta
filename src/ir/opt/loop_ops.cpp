@@ -1268,7 +1268,6 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
         if (!(v > 1 && v == (v & -v)))
           continue;
         int log2v = __builtin_ctz(v);
-
         auto loop_cnt = cg.reg(i2) - cg.reg(i1);
         if (op.eq) {
           loop_cnt = loop_cnt + cg.lc(1);
