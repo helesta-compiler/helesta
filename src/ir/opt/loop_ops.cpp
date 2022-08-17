@@ -1270,7 +1270,7 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
         int log2v = __builtin_ctz(v);
 
         auto loop_cnt = cg.reg(i2) - cg.reg(i1);
-        if (!op.eq) {
+        if (op.eq) {
           loop_cnt = loop_cnt + cg.lc(1);
         }
         auto index = loop_cnt * cg.lc(log2v);
