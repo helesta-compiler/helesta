@@ -25,6 +25,9 @@ struct EBNode {
       if (dynamic_cast<Return *>(i.get())) {
         return false;
       }
+      if (dynamic_cast<Branch *>(i.get())) {
+        return false;
+      }
     }
     return true;
   }
@@ -92,6 +95,8 @@ struct EBContext {
       if (!nodes[i + 1]->ok()) {
         continue;
       }
+      if (nodes[i]->insts.back()->cond == Always)
+        continue;
       nodes[i + 1]->set_conditional(logical_not(nodes[i]->insts.back()->cond));
       nodes[i]->insts.pop_back();
       return true;
