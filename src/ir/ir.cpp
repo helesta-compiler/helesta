@@ -185,6 +185,10 @@ void PhiInstr::print(ostream &os) const {
 }
 
 CompileUnit::CompileUnit() : scope("global", 1) {
+  auto pure_func = [&](const char *name) {
+    LibFunc *f = new_LibFunc(name, 0);
+    f->pure = 1;
+  };
   LibFunc *f;
   f = new_LibFunc("__create_threads", 0);
   f->in = 1;
@@ -201,28 +205,24 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   f = new_LibFunc("__unlock", 1);
   f->in = 1;
   f->out = 1;
-  f = new_LibFunc("__ld_volatile", 1);
+  f = new_LibFunc("__ld_volatile", 0);
   f->in = 1;
   f->out = 1;
   f = new_LibFunc("__st_volatile", 1);
   f->in = 1;
   f->out = 1;
-  f = new_LibFunc("__nop", 1);
-  f->in = 1;
-  f->out = 1;
   f = new_LibFunc("__barrier", 1);
   f->in = 1;
   f->out = 1;
-  f = new_LibFunc("__umulmod", 0);
-  f->pure = 1;
-  f = new_LibFunc("__u_c_np1_2_mod", 0);
-  f->pure = 1;
-  f = new_LibFunc("__s_c_np1_2", 0);
-  f->pure = 1;
-  f = new_LibFunc("__umod", 0);
-  f->pure = 1;
-  f = new_LibFunc("__fixmod", 0);
-  f->pure = 1;
+
+  pure_func("__umulmod");
+  pure_func("__u_c_np1_2_mod");
+  pure_func("__s_c_np1_2");
+  pure_func("__umod");
+  pure_func("__fixmod");
+  pure_func("__mla");
+  pure_func("__mls");
+
   f = new_LibFunc("__simd", 1);
   f->in = 1;
   f->out = 1;

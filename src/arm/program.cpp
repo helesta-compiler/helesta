@@ -370,14 +370,6 @@ __barrier:
 	bne .L03
 	bx lr
 
-__nop:
-    mov r0, #64
-.L02:
-    sub r0, r0, #1
-	cmp r0, #0
-	bne .L02
-	bx lr
-
 __umulmod:
 	push    {r11, lr}
 	umull   r3, r12, r1, r0

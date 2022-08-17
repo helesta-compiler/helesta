@@ -677,12 +677,13 @@ void remove_phi(NormalFunc *);
 void code_reorder(NormalFunc *);
 void remove_trivial_BB(NormalFunc *);
 void merge_BB(NormalFunc *);
-void mod2div(NormalFunc *);
-void muldiv(NormalFunc *);
 
 namespace IR {
 void compute_data_offset(CompileUnit &c);
-}
+void mod2div(NormalFunc *);
+void muldiv(NormalFunc *);
+void merge_inst(CompileUnit *ir, NormalFunc *f);
+} // namespace IR
 DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
   remove_unused_memobj();
   remove_unused_BB();
@@ -693,6 +694,7 @@ DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
       code_reorder(f);
       remove_placeholder_call(f);
       load_store_offset(f);
+      merge_inst(ir, f);
       split_live_range(f);
       remove_phi(f);
       code_reorder(f);

@@ -1,6 +1,6 @@
 #include "add_expr.hpp"
 #include "ir/opt/dag_ir.hpp"
-
+namespace IR {
 struct Mod2Div : ForwardLoopVisitor<std::map<std::pair<Reg, Reg>, Reg>>,
                  CounterOutput {
   NormalFunc *f;
@@ -66,6 +66,49 @@ void muldiv(NormalFunc *f) {
   MulDiv w(f);
   dag.visit(w);
 }
+
+void merge_inst(CompileUnit *ir, NormalFunc *f) {
+  auto Int = ScalarType::Int;
+  auto use_count = build_use_count(f);
+  auto mla = ir->lib_funcs.at("__mla").get();
+  auto mls = ir->lib_funcs.at("__mls").get();
+  f->for_each([&](BB *bb) {
+    std::unordered_map<Reg, std::pair<Reg, Reg>> muls;
+    bb->for_each([&](Instr *x) {
+      Case(BinaryOpInstr, bop, x) {
+        switch (bop->op.type) {
+        case BinaryCompute::ADD: {
+          Reg s1 = bop->s1, s2 = bop->s2;
+          if (!muls.count(s2))
+            std::swap(s1, s2);
+          if (muls.count(s2)) {
+            auto [r1, r2] = muls.at(s2);
+            bb->replace(new CallInstr(bop->d1, mla,
+                                      {{s1, Int}, {r1, Int}, {r2, Int}}, Int));
+          }
+          break;
+        }
+        case BinaryCompute::SUB:
+          if (muls.count(bop->s2)) {
+            auto [r1, r2] = muls.at(bop->s2);
+            bb->replace(new CallInstr(
+                bop->d1, mls, {{bop->s1, Int}, {r1, Int}, {r2, Int}}, Int));
+          }
+          break;
+        case BinaryCompute::MUL:
+          if (use_count[bop->d1] == 1) {
+            muls[bop->d1] = {bop->s1, bop->s2};
+          }
+          break;
+        default:
+          break;
+        }
+      }
+    });
+  });
+  remove_unused_def_func(f);
+}
+} // namespace IR
 
 struct LoadStoreOffset
     : ForwardLoopVisitor<

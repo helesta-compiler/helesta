@@ -234,6 +234,15 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(std::make_unique<Return>(ScalarType::Float));
       }
     } else if (auto call = dynamic_cast<IR::CallInstr *>(cur)) {
+      if (call->f->name == "__mla" || call->f->name == "__mls") {
+        auto s1 = info->from_ir_reg(call->args.at(1).first);
+        auto s2 = info->from_ir_reg(call->args.at(2).first);
+        auto s3 = info->from_ir_reg(call->args.at(0).first);
+        auto d1 = info->from_ir_reg(call->d1);
+        push_back(std::make_unique<ML>(
+            call->f->name == "__mla" ? ML::Mla : ML::Mls, d1, s1, s2, s3));
+        continue;
+      }
       int tid = ir_bb->thread_id;
       int int_arg_cnt = 0, float_arg_cnt = 0;
       for (auto kv : call->args) {

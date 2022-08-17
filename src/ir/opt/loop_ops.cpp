@@ -886,9 +886,6 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       bool use_bind_core = 0;
       auto lock = ir->lib_funcs.at("__lock").get();
       auto unlock = ir->lib_funcs.at("__unlock").get();
-      auto nop = ir->lib_funcs.at("__nop").get();
-      // auto putint = ir->lib_funcs.at("putint").get();
-      // auto putch = ir->lib_funcs.at("putch").get();
 
       cg.st(cg.la(barrier), cg.lc(cnt - 1));
 
@@ -958,7 +955,6 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
           // auto _mutex = cg.la(mutex);
           // cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
 
-          cg.call(nop, ScalarType::Void);
           auto t = cg.la(barrier);
           auto v = cg.ld_volatile(ir, t);
           // cg.call(putint, ScalarType::Void, {{v, ScalarType::Int}});
@@ -1083,7 +1079,6 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
   auto lock = ir->lib_funcs.at("__lock").get();
   auto unlock = ir->lib_funcs.at("__unlock").get();
   auto on_barrier = ir->lib_funcs.at("__barrier").get();
-  auto nop = ir->lib_funcs.at("__nop").get();
 
   cg.st_volatile(ir, cg.la(barrier), cg.lc(cnt - 1));
 
@@ -1170,7 +1165,6 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
       cg.call(join, ScalarType::Void, {{cg.lc(1), ScalarType::Int}}); // exit
       cg.jump(tail);
     } else {
-      cg.call(nop, ScalarType::Void);
       auto t = cg.la(barrier);
       auto v = cg.ld_volatile(ir, t);
       cg.branch(v == cg.lc(0), tail, bb);
