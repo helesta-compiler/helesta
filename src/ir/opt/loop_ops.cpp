@@ -442,9 +442,10 @@ struct ArrayReadWrite : SimpleLoopVisitor {
           wi.rwc = 1;
         }
         else Case(CallInstr, call, rw) {
-          (void)call;
-          wi.call = 1;
-          wi.rwc = 1;
+          if (!(call->no_load && call->no_store && call->args.size() <= 4)) {
+            wi.call = 1;
+            wi.rwc = 1;
+          }
         }
       }
       else Case(StoreInstr, st, x) {

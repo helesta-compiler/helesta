@@ -234,6 +234,7 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(std::make_unique<Return>(ScalarType::Float));
       }
     } else if (auto call = dynamic_cast<IR::CallInstr *>(cur)) {
+      int tid = ir_bb->thread_id;
       int int_arg_cnt = 0, float_arg_cnt = 0;
       for (auto kv : call->args) {
         if (kv.second == ScalarType::Int)
@@ -289,8 +290,14 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
           }
         }
       }
+      if (tid > 1) {
+        push_back(sp_move(-((tid - 1) << 20)));
+      }
       push_back(std::make_unique<FuncCall>(call->f->name, int_arg_size,
                                            float_arg_size));
+      if (tid > 1) {
+        push_back(sp_move((tid - 1) << 20));
+      }
       if (stack_passed > 0) {
         push_back(sp_move(stack_passed * INT_SIZE));
       }
