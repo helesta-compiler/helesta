@@ -185,6 +185,11 @@ void PhiInstr::print(ostream &os) const {
 }
 
 CompileUnit::CompileUnit() : scope("global", 1) {
+  auto pure_func = [&](const char *name) {
+    LibFunc *f = new_LibFunc(name, 0);
+    f->pure = 1;
+    return f;
+  };
   LibFunc *f;
   f = new_LibFunc("__create_threads", 0);
   f->in = 1;
@@ -201,28 +206,80 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   f = new_LibFunc("__unlock", 1);
   f->in = 1;
   f->out = 1;
-  f = new_LibFunc("__ld_volatile", 1);
+  f = new_LibFunc("__ld_volatile", 0);
   f->in = 1;
   f->out = 1;
   f = new_LibFunc("__st_volatile", 1);
   f->in = 1;
   f->out = 1;
-  f = new_LibFunc("__nop", 1);
-  f->in = 1;
-  f->out = 1;
   f = new_LibFunc("__barrier", 1);
   f->in = 1;
   f->out = 1;
-  f = new_LibFunc("__umulmod", 0);
-  f->pure = 1;
-  f = new_LibFunc("__u_c_np1_2_mod", 0);
-  f->pure = 1;
-  f = new_LibFunc("__s_c_np1_2", 0);
-  f->pure = 1;
-  f = new_LibFunc("__umod", 0);
-  f->pure = 1;
-  f = new_LibFunc("__fixmod", 0);
-  f->pure = 1;
+
+  pure_func("__umulmod")->impl = [](typeless_scalar_t *args,
+                                    int argc) -> typeless_scalar_t {
+    assert(argc == 3);
+    uint32_t a = args[0].int_value();
+    uint32_t b = args[1].int_value();
+    uint32_t c = args[2].int_value();
+    return int(1ull * a * b % c);
+  };
+  pure_func("__u_c_np1_2_mod")->impl = [](typeless_scalar_t *args,
+                                          int argc) -> typeless_scalar_t {
+    assert(argc == 2);
+    uint32_t a = args[0].int_value();
+    uint32_t b = args[1].int_value();
+    return int((1ull * a * a + a) / 2ull % b);
+  };
+  pure_func("__s_c_np1_2")->impl = [](typeless_scalar_t *args,
+                                      int argc) -> typeless_scalar_t {
+    assert(argc == 1);
+    int32_t a = args[0].int_value();
+    return int((1ll * a * a + a) / 2ll);
+  };
+  pure_func("__umod")->impl = [](typeless_scalar_t *args,
+                                 int argc) -> typeless_scalar_t {
+    assert(argc == 2);
+    uint32_t a = args[0].int_value();
+    uint32_t b = args[1].int_value();
+    return int(a % b);
+  };
+  pure_func("__fixmod")->impl = [](typeless_scalar_t *args,
+                                   int argc) -> typeless_scalar_t {
+    assert(argc == 2);
+    int32_t a = args[0].int_value();
+    int32_t b = args[1].int_value();
+    a %= b;
+    if (a < 0)
+      a += b;
+    return a;
+  };
+  pure_func("__mla")->impl = [](typeless_scalar_t *args,
+                                int argc) -> typeless_scalar_t {
+    assert(argc == 3);
+    int32_t a = args[0].int_value();
+    int32_t b = args[1].int_value();
+    int32_t c = args[2].int_value();
+    return a + b * c;
+  };
+  pure_func("__mls")->impl = [](typeless_scalar_t *args,
+                                int argc) -> typeless_scalar_t {
+    assert(argc == 3);
+    int32_t a = args[0].int_value();
+    int32_t b = args[1].int_value();
+    int32_t c = args[2].int_value();
+    return a - b * c;
+  };
+  pure_func("__divpow2")->impl = [](typeless_scalar_t *args,
+                                    int argc) -> typeless_scalar_t {
+    assert(argc == 2);
+    int32_t a = args[0].int_value();
+    uint32_t b = args[1].int_value();
+    if (b >= 32)
+      return 0;
+    return a / (1 << b);
+  };
+
   f = new_LibFunc("__simd", 1);
   f->in = 1;
   f->out = 1;
@@ -579,6 +636,7 @@ int exec(CompileUnit &c) {
             std::vector<typeless_scalar_t> args) -> typeless_scalar_t {
     BB *last_bb = NULL;
     cur = func->entry;
+    assert(func->bbs.size());
     int sz = func->scope.size;
     std::unordered_map<int, typeless_scalar_t> regs, tmps;
     auto wReg = [&](Reg x, typeless_scalar_t v) {
@@ -880,35 +938,17 @@ int exec(CompileUnit &c) {
               assert(0);
             } else if (x->f->name == "starttime") {
             } else if (x->f->name == "stoptime") {
-            } else if (x->f->name == "__umulmod") {
-              assert(args.size() == 3);
-              uint32_t a = args[0].int_value();
-              uint32_t b = args[1].int_value();
-              uint32_t c = args[2].int_value();
-              ret.int_value() = 1ull * a * b % c;
-            } else if (x->f->name == "__umod") {
-              assert(args.size() == 2);
-              uint32_t a = args[0].int_value();
-              uint32_t b = args[1].int_value();
-              ret.int_value() = a % b;
-            } else if (x->f->name == "__fixmod") {
-              assert(args.size() == 2);
-              int32_t a = args[0].int_value();
-              int32_t b = args[1].int_value();
-              a %= b;
-              if (a < 0)
-                a += b;
-              ret.int_value() = a;
-            } else if (x->f->name == "__u_c_np1_2_mod") {
-              assert(args.size() == 2);
-              uint32_t a = args[0].int_value();
-              uint32_t b = args[1].int_value();
-              ret.int_value() = (1ull * a * a + a) / 2ull % b;
-            } else if (x->f->name == "__s_c_np1_2") {
-              assert(args.size() == 1);
-              int32_t a = args[0].int_value();
-              ret.int_value() = (1ll * a * a + a) / 2ll;
-            } else {
+            } else
+              Case(LibFunc, f0, x->f) {
+                if (f0->impl) {
+                  ret = (*(f0->impl))(args.data(), (int)args.size());
+                } else {
+                  std::cerr << "unimplemented func: " << x->f->name
+                            << std::endl;
+                  assert(0);
+                }
+              }
+            else {
               std::cerr << "unknown func: " << x->f->name << std::endl;
               assert(0);
             }

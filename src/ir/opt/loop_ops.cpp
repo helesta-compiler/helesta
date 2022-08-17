@@ -442,9 +442,10 @@ struct ArrayReadWrite : SimpleLoopVisitor {
           wi.rwc = 1;
         }
         else Case(CallInstr, call, rw) {
-          (void)call;
-          wi.call = 1;
-          wi.rwc = 1;
+          if (!(call->no_load && call->no_store && call->args.size() <= 4)) {
+            wi.call = 1;
+            wi.rwc = 1;
+          }
         }
       }
       else Case(StoreInstr, st, x) {
@@ -510,6 +511,7 @@ struct LoopCopyTool {
       bbs_rev[v] = k;
       v->disable_parallel = k->disable_parallel;
       v->disable_unroll = k->disable_unroll;
+      v->thread_id = k->thread_id;
     }
     auto mp_regs = partial_map(regs);
     auto mp_bbs = partial_map(bbs);
@@ -881,11 +883,10 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 
       auto fork = ir->lib_funcs.at("__create_threads").get();
       auto join = ir->lib_funcs.at("__join_threads").get();
+      auto bind_core = ir->lib_funcs.at("__bind_core").get();
+      bool use_bind_core = 0;
       auto lock = ir->lib_funcs.at("__lock").get();
       auto unlock = ir->lib_funcs.at("__unlock").get();
-      auto nop = ir->lib_funcs.at("__nop").get();
-      // auto putint = ir->lib_funcs.at("putint").get();
-      // auto putch = ir->lib_funcs.at("putch").get();
 
       cg.st(cg.la(barrier), cg.lc(cnt - 1));
 
@@ -900,12 +901,12 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       for (size_t i = 1; i <= cnt; ++i) {
         auto &p1 = loops[i];
         auto l0_0 = l0.r;
-        BB *bb1_0 = bb1;
+        BB *new_entry = S.f->new_BB();
 
         if (i < cnt) {
           BB *bb2 = S.f->new_BB();
           auto r0 = l0 + step;
-          cg.branch(cg.call(fork, ScalarType::Int), p1.entry, bb2);
+          cg.branch(cg.call(fork, ScalarType::Int), new_entry, bb2);
           bb1->push(std::move(cg.instrs));
           bb1 = bb2;
           l0 = r0;
@@ -917,14 +918,20 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
           }
           else assert(0);
         } else {
-          cg.jump(p1.entry);
+          cg.jump(new_entry);
           bb1->push(std::move(cg.instrs));
         }
+        if (use_bind_core)
+          cg.call(bind_core, ScalarType::Void,
+                  {{cg.lc(i - 1), ScalarType::Int},
+                   {cg.lc(1 << (i - 1)), ScalarType::Int}});
+        cg.jump(p1.entry);
+        new_entry->push(std::move(cg.instrs));
 
         p1.entry->map_phi_use([&](Reg &r, BB *&bb) {
           if (bb == prev) {
             r = l0_0;
-            bb = bb1_0;
+            bb = new_entry;
           }
         });
       }
@@ -949,7 +956,6 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
           // auto _mutex = cg.la(mutex);
           // cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
 
-          cg.call(nop, ScalarType::Void);
           auto t = cg.la(barrier);
           auto v = cg.ld_volatile(ir, t);
           // cg.call(putint, ScalarType::Void, {{v, ScalarType::Int}});
@@ -966,6 +972,10 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       }
       next->map_BB(partial_map(p0.exit, tail));
 
+      if (use_bind_core)
+        cg.call(bind_core, ScalarType::Void,
+                {{cg.lc(0), ScalarType::Int},
+                 {cg.lc((1 << 4) - 1), ScalarType::Int}});
       cg.jump(next);
       tail->push(std::move(cg.instrs));
 
@@ -1066,10 +1076,10 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
   auto fork = ir->lib_funcs.at("__create_threads").get();
   auto join = ir->lib_funcs.at("__join_threads").get();
   auto bind_core = ir->lib_funcs.at("__bind_core").get();
+  bool use_bind_core = 0;
   auto lock = ir->lib_funcs.at("__lock").get();
   auto unlock = ir->lib_funcs.at("__unlock").get();
   auto on_barrier = ir->lib_funcs.at("__barrier").get();
-  auto nop = ir->lib_funcs.at("__nop").get();
 
   cg.st_volatile(ir, cg.la(barrier), cg.lc(cnt - 1));
 
@@ -1089,7 +1099,10 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
       cg.jump(new_entry);
       bb1->push(std::move(cg.instrs));
     }
-    cg.call(bind_core, ScalarType::Void, {{cg.lc(i - 1), ScalarType::Int}});
+    if (use_bind_core)
+      cg.call(bind_core, ScalarType::Void,
+              {{cg.lc(i - 1), ScalarType::Int},
+               {cg.lc(1 << (i - 1)), ScalarType::Int}});
     cg.jump(p1.entry);
     new_entry->push(std::move(cg.instrs));
   }
@@ -1153,7 +1166,6 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
       cg.call(join, ScalarType::Void, {{cg.lc(1), ScalarType::Int}}); // exit
       cg.jump(tail);
     } else {
-      cg.call(nop, ScalarType::Void);
       auto t = cg.la(barrier);
       auto v = cg.ld_volatile(ir, t);
       cg.branch(v == cg.lc(0), tail, bb);
@@ -1167,6 +1179,10 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
 
   next->map_BB(partial_map(p0.exit, tail));
 
+  if (use_bind_core)
+    cg.call(
+        bind_core, ScalarType::Void,
+        {{cg.lc(0), ScalarType::Int}, {cg.lc((1 << 4) - 1), ScalarType::Int}});
   cg.jump(next);
   tail->push(std::move(cg.instrs));
 
@@ -1215,26 +1231,25 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
     auto i0 = S.get_const(i1);
     CodeGen cg(S.f);
     using RegRef = CodeGen::RegRef;
+    auto Int = ScalarType::Int;
     auto umulmod = [&](RegRef a, RegRef b, RegRef c) {
-      return cg.call(
-          ir->lib_funcs.at("__umulmod").get(), ScalarType::Int,
-          {{a, ScalarType::Int}, {b, ScalarType::Int}, {c, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__umulmod").get(), Int,
+                     {{a, Int}, {b, Int}, {c, Int}});
     };
     auto u_c_np1_2_mod = [&](RegRef a, RegRef b) {
-      return cg.call(ir->lib_funcs.at("__u_c_np1_2_mod").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__u_c_np1_2_mod").get(), Int,
+                     {{a, Int}, {b, Int}});
     };
     auto s_c_np1_2 = [&](RegRef a) {
-      return cg.call(ir->lib_funcs.at("__s_c_np1_2").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__s_c_np1_2").get(), Int, {{a, Int}});
     };
     auto umod = [&](RegRef a, RegRef b) {
-      return cg.call(ir->lib_funcs.at("__umod").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__umod").get(), Int,
+                     {{a, Int}, {b, Int}});
     };
     auto fixmod = [&](RegRef a, RegRef b) {
-      return cg.call(ir->lib_funcs.at("__fixmod").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__fixmod").get(), Int,
+                     {{a, Int}, {b, Int}});
     };
 
     umap<Reg, Reg> mp;
@@ -1245,7 +1260,23 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
       if (wi0.use_count[r] != 1)
         continue;
       auto &reduce = *var.reduce;
-      if (reduce.op == BinaryCompute::ADD) {
+      if (reduce.op == BinaryCompute::DIV) {
+        auto v_ = S.get_const(reduce.step);
+        if (!v_)
+          continue;
+        int v = *v_;
+        if (!(v > 1 && v == (v & -v)))
+          continue;
+        int log2v = __builtin_ctz(v);
+        auto loop_cnt = cg.reg(i2) - cg.reg(i1);
+        if (op.eq) {
+          loop_cnt = loop_cnt + cg.lc(1);
+        }
+        auto index = loop_cnt * cg.lc(log2v);
+        auto s = cg.call(ir->lib_funcs.at("__divpow2").get(), Int,
+                         {{cg.reg(reduce.init), Int}, {index, Int}});
+        mp[r] = s.r;
+      } else if (reduce.op == BinaryCompute::ADD) {
         auto &step = reg_info.at(reduce.step).add;
         if (step.bad)
           continue;
@@ -1655,7 +1686,7 @@ struct UnrollLoop {
   }
   bool unroll_simple_for_loop(BB *w) {
     constexpr size_t MAX_UNROLL_SIMPLE_FOR_INSTR = 256;
-    constexpr size_t UNROLL_SIMPLE_FOR_CNT = 3;
+    constexpr size_t UNROLL_SIMPLE_FOR_CNT = 4;
     if (w->disable_unroll || !last)
       return 0;
     auto &wi = S.loop_info.at(w);
