@@ -56,10 +56,18 @@ std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
   info << "register allocation for function: " << ctx->name << '\n';
   info << "reg_n = " << ctx->reg_n << '\n';
   stat->spill_cnt = 0;
-  info << "using IRCColoringAllocator\n";
+  ColoringAllocator *allocator = nullptr;
+  PassDisabled("irc-alloc") {
+    info << "using SimpleColoringAllocator\n";
+    allocator = new SimpleColoringAllocator<type>(ctx);
+  }
+  else {
+    info << "using IRCColoringAllocator\n";
+    allocator = new IRCColoringAllocator<type>(ctx);
+  }
   while (true) {
-    IRCColoringAllocator<type> allocator(ctx);
-    std::vector<int> ret = allocator.run(stat);
+    allocator->clear();
+    std::vector<int> ret = allocator->run(stat);
     if (stat->succeed)
       return ret;
   }
