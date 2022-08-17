@@ -391,10 +391,10 @@ private:
     for (int i : remain_pesudo_nodes) {
       if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end()) {
         int cur_depth = depth_info[i];
-        int cur_weight;
+        double cur_weight;
         if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end() ||
             func->symbol_reg.find(Reg(i, type)) != func->symbol_reg.end()) {
-          cur_weight = use_cnt[i] * 1.0 / interfere_edge[i].size();
+          cur_weight = use_cnt[i] * 100.0 / interfere_edge[i].size();
           if (selected_spill == -1 ||
               less_than_optimal(cur_depth, cur_weight)) {
             selected_spill = i;
@@ -408,8 +408,8 @@ private:
       for (int i : remain_pesudo_nodes) {
         if (func->spilling_reg.find(Reg(i, type)) == func->spilling_reg.end()) {
           int cur_depth = depth_info[i];
-          int cur_weight =
-              (use_cnt[i] + def_cnt[i]) * 1.0 / interfere_edge[i].size();
+          double cur_weight =
+              (use_cnt[i] + def_cnt[i]) * 100.0 / interfere_edge[i].size();
           if (selected_spill == -1 ||
               less_than_optimal(cur_depth, cur_weight)) {
             selected_spill = i;
@@ -419,6 +419,7 @@ private:
         }
       }
     }
+    info << optimal_depth << " " << optimal_weight << "\n";
     assert(selected_spill != -1);
     remain_pesudo_nodes.erase(selected_spill);
     for (int neighbor : interfere_edge[selected_spill]) {
