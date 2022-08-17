@@ -295,39 +295,6 @@ void remove_unused_BB(NormalFunc *f) {
   }
 }
 
-void stat_inst(NormalFunc *f) {
-  size_t cnt = 0;
-  f->for_each([&](Instr *) { ++cnt; });
-  dbg("bb: ", f->bbs.size(), "  instr: ", cnt, "  ", f->name, '\n');
-}
-
-void merge_BB(NormalFunc *f) {
-  stat_inst(f);
-  for (;;) {
-    auto prev = build_prev(f);
-    std::unordered_set<BB *> del;
-    f->for_each([&](BB *w) {
-      if (del.count(w) || w->instrs.size() > 3)
-        return;
-      for (BB *u : prev[w]) {
-        if (del.count(u) || u == w)
-          return;
-        Case(JumpInstr, _, u->back()) { (void)_; }
-        else return;
-      }
-      for (BB *u : prev[w]) {
-        u->pop();
-        w->for_each([&](Instr *x) { u->push(x->copy()); });
-      }
-      del.insert(w);
-    });
-    remove_if_vec(f->bbs, [&](auto &x) { return del.count(x.get()); });
-    if (del.empty())
-      break;
-  }
-  stat_inst(f);
-}
-
 void before_gcm_func(NormalFunc *f) {
   auto prev = build_prev(f);
   std::vector<std::pair<BB *, BB *>> edges;
