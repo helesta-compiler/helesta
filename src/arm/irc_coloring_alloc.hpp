@@ -371,9 +371,9 @@ private:
     int selected_spill = -1;
     // TODO: get a better policy to select the node
     int optimal_depth = 0;
-    int optimal_weight = 0;
-    auto cmp_value = [&](int x, int y) {
-      // cmp y*4^x
+    double optimal_weight = 0;
+    auto cmp_value = [&](int x, double y) {
+      // cmp y*4^x  choose minimal
       if (x == optimal_depth) {
         return y > optimal_weight;
       } else if (x > optimal_depth) {
@@ -393,12 +393,12 @@ private:
         int cur_depth = depth_info[i];
         int cur_weight;
         if (func->constant_reg.find(Reg(i, type)) != func->constant_reg.end()) {
-          cur_weight = interfere_edge[i].size() + use_cnt[i];
+          cur_weight = use_cnt[i] * 1.0 / interfere_edge[i].size();
         } else if (func->symbol_reg.find(Reg(i, type)) !=
                    func->symbol_reg.end()) {
-          cur_weight = interfere_edge[i].size() + use_cnt[i] * 2;
+          cur_weight = use_cnt[i] * 2 / interfere_edge[i].size();
         } else {
-          cur_weight = interfere_edge[i].size() + (use_cnt[i] + def_cnt[i]) * 5;
+          cur_weight = (use_cnt[i] + def_cnt[i]) * 5 / interfere_edge[i].size();
         }
         if (selected_spill == -1 || cmp_value(cur_depth, cur_weight)) {
           selected_spill = i;
