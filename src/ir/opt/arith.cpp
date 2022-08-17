@@ -2,9 +2,9 @@
 #include "ir/opt/dag_ir.hpp"
 namespace IR {
 struct Mod2Div : ForwardLoopVisitor<std::map<std::pair<Reg, Reg>, Reg>>,
+                 Defs,
                  CounterOutput {
-  NormalFunc *f;
-  Mod2Div(NormalFunc *_f) : CounterOutput("Mod2Div"), f(_f) {}
+  Mod2Div(NormalFunc *_f) : Defs(_f), CounterOutput("Mod2Div") {}
   void visitBB(BB *bb) {
     auto &w = info[bb];
     w.out = w.in;
@@ -15,6 +15,9 @@ struct Mod2Div : ForwardLoopVisitor<std::map<std::pair<Reg, Reg>, Reg>>,
           w.out[{bop->s1, bop->s2}] = bop->d1;
           break;
         case BinaryCompute::MOD: {
+          if (auto c = get_const(bop->s2); c && *c == 2) {
+            break;
+          }
           auto key = std::make_pair(bop->s1, bop->s2);
           if (w.out.count(key)) {
             CodeGen cg(f);

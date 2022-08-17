@@ -299,13 +299,13 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
           }
         }
       }
-      if (tid > 1) {
-        push_back(sp_move(-((tid - 1) << 20)));
+      if (tid > 0) {
+        push_back(sp_move(-((tid) << 20)));
       }
       push_back(std::make_unique<FuncCall>(call->f->name, int_arg_size,
                                            float_arg_size));
-      if (tid > 1) {
-        push_back(sp_move((tid - 1) << 20));
+      if (tid > 0) {
+        push_back(sp_move((tid) << 20));
       }
       if (stack_passed > 0) {
         push_back(sp_move(stack_passed * INT_SIZE));
