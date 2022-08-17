@@ -38,8 +38,10 @@ void relink_empty_blocks(Func *f) {
   }
   for (auto &b : f->blocks)
     for (auto &i : b->insts)
-      if (auto branch = dynamic_cast<Branch *>(i.get()))
+      if (auto branch = dynamic_cast<Branch *>(i.get())) {
         branch->target = f->blocks[getf(b2idx[branch->target])].get();
+        branch->target->label_used = true;
+      }
 }
 
 void remove_empty_blocks(Program *prog) {
