@@ -377,12 +377,12 @@ private:
       if (x == optimal_depth) {
         return y > optimal_weight;
       } else if (x > optimal_depth) {
-        if (x - optimal_depth > 15) {
+        if (x - optimal_depth > 12) {
           return false;
         }
         return get_exp(4, x - optimal_depth) < (optimal_weight / y);
       } else {
-        if (optimal_depth - x > 15) {
+        if (optimal_depth - x > 12) {
           return true;
         }
         return get_exp(4, optimal_depth - x) > (y / optimal_weight);
