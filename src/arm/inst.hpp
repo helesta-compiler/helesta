@@ -722,6 +722,7 @@ struct FuncCall : Inst {
   virtual bool side_effect() override { return true; }
   virtual std::vector<Reg *> regs() override { return {}; }
   virtual void gen_asm(std::ostream &out, AsmContext *ctx) override;
+  virtual bool change_cpsr() override { return true; }
 };
 
 // precondition: cond == Always

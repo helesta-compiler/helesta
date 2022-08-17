@@ -73,8 +73,6 @@ public:
 
     virtual antlrcpp::Any visitReturnStmt(SysYParser::ReturnStmtContext *context) = 0;
 
-    virtual antlrcpp::Any visitExp(SysYParser::ExpContext *context) = 0;
-
     virtual antlrcpp::Any visitCond(SysYParser::CondContext *context) = 0;
 
     virtual antlrcpp::Any visitLVal(SysYParser::LValContext *context) = 0;
@@ -101,29 +99,21 @@ public:
 
     virtual antlrcpp::Any visitStringAsRParam(SysYParser::StringAsRParamContext *context) = 0;
 
-    virtual antlrcpp::Any visitMul2(SysYParser::Mul2Context *context) = 0;
+    virtual antlrcpp::Any visitEqExp(SysYParser::EqExpContext *context) = 0;
 
-    virtual antlrcpp::Any visitMul1(SysYParser::Mul1Context *context) = 0;
+    virtual antlrcpp::Any visitLOrExp(SysYParser::LOrExpContext *context) = 0;
 
-    virtual antlrcpp::Any visitAdd2(SysYParser::Add2Context *context) = 0;
+    virtual antlrcpp::Any visitLAndExp(SysYParser::LAndExpContext *context) = 0;
 
-    virtual antlrcpp::Any visitAdd1(SysYParser::Add1Context *context) = 0;
+    virtual antlrcpp::Any visitExp1(SysYParser::Exp1Context *context) = 0;
 
-    virtual antlrcpp::Any visitRel2(SysYParser::Rel2Context *context) = 0;
+    virtual antlrcpp::Any visitRelExp(SysYParser::RelExpContext *context) = 0;
 
-    virtual antlrcpp::Any visitRel1(SysYParser::Rel1Context *context) = 0;
+    virtual antlrcpp::Any visitAddExp(SysYParser::AddExpContext *context) = 0;
 
-    virtual antlrcpp::Any visitEq1(SysYParser::Eq1Context *context) = 0;
+    virtual antlrcpp::Any visitExp2(SysYParser::Exp2Context *context) = 0;
 
-    virtual antlrcpp::Any visitEq2(SysYParser::Eq2Context *context) = 0;
-
-    virtual antlrcpp::Any visitLAnd2(SysYParser::LAnd2Context *context) = 0;
-
-    virtual antlrcpp::Any visitLAnd1(SysYParser::LAnd1Context *context) = 0;
-
-    virtual antlrcpp::Any visitLOr1(SysYParser::LOr1Context *context) = 0;
-
-    virtual antlrcpp::Any visitLOr2(SysYParser::LOr2Context *context) = 0;
+    virtual antlrcpp::Any visitMulExp(SysYParser::MulExpContext *context) = 0;
 
     virtual antlrcpp::Any visitConstExp(SysYParser::ConstExpContext *context) = 0;
 
