@@ -270,6 +270,15 @@ CompileUnit::CompileUnit() : scope("global", 1) {
     int32_t c = args[2].int_value();
     return a - b * c;
   };
+  pure_func("__divpow2")->impl = [](typeless_scalar_t *args,
+                                    int argc) -> typeless_scalar_t {
+    assert(argc == 2);
+    int32_t a = args[0].int_value();
+    uint32_t b = args[1].int_value();
+    if (b >= 32)
+      return 0;
+    return a / (1 << b);
+  };
 
   f = new_LibFunc("__simd", 1);
   f->in = 1;

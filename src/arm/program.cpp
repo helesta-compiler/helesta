@@ -421,6 +421,22 @@ __umod:
 	mov     r0, r1
 	pop     {r11, lr}
 	bx      lr
+
+__divpow2:
+	cmp     r1, #31
+	bhi     .L04
+	cmp     r0, #0
+	lsrge   r0, r0, r1
+	bxge    lr
+	mov     r2, r0
+	mov     r0, #1
+	add     r0, r2, r0, lsl r1
+	sub     r0, r0, #1
+	asr     r0, r0, r1
+	bx      lr
+.L04:
+	mov     r0, #0
+	bx      lr
 )";
   for (auto &func : funcs)
     func->gen_asm(out);
