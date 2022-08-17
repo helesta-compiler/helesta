@@ -9,7 +9,7 @@ struct EBNode {
   Block *block;
 
   inline bool ok() const {
-    if (insts.size() > 1) {
+    if (insts.size() > 4) {
       return false;
     }
     if (in_deg_cnt > 0) {
@@ -23,6 +23,9 @@ struct EBNode {
         return false;
       }
       if (dynamic_cast<Return *>(i.get())) {
+        return false;
+      }
+      if (dynamic_cast<Branch *>(i.get())) {
         return false;
       }
     }
@@ -92,6 +95,8 @@ struct EBContext {
       if (!nodes[i + 1]->ok()) {
         continue;
       }
+      if (nodes[i]->insts.back()->cond == Always)
+        continue;
       nodes[i + 1]->set_conditional(logical_not(nodes[i]->insts.back()->cond));
       nodes[i]->insts.pop_back();
       return true;
