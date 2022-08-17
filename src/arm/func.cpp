@@ -56,9 +56,9 @@ std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
   info << "register allocation for function: " << ctx->name << '\n';
   info << "reg_n = " << ctx->reg_n << '\n';
   stat->spill_cnt = 0;
-  info << "using SimpleColoringAllocator\n";
+  info << "using IRCColoringAllocator\n";
   while (true) {
-    SimpleColoringAllocator<type> allocator(ctx);
+    IRCColoringAllocator<type> allocator(ctx);
     std::vector<int> ret = allocator.run(stat);
     if (stat->succeed)
       return ret;
