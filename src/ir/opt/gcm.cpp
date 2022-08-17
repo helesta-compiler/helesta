@@ -18,8 +18,12 @@ struct GCMInstr {
       return true;
     if (dynamic_cast<IR::ControlInstr *>(i))
       return true;
-    if (dynamic_cast<IR::CallInstr *>(i))
+    if (auto call = dynamic_cast<IR::CallInstr *>(i)) {
+      if (auto lib = dynamic_cast<IR::LibFunc *>(call->f))
+        if (lib->pure)
+          return false;
       return true;
+    }
     if (dynamic_cast<IR::LoadInstr *>(i))
       return true;
     if (dynamic_cast<IR::StoreInstr *>(i))
