@@ -222,6 +222,7 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   pure_func("__fixmod");
   pure_func("__mla");
   pure_func("__mls");
+  pure_func("__divpow2");
 
   f = new_LibFunc("__simd", 1);
   f->in = 1;

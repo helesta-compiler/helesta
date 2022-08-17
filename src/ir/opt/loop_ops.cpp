@@ -1231,26 +1231,25 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
     auto i0 = S.get_const(i1);
     CodeGen cg(S.f);
     using RegRef = CodeGen::RegRef;
+    auto Int = ScalarType::Int;
     auto umulmod = [&](RegRef a, RegRef b, RegRef c) {
-      return cg.call(
-          ir->lib_funcs.at("__umulmod").get(), ScalarType::Int,
-          {{a, ScalarType::Int}, {b, ScalarType::Int}, {c, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__umulmod").get(), Int,
+                     {{a, Int}, {b, Int}, {c, Int}});
     };
     auto u_c_np1_2_mod = [&](RegRef a, RegRef b) {
-      return cg.call(ir->lib_funcs.at("__u_c_np1_2_mod").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__u_c_np1_2_mod").get(), Int,
+                     {{a, Int}, {b, Int}});
     };
     auto s_c_np1_2 = [&](RegRef a) {
-      return cg.call(ir->lib_funcs.at("__s_c_np1_2").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__s_c_np1_2").get(), Int, {{a, Int}});
     };
     auto umod = [&](RegRef a, RegRef b) {
-      return cg.call(ir->lib_funcs.at("__umod").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__umod").get(), Int,
+                     {{a, Int}, {b, Int}});
     };
     auto fixmod = [&](RegRef a, RegRef b) {
-      return cg.call(ir->lib_funcs.at("__fixmod").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__fixmod").get(), Int,
+                     {{a, Int}, {b, Int}});
     };
 
     umap<Reg, Reg> mp;
@@ -1261,7 +1260,24 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
       if (wi0.use_count[r] != 1)
         continue;
       auto &reduce = *var.reduce;
-      if (reduce.op == BinaryCompute::ADD) {
+      if (reduce.op == BinaryCompute::DIV) {
+        auto v_ = S.get_const(reduce.step);
+        if (!v_)
+          continue;
+        int v = *v_;
+        if (!(v > 1 && v == (v & -v)))
+          continue;
+        int log2v = __builtin_ctz(v);
+
+        auto loop_cnt = cg.reg(i2) - cg.reg(i1);
+        if (!op.eq) {
+          loop_cnt = loop_cnt + cg.lc(1);
+        }
+        auto index = loop_cnt * cg.lc(log2v);
+        auto s = cg.call(ir->lib_funcs.at("__divpow2").get(), Int,
+                         {{cg.reg(reduce.init), Int}, {index, Int}});
+        mp[r] = s.r;
+      } else if (reduce.op == BinaryCompute::ADD) {
         auto &step = reg_info.at(reduce.step).add;
         if (step.bad)
           continue;
