@@ -511,6 +511,7 @@ struct LoopCopyTool {
       bbs_rev[v] = k;
       v->disable_parallel = k->disable_parallel;
       v->disable_unroll = k->disable_unroll;
+      v->thread_id = k->thread_id;
     }
     auto mp_regs = partial_map(regs);
     auto mp_bbs = partial_map(bbs);
