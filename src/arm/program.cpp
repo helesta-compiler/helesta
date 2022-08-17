@@ -600,14 +600,14 @@ std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
   info << "reg_n = " << ctx->reg_n << '\n';
   stat->spill_cnt = 0;
   ColoringAllocator *allocator = nullptr;
-  PassDisabled("irc-alloc") {
-    info << "using SimpleColoringAllocator\n";
-    allocator = new SimpleColoringAllocator<type>(ctx);
-  }
-  else {
-    info << "using IRCColoringAllocator\n";
-    allocator = new IRCColoringAllocator<type>(ctx);
-  }
+  // PassDisabled("irc-alloc") {
+  info << "using SimpleColoringAllocator\n";
+  allocator = new SimpleColoringAllocator<type>(ctx);
+  // }
+  // else {
+  //   info << "using IRCColoringAllocator\n";
+  //   allocator = new IRCColoringAllocator<type>(ctx);
+  // }
   while (true) {
     allocator->clear();
     std::vector<int> ret = allocator->run(stat);
