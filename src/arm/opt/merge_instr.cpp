@@ -176,8 +176,7 @@ void merge_instr(Func *f) {
             ctx.RegImm(RegImmInst::Asr, bop->dst, hi, s);
             ctx.RegReg(RegRegInst::Add, bop->dst, bop->dst, hi,
                        Shift(Shift::LSR, 31));
-            ctx.Ins(load_imm(lo, v));
-            ctx.Ins(new ML(ML::Mls, bop->dst, bop->dst, lo, x));
+            ctx.Ins(new ML(ML::Mls, bop->dst, bop->dst, bop->rhs, x));
             ctx.Del();
           }
           break;
