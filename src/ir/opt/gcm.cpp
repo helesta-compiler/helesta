@@ -10,6 +10,10 @@ struct GCMInstr {
   bool visited;
 
   inline bool pinned() const {
+    if (dynamic_cast<IR::LoadArg<ScalarType::Int> *>(i))
+      return true;
+    if (dynamic_cast<IR::LoadArg<ScalarType::Float> *>(i))
+      return true;
     if (dynamic_cast<IR::PhiInstr *>(i))
       return true;
     if (dynamic_cast<IR::ControlInstr *>(i))
