@@ -375,7 +375,7 @@ private:
     auto cmp_value = [&](int x, double y) {
       // cmp y*4^x  choose minimal
       if (x == optimal_depth) {
-        return y > optimal_weight;
+        return y < optimal_weight;
       } else if (x > optimal_depth) {
         if (x - optimal_depth > 12) {
           return false;
