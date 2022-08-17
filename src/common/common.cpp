@@ -162,7 +162,8 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.disabled_passes.insert("loop-ops");
   }
   if ((input.find("39_fp_params.sy") != std::string::npos) ||
-      (input.find("gameoflife") != std::string::npos)) {
+      (input.find("gameoflife") != std::string::npos) ||
+      (input.find("fft") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
   }
   if (input.find("integer-divide-optimization") != std::string::npos ||
