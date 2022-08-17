@@ -76,6 +76,7 @@ struct CmpInfo {
 struct Block {
   std::string name;
   bool label_used;
+  int depth;
   std::list<std::unique_ptr<Inst>> insts;
   std::vector<Block *> in_edge, out_edge;
   std::set<Reg> live_use, def, live_in, live_out;

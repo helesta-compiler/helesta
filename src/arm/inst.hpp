@@ -107,7 +107,7 @@ struct Inst {
   void replace_reg(Reg before, Reg after) {
     for (Reg *i : regs())
       if ((*i) == before)
-        (*i).id = after.id;
+        *i = after;
   }
 };
 

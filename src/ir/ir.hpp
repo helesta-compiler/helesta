@@ -217,6 +217,7 @@ struct BB : Printable, Traversable<BB> {
   string name;
   list<unique_ptr<Instr>> instrs;
   int id;
+  int depth = 0;
   bool disable_unroll = 0;
   bool disable_parallel = 0;
   int thread_id = 0;

@@ -9,17 +9,13 @@
 #include "arm/func.hpp"
 #include "arm/inst.hpp"
 #include "arm/program.hpp"
+#include "arm/regalloc.hpp"
 #include "common/common.hpp"
-
-struct RegAllocStat {
-  int spill_cnt, move_eliminated, callee_save_used;
-  bool succeed;
-};
 
 namespace ARMv7 {
 
-template <ScalarType type> class SimpleColoringAllocator {
-  Func *func;
+template <ScalarType type>
+class SimpleColoringAllocator : public ColoringAllocator {
   std::vector<bool> occur;
   std::vector<std::set<int>> interfere_edge;
   std::queue<int> simplify_nodes;
@@ -205,13 +201,7 @@ template <ScalarType type> class SimpleColoringAllocator {
       simplify_history.emplace_back(cur, neighbors);
     }
   }
-  void clear() {
-    occur.clear();
-    interfere_edge.clear();
-    simplify_nodes = std::queue<int>{};
-    simplify_history.clear();
-    remain_pesudo_nodes.clear();
-  }
+
   int choose_spill() {
     int spill_node = -1;
     for (int i : remain_pesudo_nodes)
@@ -233,8 +223,15 @@ template <ScalarType type> class SimpleColoringAllocator {
   }
 
 public:
-  SimpleColoringAllocator(Func *_func) : func(_func) {}
-  std::vector<int> run(RegAllocStat *stat) {
+  SimpleColoringAllocator(Func *_func) : ColoringAllocator(_func) {}
+  virtual void clear() override {
+    occur.clear();
+    interfere_edge.clear();
+    simplify_nodes = std::queue<int>{};
+    simplify_history.clear();
+    remain_pesudo_nodes.clear();
+  }
+  virtual std::vector<int> run(RegAllocStat *stat) override {
     build_graph();
     for (int i = RegConvention<type>::Count; i < func->reg_n; ++i)
       if (occur[i]) {
