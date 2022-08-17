@@ -307,7 +307,7 @@ void merge_BB(NormalFunc *f) {
     auto prev = build_prev(f);
     std::unordered_set<BB *> del;
     f->for_each([&](BB *w) {
-      if (del.count(w) || w->instrs.size() > 3)
+      if (w == f->entry || del.count(w) || w->instrs.size() > 3)
         return;
       for (BB *u : prev[w]) {
         if (del.count(u) || u == w)

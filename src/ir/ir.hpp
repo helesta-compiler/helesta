@@ -320,6 +320,8 @@ struct LibFunc : Func {
   bool in = 0,
        out = 0; // IO side effect, in: stdin changed, out: stdout changed
   bool pure = 0;
+  std::optional<std::function<typeless_scalar_t(typeless_scalar_t *, int)>>
+      impl;
 
 private:
   friend struct CompileUnit;

@@ -47,6 +47,7 @@ void relink_empty_blocks(Func *f) {
 void remove_empty_blocks(Program *prog) {
   for (auto &f : prog->funcs) {
     relink_empty_blocks(f.get());
+    remove_empty_blocks(f.get());
   }
 }
 } // namespace ARMv7
