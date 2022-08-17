@@ -183,6 +183,21 @@ void merge_instr(Func *f) {
         default:
           break;
         }
+      } else if (auto ml = dynamic_cast<ML *>(inst)) {
+        auto s1 = ml->s1;
+        auto s2 = ml->s2;
+        auto s3 = ml->s3;
+        if (!f->constant_reg.count(s2))
+          std::swap(s1, s2);
+        if (!f->constant_reg.count(s2))
+          continue;
+        int32_t v = f->constant_reg.at(s2);
+        if (v > 0 && v == (v & -v)) {
+          int32_t log2v = __builtin_ctz(v);
+          auto op = ml->op == ML::Mla ? RegRegInst::Add : RegRegInst::Sub;
+          ctx.RegReg(op, ml->dst, s3, s1, Shift(Shift::LSL, log2v));
+          ctx.Del();
+        }
       }
     }
   }
