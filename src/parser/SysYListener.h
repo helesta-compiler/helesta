@@ -122,9 +122,6 @@ public:
   virtual void enterUnary3(SysYParser::Unary3Context *ctx) = 0;
   virtual void exitUnary3(SysYParser::Unary3Context *ctx) = 0;
 
-  virtual void enterUnaryOp(SysYParser::UnaryOpContext *ctx) = 0;
-  virtual void exitUnaryOp(SysYParser::UnaryOpContext *ctx) = 0;
-
   virtual void enterFuncRParams(SysYParser::FuncRParamsContext *ctx) = 0;
   virtual void exitFuncRParams(SysYParser::FuncRParamsContext *ctx) = 0;
 

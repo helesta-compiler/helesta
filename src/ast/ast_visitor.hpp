@@ -245,8 +245,6 @@ public:
 
   virtual antlrcpp::Any visitUnary3(SysYParser::Unary3Context *ctx) override;
 
-  virtual antlrcpp::Any visitUnaryOp(SysYParser::UnaryOpContext *ctx) override;
-
   virtual antlrcpp::Any
   visitFuncRParams(SysYParser::FuncRParamsContext *ctx) override;
 

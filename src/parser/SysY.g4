@@ -63,9 +63,7 @@ number: IntLiteral | FloatLiteral;
 unaryExp:
 	primaryExp							# unary1
 	| Identifier '(' (funcRParams)? ')'	# unary2
-	| unaryOp unaryExp					# unary3;
-
-unaryOp: '+' | '-' | '!';
+	| ('+' | '-' | '!') unaryExp		# unary3;
 
 funcRParams: funcRParam (',' funcRParam)*;
 

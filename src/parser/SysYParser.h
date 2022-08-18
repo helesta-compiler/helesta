@@ -18,9 +18,9 @@ public:
     Semicolon = 21, Question = 22, Colon = 23, Minus = 24, Exclamation = 25, 
     Tilde = 26, Addition = 27, Multiplication = 28, Division = 29, Modulo = 30, 
     LAND = 31, LOR = 32, EQ = 33, NEQ = 34, LT = 35, LE = 36, GT = 37, GE = 38, 
-    FloatLiteral = 39, DecimalFloatConst = 40, HexadecimalFloatConst = 41, 
-    IntLiteral = 42, Identifier = 43, STRING = 44, WS = 45, LINE_COMMENT = 46, 
-    COMMENT = 47
+    UnaryOp = 39, FloatLiteral = 40, DecimalFloatConst = 41, HexadecimalFloatConst = 42, 
+    IntLiteral = 43, Identifier = 44, STRING = 45, WS = 46, LINE_COMMENT = 47, 
+    COMMENT = 48
   };
 
   enum {
@@ -28,9 +28,8 @@ public:
     RuleConstInitVal = 5, RuleVarDecl = 6, RuleVarDef = 7, RuleInitVal = 8, 
     RuleFuncDef = 9, RuleFuncType = 10, RuleFuncFParams = 11, RuleFuncFParam = 12, 
     RuleBlock = 13, RuleBlockItem = 14, RuleStmt = 15, RuleCond = 16, RuleLVal = 17, 
-    RulePrimaryExp = 18, RuleNumber = 19, RuleUnaryExp = 20, RuleUnaryOp = 21, 
-    RuleFuncRParams = 22, RuleFuncRParam = 23, RuleLexp = 24, RuleExp = 25, 
-    RuleConstExp = 26
+    RulePrimaryExp = 18, RuleNumber = 19, RuleUnaryExp = 20, RuleFuncRParams = 21, 
+    RuleFuncRParam = 22, RuleLexp = 23, RuleExp = 24, RuleConstExp = 25
   };
 
   SysYParser(antlr4::TokenStream *input);
@@ -64,7 +63,6 @@ public:
   class PrimaryExpContext;
   class NumberContext;
   class UnaryExpContext;
-  class UnaryOpContext;
   class FuncRParamsContext;
   class FuncRParamContext;
   class LexpContext;
@@ -709,8 +707,10 @@ public:
   public:
     Unary3Context(UnaryExpContext *ctx);
 
-    UnaryOpContext *unaryOp();
     UnaryExpContext *unaryExp();
+    antlr4::tree::TerminalNode *Addition();
+    antlr4::tree::TerminalNode *Minus();
+    antlr4::tree::TerminalNode *Exclamation();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 
@@ -718,23 +718,6 @@ public:
   };
 
   UnaryExpContext* unaryExp();
-
-  class  UnaryOpContext : public antlr4::ParserRuleContext {
-  public:
-    UnaryOpContext(antlr4::ParserRuleContext *parent, size_t invokingState);
-    virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *Addition();
-    antlr4::tree::TerminalNode *Minus();
-    antlr4::tree::TerminalNode *Exclamation();
-
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-   
-  };
-
-  UnaryOpContext* unaryOp();
 
   class  FuncRParamsContext : public antlr4::ParserRuleContext {
   public:

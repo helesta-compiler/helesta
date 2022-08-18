@@ -1016,7 +1016,7 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
 }
 
 antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
-  char op = ctx->unaryOp()->getText()[0];
+  char op = ctx->children[0]->getText()[0];
   assert(op == '+' || op == '-' || op == '!');
   if (mode == compile_time) {
     auto ret = ctx->unaryExp()->accept(this);
@@ -1086,10 +1086,6 @@ antlrcpp::Any ASTVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
       }
     }
   }
-}
-
-antlrcpp::Any ASTVisitor::visitUnaryOp(SysYParser::UnaryOpContext *) {
-  return nullptr;
 }
 
 antlrcpp::Any

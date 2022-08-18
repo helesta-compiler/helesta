@@ -42,6 +42,8 @@ LE: '<=';
 GT: '>';
 GE: '>=';
 
+UnaryOp: '+' | '-' | '!';
+
 // float
 FloatLiteral: DecimalFloatConst | HexadecimalFloatConst;
 
