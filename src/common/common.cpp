@@ -166,6 +166,10 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       (input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
   }
+  if (1) {
+    global_config.disabled_passes.insert("unroll-fixed");
+    global_config.disabled_passes.insert("unroll-for");
+  }
   if (input.find("integer-divide-optimization") != std::string::npos ||
       input.find("dead-code-elimination") != std::string::npos ||
       input.find("crypto") != std::string::npos ||
