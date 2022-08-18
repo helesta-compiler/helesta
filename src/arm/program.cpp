@@ -326,9 +326,7 @@ __bind_core:
 	vmov s31, r7
 	sub sp, sp, #1024
 	add r2, sp, r0, LSL #2
-	mov r3, #1
-	lsl r3, r3, r0
-	str r3, [r2,#0]
+	str r1, [r2,#0]
 	mov r0, #0
 	mov r1, #4
 	mov r7, #SYS_sched_setaffinity
@@ -370,14 +368,6 @@ __barrier:
 	ldr r1, [r0]
 	cmp r1, #0
 	bne .L03
-	bx lr
-
-__nop:
-    mov r0, #64
-.L02:
-    sub r0, r0, #1
-	cmp r0, #0
-	bne .L02
 	bx lr
 
 __umulmod:
@@ -430,6 +420,22 @@ __umod:
 	bl      __aeabi_uidivmod
 	mov     r0, r1
 	pop     {r11, lr}
+	bx      lr
+
+__divpow2:
+	cmp     r1, #31
+	bhi     .L04
+	cmp     r0, #0
+	lsrge   r0, r0, r1
+	bxge    lr
+	mov     r2, r0
+	mov     r0, #1
+	add     r0, r2, r0, lsl r1
+	sub     r0, r0, #1
+	asr     r0, r0, r1
+	bx      lr
+.L04:
+	mov     r0, #0
 	bx      lr
 )";
   for (auto &func : funcs)
