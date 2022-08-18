@@ -296,4 +296,85 @@ void load_store_offset(NormalFunc *f) {
   if (w.cnt)
     remove_unused_def_func(f);
 }
+
+void instr_schedule(NormalFunc *f) {
+  f->for_each([&](BB *bb) {
+    struct Node {
+      int in_deg = 0, id = 0, time = 0, latency = 1;
+      std::vector<std::pair<Instr *, bool>> out;
+    };
+    std::unordered_map<Instr *, Node> graph;
+    std::unordered_map<Reg, RegWriteInstr *> defs;
+    auto add_edge = [&](Instr *x, Instr *y, bool reg_dep) {
+      if (!x)
+        return;
+      graph.at(x).out.emplace_back(y, reg_dep);
+      ++graph.at(y).in_deg;
+    };
+    Instr *last_st = nullptr;
+    int max_id = 0;
+    std::vector<Instr *> all;
+    bb->for_each([&](Instr *x) {
+      auto &w = graph[x];
+      w.id = ++max_id;
+      Case(LoadInstr, ld, x) {
+        add_edge(last_st, ld, 0);
+        w.latency = 3;
+      }
+      else Case(StoreInstr, st, x) {
+        add_edge(last_st, st, 0);
+        last_st = st;
+      }
+      else Case(CallInstr, call, x) {
+        if (!(call->no_load && call->no_store)) {
+          add_edge(last_st, call, 0);
+          last_st = call;
+        }
+      }
+      x->map_use([&](Reg &r) {
+        if (defs.count(r)) {
+          add_edge(defs.at(r), x, 1);
+        }
+      });
+      Case(RegWriteInstr, rw, x) { defs[rw->d1] = rw; }
+      Case(ControlInstr, ctrl, x) {
+        for (Instr *y : all)
+          add_edge(y, ctrl, 0);
+      }
+      bb->move();
+      all.push_back(x);
+    });
+    std::map<int, Instr *> q;
+    for (auto &[x, w] : graph) {
+      if (w.in_deg == 0)
+        q[w.id] = x;
+    }
+    int cur_time = 0;
+    while (!q.empty()) {
+      int opt_id = -1, opt_cost = -1, cnt = 0;
+      for (auto &[id, x] : q) {
+        auto &w = graph.at(x);
+        int cost = std::max(w.time, cur_time) * 2 + cnt;
+        if (opt_id == -1 || cost < opt_cost) {
+          opt_id = id;
+          opt_cost = cost;
+        }
+        if (++cnt >= 5)
+          break;
+      }
+      auto x = q.at(opt_id);
+      bb->push(x);
+      q.erase(opt_id);
+      auto &w = graph.at(x);
+      w.time = std::max(w.time, cur_time++);
+      for (auto &[y, reg_dep] : w.out) {
+        auto &u = graph.at(y);
+        u.time = w.time + (reg_dep ? w.latency : 1);
+        if (!--u.in_deg) {
+          q[u.id] = y;
+        }
+      }
+    }
+  });
+}
 } // namespace IR

@@ -166,7 +166,7 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       (input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
   }
-  if (1) {
+  if (input.find("gameoflife") != std::string::npos) {
     global_config.disabled_passes.insert("unroll-fixed");
     global_config.disabled_passes.insert("unroll-for");
   }
