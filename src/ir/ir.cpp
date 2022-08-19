@@ -406,6 +406,8 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
       u = new LoadInstr(*w);
     f1(u->d1);
     f1(u->addr);
+    if (u->reg_offset)
+      f1(*u->reg_offset);
     return u;
   }
   Case(StoreInstr, w, this) {
@@ -414,6 +416,8 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
       u = new StoreInstr(*w);
     f1(u->addr);
     f1(u->s1);
+    if (u->reg_offset)
+      f1(*u->reg_offset);
     return u;
   }
   Case(JumpInstr, w, this) {
@@ -768,10 +772,18 @@ int exec(CompileUnit &c) {
           }
         }
         else Case(LoadInstr, x, x0) {
-          wReg(x->d1, rMem(rReg(x->addr).int_value() + x->offset));
+          int addr = rReg(x->addr).int_value() + x->offset;
+          if (x->reg_offset) {
+            addr += rReg(*x->reg_offset).int_value() * 4;
+          }
+          wReg(x->d1, rMem(addr));
         }
         else Case(StoreInstr, x, x0) {
-          wMem(rReg(x->addr).int_value() + x->offset, rReg(x->s1));
+          int addr = rReg(x->addr).int_value() + x->offset;
+          if (x->reg_offset) {
+            addr += rReg(*x->reg_offset).int_value() * 4;
+          }
+          wMem(addr, rReg(x->s1));
         }
         else Case(JumpInstr, x, x0) {
           last_bb = cur;
