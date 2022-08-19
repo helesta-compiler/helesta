@@ -593,22 +593,25 @@ struct BinaryOpInstr : RegWriteInstr {
   void print(ostream &os) const override;
 };
 
-struct LoadInstr : RegWriteInstr {
-  // memory read, used in ssa, but not in array-ssa
-  // d1 = M[addr]
-  LoadInstr(Reg d1, Reg addr) : RegWriteInstr(d1), addr(addr) {}
+struct LoadStoreAddr {
   Reg addr;
   int32_t offset = 0;
+  std::optional<Reg> reg_offset;
+  LoadStoreAddr(Reg addr) : addr(addr) {}
+};
+
+struct LoadInstr : RegWriteInstr, LoadStoreAddr {
+  // memory read, used in ssa, but not in array-ssa
+  // d1 = M[addr]
+  LoadInstr(Reg d1, Reg addr) : RegWriteInstr(d1), LoadStoreAddr(addr) {}
   void print(ostream &os) const override;
 };
 
-struct StoreInstr : Instr {
+struct StoreInstr : Instr, LoadStoreAddr {
   // memory write, used in ssa, but not in array-ssa
   // M[addr] = s1
-  StoreInstr(Reg addr, Reg s1) : addr(addr), s1(s1) {}
-  Reg addr;
+  StoreInstr(Reg addr, Reg s1) : LoadStoreAddr(addr), s1(s1) {}
   Reg s1;
-  int32_t offset = 0;
   void print(ostream &os) const override;
 };
 

@@ -158,11 +158,23 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
     } else if (auto load = dynamic_cast<IR::LoadInstr *>(cur)) {
       Reg dst = info->from_ir_reg(load->d1),
           addr = info->from_ir_reg(load->addr);
-      push_back(std::make_unique<Load>(dst, addr, load->offset));
+      if (load->reg_offset) {
+        Reg offset = info->from_ir_reg(*load->reg_offset);
+        push_back(std::make_unique<ComplexLoad>(dst, addr, offset,
+                                                Shift(Shift::LSL, 2)));
+      } else {
+        push_back(std::make_unique<Load>(dst, addr, load->offset));
+      }
     } else if (auto store = dynamic_cast<IR::StoreInstr *>(cur)) {
       Reg addr = info->from_ir_reg(store->addr),
           src = info->from_ir_reg(store->s1);
-      push_back(std::make_unique<Store>(src, addr, store->offset));
+      if (store->reg_offset) {
+        Reg offset = info->from_ir_reg(*store->reg_offset);
+        push_back(std::make_unique<ComplexStore>(src, addr, offset,
+                                                 Shift(Shift::LSL, 2)));
+      } else {
+        push_back(std::make_unique<Store>(src, addr, store->offset));
+      }
     } else if (auto simd = dynamic_cast<IR::SIMDInstr *>(cur)) {
       push_back(std::make_unique<SIMD>(
           simd->s1 ? std::optional(info->from_ir_reg(*simd->s1)) : std::nullopt,

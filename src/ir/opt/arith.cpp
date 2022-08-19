@@ -1,5 +1,8 @@
 #include "add_expr.hpp"
 #include "ir/opt/dag_ir.hpp"
+
+void remove_unused_def_func(NormalFunc *f);
+
 namespace IR {
 struct Mod2Div : ForwardLoopVisitor<std::map<std::pair<Reg, Reg>, Reg>>,
                  Defs,
@@ -201,9 +204,37 @@ void merge_inst_store_simd(CompileUnit *ir, NormalFunc *f) {
   });
 }
 
+void load_store_reg_offset(NormalFunc *f) {
+  auto defs = build_defs(f);
+  auto use_count = build_use_count(f);
+  CounterOutput cnt("load_store_reg_offset");
+  f->for_each([&](BB *bb) {
+    bb->for_each([&](Instr *x) {
+      Case(LoadStoreAddr, ls, x) {
+        assert(!ls->reg_offset);
+        if (ls->offset == 0 && use_count[ls->addr] == 1) {
+          Case(ArrayIndex, ai, defs.at(ls->addr)) {
+            if (ai->size == 4) {
+              ls->addr = ai->s1;
+              ls->reg_offset = ai->s2;
+              ++cnt.cnt;
+            }
+          }
+        }
+      }
+    });
+  });
+  if (cnt.cnt) {
+    remove_unused_def_func(f);
+  }
+}
+
+void load_store_offset(NormalFunc *f);
 void merge_inst(CompileUnit *ir, NormalFunc *f) {
+  load_store_offset(f);
   merge_inst_muladd(ir, f);
   merge_inst_store_simd(ir, f);
+  load_store_reg_offset(f);
 }
 
 struct LoadStoreOffset
@@ -275,20 +306,13 @@ struct LoadStoreOffset
           }
         }
       }
-      else Case(LoadInstr, ld, x) {
-        check(ld->addr, ld->offset);
-      }
-      else Case(StoreInstr, st, x) {
-        check(st->addr, st->offset);
+      else Case(LoadStoreAddr, ls, x) {
+        check(ls->addr, ls->offset);
       }
     });
   }
 };
-} // namespace IR
 
-void remove_unused_def_func(NormalFunc *f);
-
-namespace IR {
 void load_store_offset(NormalFunc *f) {
   DAG_IR dag(f);
   LoadStoreOffset w;
