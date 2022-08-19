@@ -2,6 +2,7 @@
 #include "ir/opt/dag_ir.hpp"
 
 void remove_unused_def_func(NormalFunc *f);
+std::unordered_set<Reg> get_float_regs(NormalFunc *f);
 
 namespace IR {
 struct Mod2Div : ForwardLoopVisitor<std::map<std::pair<Reg, Reg>, Reg>>,
@@ -207,11 +208,20 @@ void merge_inst_store_simd(CompileUnit *ir, NormalFunc *f) {
 void load_store_reg_offset(NormalFunc *f) {
   auto defs = build_defs(f);
   auto use_count = build_use_count(f);
+  auto float_regs = get_float_regs(f);
   CounterOutput cnt("load_store_reg_offset");
   f->for_each([&](BB *bb) {
     bb->for_each([&](Instr *x) {
       Case(LoadStoreAddr, ls, x) {
         assert(!ls->reg_offset);
+        Case(LoadInstr, ld, x) {
+          if (float_regs.count(ld->d1))
+            return;
+        }
+        Case(StoreInstr, st, x) {
+          if (float_regs.count(st->s1))
+            return;
+        }
         if (ls->offset == 0 && use_count[ls->addr] == 1) {
           Case(ArrayIndex, ai, defs.at(ls->addr)) {
             if (ai->size == 4) {
