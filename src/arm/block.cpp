@@ -110,7 +110,8 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
       if (binary->op.type == IR::BinaryCompute::ADD ||
           binary->op.type == IR::BinaryCompute::SUB ||
           binary->op.type == IR::BinaryCompute::MUL ||
-          binary->op.type == IR::BinaryCompute::DIV) {
+          binary->op.type == IR::BinaryCompute::DIV ||
+          binary->op.type == IR::BinaryCompute::MOD) {
         push_back(std::make_unique<RegRegInst>(
             RegRegInst::from_ir_binary_op(binary->op.type), dst, s1, s2));
       } else if (binary->op.type == IR::BinaryCompute::FADD ||
@@ -233,6 +234,16 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
         push_back(std::make_unique<Return>(ScalarType::Float));
       }
     } else if (auto call = dynamic_cast<IR::CallInstr *>(cur)) {
+      if (call->f->name == "__mla" || call->f->name == "__mls") {
+        auto s1 = info->from_ir_reg(call->args.at(1).first);
+        auto s2 = info->from_ir_reg(call->args.at(2).first);
+        auto s3 = info->from_ir_reg(call->args.at(0).first);
+        auto d1 = info->from_ir_reg(call->d1);
+        push_back(std::make_unique<ML>(
+            call->f->name == "__mla" ? ML::Mla : ML::Mls, d1, s1, s2, s3));
+        continue;
+      }
+      int tid = ir_bb->thread_id;
       int int_arg_cnt = 0, float_arg_cnt = 0;
       for (auto kv : call->args) {
         if (kv.second == ScalarType::Int)
@@ -288,8 +299,14 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
           }
         }
       }
+      if (tid > 0) {
+        push_back(sp_move(-((tid) << 20)));
+      }
       push_back(std::make_unique<FuncCall>(call->f->name, int_arg_size,
                                            float_arg_size));
+      if (tid > 0) {
+        push_back(sp_move((tid) << 20));
+      }
       if (stack_passed > 0) {
         push_back(sp_move(stack_passed * INT_SIZE));
       }

@@ -25,9 +25,9 @@ struct EBNode {
       if (dynamic_cast<Return *>(i.get())) {
         return false;
       }
-      if (dynamic_cast<Branch *>(i.get())) {
-        return false;
-      }
+      // if (dynamic_cast<Branch *>(i.get())) {
+      //   return false;
+      // }
     }
     return true;
   }

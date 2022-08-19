@@ -18,6 +18,12 @@
 #include "common/common.hpp"
 #include "ir/scalar.hpp"
 
+#define Case(T, a, b) if (auto a = dynamic_cast<T *>(b))
+#define CaseNot(T, b)                                                          \
+  if (auto _ = dynamic_cast<T *>(b)) {                                         \
+    (void)_;                                                                   \
+  } else
+
 namespace IR {
 using std::function;
 using std::list;
@@ -314,6 +320,8 @@ struct LibFunc : Func {
   bool in = 0,
        out = 0; // IO side effect, in: stdin changed, out: stdout changed
   bool pure = 0;
+  std::optional<std::function<typeless_scalar_t(typeless_scalar_t *, int)>>
+      impl;
 
 private:
   friend struct CompileUnit;
@@ -641,7 +649,15 @@ struct CallInstr : RegWriteInstr {
   bool no_store = 0, no_load = 0;
   CallInstr(Reg d1, Func *f, vector<std::pair<Reg, ScalarType>> args,
             ScalarType return_type_)
-      : RegWriteInstr(d1), args(args), f(f), return_type(return_type_) {}
+      : RegWriteInstr(d1), args(args), f(f), return_type(return_type_) {
+    assert(f);
+    Case(LibFunc, f0, f) {
+      if (f0->pure) {
+        no_load = 1;
+        no_store = 1;
+      }
+    }
+  }
   void print(ostream &os) const override;
 };
 
@@ -733,11 +749,6 @@ struct PhiInstr : RegWriteInstr {
   void add_use(Reg r, BB *pos) { uses.emplace_back(r, pos); }
   void print(ostream &os) const override;
 };
-
-#define Case(T, a, b) if (auto a = dynamic_cast<T *>(b))
-#define CaseNot(T, b)                                                          \
-  if (auto _ = dynamic_cast<T *>(b)) {                                         \
-  } else
 
 // for each (R1,R2):mp_reg, change the usage of R1 to R2, but defs are not
 // changed
