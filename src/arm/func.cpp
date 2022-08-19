@@ -56,10 +56,18 @@ std::vector<int> reg_allocate(RegAllocStat *stat, Func *ctx) {
   info << "register allocation for function: " << ctx->name << '\n';
   info << "reg_n = " << ctx->reg_n << '\n';
   stat->spill_cnt = 0;
-  info << "using SimpleColoringAllocator\n";
+  ColoringAllocator *allocator = nullptr;
+  PassDisabled("irc-alloc") {
+    info << "using SimpleColoringAllocator\n";
+    allocator = new SimpleColoringAllocator<type>(ctx);
+  }
+  else {
+    info << "using IRCColoringAllocator\n";
+    allocator = new IRCColoringAllocator<type>(ctx);
+  }
   while (true) {
-    SimpleColoringAllocator<type> allocator(ctx);
-    std::vector<int> ret = allocator.run(stat);
+    allocator->clear();
+    std::vector<int> ret = allocator->run(stat);
     if (stat->succeed)
       return ret;
   }
@@ -193,10 +201,14 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
   }
   entry = new Block(".entry_" + name);
   blocks.emplace_back(entry);
+  auto dom_ctx = construct_dom_tree(ir_func);
+  auto loop_ctx = construct_loop_tree(ir_func, dom_ctx.get());
   for (size_t i = 0; i < ir_func->bbs.size(); ++i) {
     IR::BB *cur = ir_func->bbs[i].get();
     std::string cur_name = ".L" + std::to_string(prog->block_n++);
     std::unique_ptr<Block> res = std::make_unique<Block>(cur_name);
+    res->thread_id = ir_func->bbs[i]->thread_id;
+    res->depth = loop_ctx->nodes[i]->dep;
     info.block_mapping[cur] = res.get();
     info.rev_block_mapping[res.get()] = cur;
     blocks.push_back(std::move(res));
