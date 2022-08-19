@@ -24,10 +24,10 @@ def parse_args():
 
 def to_time(time_line):
     print('time info: {}'.format(time_line))
-    hour = re.search('\d+H', time_line)[-1][:-1]
-    minate = re.search('\d+M', time_line)[-1][:-1]
-    sec = re.search('\d+S', time_line)[-1][:-1]
-    micro = re.search('\d+us', time_line)[-1][:-2]
+    hour = re.findall('\d+H', time_line)[-1][:-1]
+    minate = re.findall('\d+M', time_line)[-1][:-1]
+    sec = re.findall('\d+S', time_line)[-1][:-1]
+    micro = re.findall('\d+us', time_line)[-1][:-2]
     return float(hour) * 3600 + float(minate) * 60 + float(sec) * 1 + float(micro) * 1e-6
 
 
