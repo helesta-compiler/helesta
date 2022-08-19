@@ -572,6 +572,8 @@ private:
     for (int i = RegConvention<type>::Count; i < func->reg_n; ++i) {
       if (occur[i]) {
         ans[i] = ans[get_alias(i)];
+      } else {
+        ans[i] = -1;
       }
     }
     stat->callee_save_used = 0;
