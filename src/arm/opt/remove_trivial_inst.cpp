@@ -9,7 +9,7 @@ void remove_trivial_inst(Func *func) {
     std::unordered_map<int32_t, int32_t> const_info;
     block->for_each([&](Inst *inst) {
       if (auto mov = dynamic_cast<MoveReg *>(inst)) {
-        if (mov->dst.type == mov->src.type && mov->dst == mov->src) {
+        if (mov->dst == mov->src) {
           block->del();
           return;
         }

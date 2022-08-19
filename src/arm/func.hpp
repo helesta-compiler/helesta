@@ -5,6 +5,7 @@
 
 #include "arm/block.hpp"
 #include "arm/inst.hpp"
+#include "ir/opt/loop.hpp"
 
 namespace ARMv7 {
 

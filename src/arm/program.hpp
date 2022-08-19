@@ -11,6 +11,8 @@
 
 #include "arm/func.hpp"
 #include "arm/inst.hpp"
+#include "arm/irc_coloring_alloc.hpp"
+#include "arm/regalloc.hpp"
 #include "arm/simple_coloring_alloc.hpp"
 #include "ir/ir.hpp"
 
