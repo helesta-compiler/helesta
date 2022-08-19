@@ -24,10 +24,10 @@ def parse_args():
 
 def to_time(time_line):
     print('time info: {}'.format(time_line))
-    hour = re.search('\d+H', time_line)[0][:-1]
-    minate = re.search('\d+M', time_line)[0][:-1]
-    sec = re.search('\d+S', time_line)[0][:-1]
-    micro = re.search('\d+us', time_line)[0][:-2]
+    hour = re.search('\d+H', time_line)[-1][:-1]
+    minate = re.search('\d+M', time_line)[-1][:-1]
+    sec = re.search('\d+S', time_line)[-1][:-1]
+    micro = re.search('\d+us', time_line)[-1][:-2]
     return float(hour) * 3600 + float(minate) * 60 + float(sec) * 1 + float(micro) * 1e-6
 
 
@@ -42,7 +42,7 @@ def run(exe_path, in_path):
     out = out.decode("utf-8")
     out = out.strip("\n\r ")
     out += "\n" + str(child.returncode)
-    return out, to_time(err)
+    return out, to_time(err.decode('utf-8'))
 
 
 def run_koba(koba_path, src_path, in_path, lib_path):
