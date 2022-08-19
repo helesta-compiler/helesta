@@ -4,6 +4,7 @@ import argparse
 import time
 import tempfile
 import pandas as pd
+import re
 
 
 def parse_args():
@@ -21,20 +22,27 @@ def parse_args():
     return args
 
 
+def to_time(time_line):
+    print('time info: {}'.format(time_line))
+    hour = re.findall('\d+H', time_line)[-1][:-1]
+    minate = re.findall('\d+M', time_line)[-1][:-1]
+    sec = re.findall('\d+S', time_line)[-1][:-1]
+    micro = re.findall('\d+us', time_line)[-1][:-2]
+    return float(hour) * 3600 + float(minate) * 60 + float(sec) * 1 + float(micro) * 1e-6
+
+
 def run(exe_path, in_path):
     child = None
-    start = time.time()
     if os.path.exists(in_path):
         with open(in_file) as f:
-            child = subprocess.Popen(exe_path.split(), stdout=subprocess.PIPE, stdin=f)
+            child = subprocess.Popen(exe_path.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=f)
     else:
-        child = subprocess.Popen(exe_path.split(), stdout=subprocess.PIPE)
-    out, _ = child.communicate()
-    end = time.time()
+        child = subprocess.Popen(exe_path.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = child.communicate()
     out = out.decode("utf-8")
     out = out.strip("\n\r ")
     out += "\n" + str(child.returncode)
-    return out, end - start
+    return out, to_time(err.decode('utf-8'))
 
 
 def run_koba(koba_path, src_path, in_path, lib_path):
