@@ -225,9 +225,11 @@ void load_store_reg_offset(NormalFunc *f) {
         if (ls->offset == 0 && use_count[ls->addr] == 1) {
           Case(ArrayIndex, ai, defs.at(ls->addr)) {
             if (ai->size == 4) {
+              // dbg(*x, " => ");
               ls->addr = ai->s1;
               ls->reg_offset = ai->s2;
               ++cnt.cnt;
+              // dbg(*x, "\n");
             }
           }
         }

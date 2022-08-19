@@ -472,6 +472,7 @@ void SIMD::gen_asm(ostream &out, AsmContext *) {
 
 void ComplexLoad::gen_asm(ostream &out, AsmContext *) {
   if (dst.type == ScalarType::Float) {
+    assert(0);
     out << "ldr" << cond << ' ' << Reg(dst.id, ScalarType::Float) << ",["
         << base << ',' << offset << shift << "]\n";
     out << "vmov" << cond << ' ' << dst << ',' << Reg(dst.id, ScalarType::Float)
@@ -484,6 +485,7 @@ void ComplexLoad::gen_asm(ostream &out, AsmContext *) {
 
 void ComplexStore::gen_asm(ostream &out, AsmContext *) {
   if (src.type == ScalarType::Float) {
+    assert(0);
     out << "vmov" << cond << ' ' << Reg(src.id, ScalarType::Float) << ',' << src
         << "\n";
     out << "str" << cond << ' ' << Reg(src.id, ScalarType::Float) << ",["

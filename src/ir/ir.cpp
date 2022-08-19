@@ -126,17 +126,20 @@ void UnaryOpInstr::print(ostream &os) const {
 void BinaryOpInstr::print(ostream &os) const {
   os << d1 << " = " << s1 << " " << op << " " << s2;
 }
-void LoadInstr::print(ostream &os) const {
-  os << d1 << " = M[" << addr;
-  if (offset)
-    os << " + " << offset;
+ostream &operator<<(ostream &os, LoadStoreAddr &a) {
+  os << "M[" << a.addr;
+  if (a.offset)
+    os << " + " << a.offset;
+  else if (a.reg_offset)
+    os << " + " << *a.reg_offset << " * 4";
   os << "]";
+  return os;
+}
+void LoadInstr::print(ostream &os) const {
+  os << d1 << " = " << *(LoadStoreAddr *)this;
 }
 void StoreInstr::print(ostream &os) const {
-  os << "M[" << addr;
-  if (offset)
-    os << " + " << offset;
-  os << "] = " << s1;
+  os << *(LoadStoreAddr *)this << " = " << s1;
 }
 void JumpInstr::print(ostream &os) const { os << "goto " << target->name; }
 void BranchInstr::print(ostream &os) const {
