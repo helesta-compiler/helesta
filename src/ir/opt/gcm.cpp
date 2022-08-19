@@ -242,7 +242,6 @@ void reconstruct(GCMContext *ctx, IR::NormalFunc *func) {
     for (auto &j : ctx->nodes[i]->instrs) {
       func->bbs[i]->instrs.push_back(std::unique_ptr<IR::Instr>(j->i));
     }
-    func->bbs[i]->depth = ctx->nodes[i]->loop_depth;
   }
 }
 

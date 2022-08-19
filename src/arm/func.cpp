@@ -201,10 +201,14 @@ Func::Func(Program *prog, std::string _name, IR::NormalFunc *ir_func)
   }
   entry = new Block(".entry_" + name);
   blocks.emplace_back(entry);
+  auto dom_ctx = construct_dom_tree(ir_func);
+  auto loop_ctx = construct_loop_tree(ir_func, dom_ctx.get());
   for (size_t i = 0; i < ir_func->bbs.size(); ++i) {
     IR::BB *cur = ir_func->bbs[i].get();
     std::string cur_name = ".L" + std::to_string(prog->block_n++);
     std::unique_ptr<Block> res = std::make_unique<Block>(cur_name);
+    res->thread_id = ir_func->bbs[i]->thread_id;
+    res->depth = loop_ctx->nodes[i]->dep;
     info.block_mapping[cur] = res.get();
     info.rev_block_mapping[res.get()] = cur;
     blocks.push_back(std::move(res));
