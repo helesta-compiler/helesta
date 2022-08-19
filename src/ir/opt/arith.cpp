@@ -240,6 +240,7 @@ void load_store_reg_offset(NormalFunc *f) {
 }
 
 void load_store_offset(NormalFunc *f);
+
 void merge_inst(CompileUnit *ir, NormalFunc *f) {
   load_store_offset(f);
   merge_inst_muladd(ir, f);
