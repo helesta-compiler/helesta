@@ -156,6 +156,20 @@ struct MemScope : Printable {
   // map global=0,arg=1 MemObject to arg id in 0..arg_cnt-1
   int size;
   // computed after machine irrelavant optimization
+  void copy(MemScope *s) {
+    name = s->name;
+    global = s->global;
+    array_args = s->array_args;
+    array_arg_id = s->array_arg_id;
+    size = s->size;
+
+    for (auto &obj : s->objects) {
+      MemObject *m = new MemObject(obj.get()->name, obj.get()->global);
+      *m = *(obj.get());
+      m->fa = this;
+      objects.emplace_back(m);
+    }
+  }
   MemObject *new_MemObject(string _name) {
     MemObject *m = new MemObject(name + "::" + _name, global);
     objects.emplace_back(m);

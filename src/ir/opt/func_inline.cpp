@@ -27,6 +27,7 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
   static std::unordered_map<NormalFunc *, int> is;
   Case(NormalFunc, son_func, call->f) {
     ++is[son_func];
+    son_func = son_func->copy();
     // map local var to fa
     // move all local vars to fa
     // if (son_func == fa){
@@ -46,7 +47,6 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
         fa->scope.add(x1);
       }
     });
-    son_func = son_func->copy();
 
     son_func->for_each([&](BB *bb) {
       map_bb[bb] = fa->new_BB();

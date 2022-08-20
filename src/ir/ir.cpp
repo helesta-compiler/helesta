@@ -1029,6 +1029,8 @@ NormalFunc *NormalFunc::copy() {
   x->max_bb_id = max_bb_id;
   x->reg_names = reg_names;
   x->arg_types = arg_types;
+  x->scope.copy(&scope);
+
   // x->thread_local_regs = thread_local_regs;
   return x;
 }
@@ -1036,15 +1038,7 @@ NormalFunc *NormalFunc::copy() {
 BB *BB::copy() {
   BB *x = new BB(name);
   x->id = id;
-  for_each([&](Instr *instr) {
-    Instr *y = instr->copy();
-    Case(LoadAddr, load_addr, instr) {
-      Case(LoadAddr, load_addr_y, y) {
-        load_addr_y->offset = load_addr->offset;
-      }
-    }
-    x->instrs.emplace_back(y);
-  });
+  for_each([&](Instr *instr) { x->instrs.emplace_back(instr->copy()); });
   return x;
 }
 } // namespace IR
