@@ -198,7 +198,7 @@ void func_inline(IR::CompileUnit *ir) {
   }
 
   // 迭代 3 次内联所有函数
-  for (int i = 0; i < 1; ++i) {
+  for (int i = 0; i < 3; ++i) {
     ir->for_each([&](IR::NormalFunc *func) {
       std::vector<IR::BB *> bbs;
       func->for_each([&](IR::BB *bb) { bbs.push_back(bb); });
