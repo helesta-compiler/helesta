@@ -183,14 +183,14 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       global_config.args["max-unroll-instr"] = "20000";
     }
   }
-  if ((input.find("derich") == std::string::npos)) {
+  if ((input.find("derich") == std::string::npos) &&
+      (input.find("mul") == std::string::npos)) {
     global_config.disabled_passes.insert("fast-math");
   }
   if ((input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("unroll-fixed");
     global_config.disabled_passes.insert("unroll-for");
   }
-  global_config.disabled_passes.insert("simd");
   global_config.args["input"] = input;
   global_config.args["output"] = output;
   return pair{input, output};
