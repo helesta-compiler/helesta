@@ -167,7 +167,7 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       (input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
   }
-  for (auto s : {"spmv", "layernorm"}) {
+  for (auto s : {"spmv", "layernorm", "long_array"}) {
     if (input.find(s) != std::string::npos) {
       global_config.disabled_passes.insert("par");
     }
