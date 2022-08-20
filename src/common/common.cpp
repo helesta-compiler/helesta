@@ -98,10 +98,6 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   string input, output;
   global_config.give_up = false;
   // global_config.disabled_passes.insert("par");
-  if ((input.find("mul") != std::string::npos) &&
-      (input.find("matmul") == std::string::npos)) {
-    global_config.disabled_passes.insert("opt");
-  }
   for (int i = 1; i < argc; ++i) {
     string cur{argv[i]};
     if (startswith(cur, "-")) {
