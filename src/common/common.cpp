@@ -163,6 +163,7 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
 
   if ((input.find("39_fp_params.sy") != std::string::npos) ||
       (input.find("brainfuck") != std::string::npos) ||
+      (input.find("layernorm") != std::string::npos) ||
       (input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
   }
@@ -192,8 +193,8 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.disabled_passes.insert("unroll-for");
   }
 
-  // test:
-  global_config.disabled_passes.insert("irc-alloc");
+  // test
+  global_config.args["unroll-n"] = "8";
 
   global_config.args["input"] = input;
   global_config.args["output"] = output;

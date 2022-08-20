@@ -22,6 +22,7 @@ void remove_unused_BB(IR::CompileUnit *ir);
 void before_backend(IR::CompileUnit *ir);
 void before_gcm(IR::CompileUnit *ir);
 void pretty_print(IR::CompileUnit *ir);
+void cache_pure_func(IR::CompileUnit *ir);
 
 void checkIR(IR::NormalFunc *f);
 void checkIR(IR::CompileUnit *ir);
@@ -68,6 +69,7 @@ inline void optimize_ir(IR::CompileUnit *ir) {
           mem2reg(ir);
         }
         gvn(ir);
+        cache_pure_func(ir);
         dag_ir(ir);
         gvn(ir);
         gcm(ir);

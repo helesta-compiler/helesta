@@ -1686,7 +1686,7 @@ struct UnrollLoop {
   }
   bool unroll_simple_for_loop(BB *w) {
     constexpr size_t MAX_UNROLL_SIMPLE_FOR_INSTR = 256;
-    constexpr size_t UNROLL_SIMPLE_FOR_CNT = 4;
+    size_t UNROLL_SIMPLE_FOR_CNT = parseIntArg(4, "unroll-n");
     if (w->disable_unroll || !last)
       return 0;
     auto &wi = S.loop_info.at(w);

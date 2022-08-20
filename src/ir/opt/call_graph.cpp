@@ -320,6 +320,31 @@ struct CallGraph {
       return unused(x.second.get());
     });
   }
+  void cache_pure_func(NormalFunc *f) {
+    auto &fi = info[f];
+    if (!(fi.no_load && fi.no_store))
+      return;
+    bool is_rec = 0, is_single_arg = 1;
+    for (auto call : fi.calls) {
+      Case(NormalFunc, f0, call->f) {
+        if (f0 == f) {
+          is_rec = 1;
+          if (call->args.size() != 1)
+            is_single_arg = 0;
+        }
+      }
+    }
+    if (!is_rec || !is_single_arg)
+      return;
+    assert(0);
+    /*MemObject *mem = ir->scope.new_MemObject(f->name + "::cache");
+mem->size = 4 * 1024;
+mem->global = 1;
+mem->scalar_type = ScalarType::Int;*/
+  }
+  void cache_pure_func() {
+    ir->for_each([&](NormalFunc *f) { cache_pure_func(f); });
+  }
 };
 
 void call_graph(CompileUnit *ir) {
@@ -336,4 +361,16 @@ void remove_unused_func(CompileUnit *ir) {
   CallGraph cg(ir);
   cg.remove_unused_func();
   checkIR(ir);
+}
+void cache_pure_func(CompileUnit *ir) {
+  PassDisabled("cpf") return;
+  {
+    CallGraph cg(ir);
+    cg.build_pure();
+    cg.cache_pure_func();
+  }
+  {
+    CallGraph cg(ir);
+    cg.build_pure();
+  }
 }
