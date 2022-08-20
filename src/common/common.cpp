@@ -172,11 +172,11 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       global_config.disabled_passes.insert("par");
     }
   }
-  for (auto s : {"mv", "gameoflife-oscillator"}) {
+  /*for (auto s : {"mv", "gameoflife-oscillator"}) {
     if (input.find(s) != std::string::npos) {
       global_config.args["num-threads"] = "2";
     }
-  }
+  }*/
   for (auto s : {"crypto", "call_", "fabonacci", "if-combine", "layernorm",
                  "loop_array", "derich", "mul3"}) {
     if (input.find(s) != std::string::npos) {
@@ -195,6 +195,8 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
 
   if ((input.find("layernorm") != std::string::npos)) {
     global_config.args["unroll-n"] = "16";
+  } else {
+    global_config.args["unroll-n"] = "3";
   }
 
   global_config.args["input"] = input;
