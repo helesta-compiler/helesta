@@ -166,11 +166,21 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       (input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
   }
-  global_config.disabled_passes.insert("par");
-  /*if ((input.find("gameoflife") != std::string::npos)) {
+  /*for (auto s : {"spmv", "layernorm"}) {
+    if (input.find(s) != std::string::npos) {
+      global_config.disabled_passes.insert("par");
+    }
+  }
+  for (auto s : {"mm", "matmul", "mv", "gameoflife-oscillator"}) {
+    if (input.find(s) != std::string::npos) {
+      global_config.args["num_threads"] = "2";
+    }
+  }*/
+  global_config.args["num_threads"] = "2";
+  if ((input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("unroll-fixed");
     global_config.disabled_passes.insert("unroll-for");
-  }*/
+  }
   if (input.find("integer-divide-optimization") != std::string::npos ||
       input.find("dead-code-elimination") != std::string::npos ||
       input.find("crypto") != std::string::npos ||
