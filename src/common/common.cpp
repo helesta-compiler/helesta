@@ -97,7 +97,6 @@ string Configuration::get_arg(string key, string default_value) {
 pair<string, string> parse_arg(int argc, char *argv[]) {
   string input, output;
   global_config.give_up = false;
-  // global_config.disabled_passes.insert("par");
   for (int i = 1; i < argc; ++i) {
     string cur{argv[i]};
     if (startswith(cur, "-")) {
@@ -167,10 +166,11 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       (input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
   }
-  if ((input.find("gameoflife") != std::string::npos)) {
+  global_config.disabled_passes.insert("par");
+  /*if ((input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("unroll-fixed");
     global_config.disabled_passes.insert("unroll-for");
-  }
+  }*/
   if (input.find("integer-divide-optimization") != std::string::npos ||
       input.find("dead-code-elimination") != std::string::npos ||
       input.find("crypto") != std::string::npos ||

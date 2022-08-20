@@ -884,7 +884,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       auto fork = ir->lib_funcs.at("__create_threads").get();
       auto join = ir->lib_funcs.at("__join_threads").get();
       auto bind_core = ir->lib_funcs.at("__bind_core").get();
-      bool use_bind_core = 1;
+      bool use_bind_core = (global_config.args["bind-core"] == "1");
       auto lock = ir->lib_funcs.at("__lock").get();
       auto unlock = ir->lib_funcs.at("__unlock").get();
 
@@ -1076,7 +1076,7 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
   auto fork = ir->lib_funcs.at("__create_threads").get();
   auto join = ir->lib_funcs.at("__join_threads").get();
   auto bind_core = ir->lib_funcs.at("__bind_core").get();
-  bool use_bind_core = 1;
+  bool use_bind_core = (global_config.args["bind-core"] == "1");
   auto lock = ir->lib_funcs.at("__lock").get();
   auto unlock = ir->lib_funcs.at("__unlock").get();
   auto on_barrier = ir->lib_funcs.at("__barrier").get();
