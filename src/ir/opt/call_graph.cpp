@@ -336,11 +336,95 @@ struct CallGraph {
     }
     if (!is_rec || !is_single_arg)
       return;
-    assert(0);
-    /*MemObject *mem = ir->scope.new_MemObject(f->name + "::cache");
-mem->size = 4 * 1024;
-mem->global = 1;
-mem->scalar_type = ScalarType::Int;*/
+    ScalarType arg_t = ScalarType::Void;
+    ScalarType ret_t = ScalarType::Void;
+    BB *ret_bb = nullptr;
+    Reg ret_reg;
+    f->for_each([&](BB *bb) {
+      bb->for_each([&](Instr *x) {
+        Case(LoadArg<ScalarType::Int>, la, x) {
+          arg_t = ScalarType::Int;
+          (void)la;
+        }
+        else Case(LoadArg<ScalarType::Float>, la, x) {
+          arg_t = ScalarType::Float;
+          (void)la;
+        }
+        else Case(ReturnInstr<ScalarType::Int>, ret, x) {
+          ret_t = ScalarType::Int;
+          if (ret_bb)
+            return;
+          ret_bb = bb;
+          ret_reg = ret->s1;
+        }
+        else Case(ReturnInstr<ScalarType::Float>, ret, x) {
+          ret_t = ScalarType::Float;
+          if (ret_bb)
+            return;
+          ret_bb = bb;
+          ret_reg = ret->s1;
+        }
+      });
+    });
+    if (arg_t == ScalarType::Void)
+      return;
+    if (ret_t == ScalarType::Void)
+      return;
+    if (!ret_bb)
+      return;
+    MemObject *mem_key = ir->scope.new_MemObject(f->name + "::key");
+    mem_key->size = 4 * 1010;
+    mem_key->global = 1;
+    mem_key->scalar_type = ScalarType::Int;
+    MemObject *mem_val = ir->scope.new_MemObject(f->name + "::val");
+    mem_val->size = 4 * 1010;
+    mem_val->global = 1;
+    mem_val->scalar_type = ret_t;
+    BB *bb1 = f->new_BB();
+    BB *bb2 = f->new_BB();
+    BB *bb3 = f->new_BB();
+    BB *bb4 = f->new_BB();
+    CodeGen cg(f);
+    CodeGen::RegRef argv;
+    auto f_mov_to_i = ir->lib_funcs.at("__f_mov_to_i").get();
+
+    if (arg_t == ScalarType::Int) {
+      argv = cg.la_int(0);
+    } else {
+      argv = cg.la_float(0);
+      argv = cg.call(f_mov_to_i, ScalarType::Int, {{argv, ScalarType::Float}});
+    }
+    cg.branch(argv != cg.lc(0), bb2, f->entry);
+    bb1->push(std::move(cg.instrs));
+    auto P = cg.lc(1009);
+    auto hash = (argv % P + P) % P;
+    auto key = cg.ld(cg.ai(cg.la(mem_key), hash, 4));
+    cg.branch(argv == key, bb3, f->entry);
+    bb2->push(std::move(cg.instrs));
+
+    auto v1 = cg.ld(cg.ai(cg.la(mem_val), hash, 4));
+    cg.jump(bb4);
+    bb3->push(std::move(cg.instrs));
+
+    auto v2 = cg.reg(ret_reg);
+    cg.st(cg.ai(cg.la(mem_key), hash, 4), argv);
+    cg.st(cg.ai(cg.la(mem_val), hash, 4), v2);
+    cg.jump(bb4);
+    ret_bb->pop();
+    ret_bb->push(std::move(cg.instrs));
+
+    Reg v3 = f->new_Reg();
+    auto phi = new PhiInstr(v3);
+    phi->add_use(v1.r, bb3);
+    phi->add_use(v2.r, ret_bb);
+    bb4->push(phi);
+    if (ret_t == ScalarType::Int) {
+      bb4->push(new ReturnInstr<ScalarType::Int>(v3, 0));
+    } else {
+      bb4->push(new ReturnInstr<ScalarType::Float>(v3, 0));
+    }
+    f->entry = bb1;
+    // dbg(*f);
   }
   void cache_pure_func() {
     ir->for_each([&](NormalFunc *f) { cache_pure_func(f); });

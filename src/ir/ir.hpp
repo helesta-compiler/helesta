@@ -880,6 +880,21 @@ struct CodeGen {
     instrs.emplace_back(new LoadAddr(r, x));
     return reg(r);
   }
+  RegRef la_int(int id) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadArg<ScalarType::Int>(r, id));
+    return reg(r);
+  }
+  RegRef la_float(int id) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadArg<ScalarType::Float>(r, id));
+    return reg(r);
+  }
+  RegRef ai(RegRef s1, RegRef s2, int size) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new ArrayIndex(r, s1.r, s2.r, size, -1));
+    return reg(r);
+  }
   RegRef ld_volatile(CompileUnit *ir, RegRef x) {
     auto f = ir->lib_funcs.at("__ld_volatile").get();
     return call(f, ScalarType::Int, {{x, ScalarType::Int}});

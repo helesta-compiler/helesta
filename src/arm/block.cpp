@@ -255,6 +255,12 @@ void Block::construct(IR::BB *ir_bb, Func *func, MappingInfo *info,
             call->f->name == "__mla" ? ML::Mla : ML::Mls, d1, s1, s2, s3));
         continue;
       }
+      if (call->f->name == "__f_mov_to_i") {
+        auto d1 = info->from_ir_reg(call->d1);
+        auto s1 = info->from_ir_reg(call->args.at(0).first);
+        push_back(std::make_unique<MoveReg>(d1, s1));
+        continue;
+      }
       int tid = ir_bb->thread_id;
       int int_arg_cnt = 0, float_arg_cnt = 0;
       for (auto kv : call->args) {

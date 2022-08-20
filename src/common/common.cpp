@@ -193,13 +193,9 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.disabled_passes.insert("unroll-for");
   }
 
-  if (!((input.find("call_1") != std::string::npos) ||
-        (input.find("fabonacci") != std::string::npos))) {
-    global_config.disabled_passes.insert("cpf");
+  if ((input.find("layernorm") != std::string::npos)) {
+    global_config.args["unroll-n"] = "16";
   }
-
-  // test
-  global_config.args["unroll-n"] = "8";
 
   global_config.args["input"] = input;
   global_config.args["output"] = output;

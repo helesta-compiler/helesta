@@ -282,6 +282,11 @@ CompileUnit::CompileUnit() : scope("global", 1) {
       return 0;
     return a / (1 << b);
   };
+  pure_func("__f_mov_to_i")->impl = [](typeless_scalar_t *args,
+                                       int argc) -> typeless_scalar_t {
+    assert(argc == 1);
+    return args[0].int_value();
+  };
 
   f = new_LibFunc("__simd", 1);
   f->in = 1;
