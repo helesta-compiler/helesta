@@ -210,7 +210,7 @@ void func_inline(IR::CompileUnit *ir) {
               func->for_each(
                   [&](IR::BB *bb) { instr_cnt += bb->instrs.size(); });
               if (instr_cnt >= 1000)
-                continue;
+                return ;
               // std::cerr << func->name << "(" << bb->name << ") -> " <<
               // func_t->name << " [" << i << "," << instr_cnt << "," <<
               // func->bbs.size()
