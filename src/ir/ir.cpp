@@ -1032,4 +1032,19 @@ NormalFunc *NormalFunc::copy() {
   // x->thread_local_regs = thread_local_regs;
   return x;
 }
+
+BB *BB::copy() {
+  BB *x = new BB(name);
+  x->id = id;
+  for_each([&](Instr *instr) {
+    Instr *y = instr->copy();
+    Case(LoadAddr, load_addr, instr) {
+      Case(LoadAddr, load_addr_y, y) {
+        load_addr_y->offset = load_addr->offset;
+      }
+    }
+    x->instrs.emplace_back(y);
+  });
+  return x;
+}
 } // namespace IR

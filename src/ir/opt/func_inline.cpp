@@ -25,10 +25,8 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
   using namespace IR;
 
   static std::unordered_map<NormalFunc *, int> is;
-
   Case(NormalFunc, son_func, call->f) {
     ++is[son_func];
-    son_func = son_func->copy();
     // map local var to fa
     // move all local vars to fa
     // if (son_func == fa){
@@ -48,6 +46,7 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
         fa->scope.add(x1);
       }
     });
+    son_func = son_func->copy();
 
     son_func->for_each([&](BB *bb) {
       map_bb[bb] = fa->new_BB();
@@ -121,12 +120,14 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
         bb1->push(instr1);
       });
     });
+    // fa->print(std::cerr);
     fa_bb->pop();
     fa_bb->push(new JumpInstr(map_bb.at(son_func->entry)));
+    // fa_bb->print(std::cerr);
     phi_src_rewrite(nxt, fa_bb);
     fa_bb = nxt;
+    // std::cerr << fa_bb->name << " end\n\n\n";
   }
-  // assert(0);
 }
 
 void search_call_instr(IR::CompileUnit *ir, IR::NormalFunc *target_func) {
@@ -204,9 +205,10 @@ void func_inline(IR::CompileUnit *ir) {
       func->for_each([&](IR::BB *bb) { bbs.push_back(bb); });
       for (auto bb : bbs) {
         for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
-          Case(IR::CallInstr, call, it->get()) {
-            Case(IR::NormalFunc, func_t, call->f) {
-              move_func(func, call, bb);
+          Case(IR::CallInstr, call_instr, it->get()) {
+            Case(IR::NormalFunc, func_t, call_instr->f) {
+              move_func(func, call_instr, bb);
+              // func->print(std::cerr);
               break;
             }
           }
