@@ -206,7 +206,7 @@ void func_inline(IR::CompileUnit *ir) {
         for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
           Case(IR::CallInstr, call_instr, it->get()) {
             Case(IR::NormalFunc, func_t, call_instr->f) {
-              int instr_cnt = 0, bb_cnt = func_t->bbs.size();
+              int instr_cnt = 0;
               func_t->for_each(
                   [&](IR::BB *bb) { instr_cnt += bb->instrs.size(); });
               if (instr_cnt >= 1000)
