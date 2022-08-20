@@ -173,10 +173,10 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   }
   for (auto s : {"mm", "matmul", "mv", "gameoflife-oscillator"}) {
     if (input.find(s) != std::string::npos) {
-      global_config.args["num_threads"] = "2";
+      global_config.args["num-threads"] = "2";
     }
   }*/
-  global_config.args["num_threads"] = "2";
+  global_config.args["num-threads"] = "2";
   if ((input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("unroll-fixed");
     global_config.disabled_passes.insert("unroll-for");
