@@ -123,11 +123,56 @@ struct FMulDivC : ForwardLoopVisitor<std::map<bool, bool>>,
   }
 };
 
+struct FMulAssoc : ForwardLoopVisitor<std::map<bool, bool>>,
+                   Defs,
+                   CounterOutput {
+  FMulAssoc(NormalFunc *_f) : Defs(_f), CounterOutput("FMulAssoc") {}
+  std::unordered_set<Reg> changed;
+  bool bad(BinaryOpInstr *bop) {
+    if (get_const_f(bop->s1) || get_const_f(bop->s2))
+      return 1;
+    if (changed.count(bop->s1) || changed.count(bop->s2))
+      return 1;
+    return 0;
+  }
+  void visitBB(BB *bb) {
+    bb->for_each([&](Instr *x) {
+      replace_reg(x);
+      Case(BinaryOpInstr, bop, x) {
+        if (bop->op.type == BinaryCompute::FMUL) {
+          if (bad(bop))
+            return;
+          Case(BinaryOpInstr, bop2, defs.at(bop->s1)) {
+            if (bop2->op.type == BinaryCompute::FMUL) {
+              if (bad(bop2))
+                return;
+              CodeGen cg(f);
+              bop->s1 = bop2->s1;
+              bop->s2 = cg.reg(bop2->s2).fmul(cg.reg(bop->s2)).r;
+              update_defs(cg.instrs);
+              bb->ins(std::move(cg.instrs));
+              changed.insert(bop->s1);
+              changed.insert(bop->s2);
+              ++cnt;
+            }
+          }
+        }
+      }
+    });
+  }
+};
+
 void fmuldivc(NormalFunc *f) {
   PassDisabled("fast-math") return;
   DAG_IR dag(f);
-  FMulDivC w(f);
-  dag.visit(w);
+  {
+    FMulDivC w(f);
+    dag.visit(w);
+  }
+  /*{
+    FMulAssoc w(f);
+    dag.visit(w);
+  }*/
 }
 
 void merge_inst_muladd(CompileUnit *ir, NormalFunc *f) {

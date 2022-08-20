@@ -853,14 +853,23 @@ struct CodeGen {
       assign(a);
     }
 #define bop(op, name)                                                          \
+  RegRef op(RegRef b) const {                                                  \
+    Reg r0 = cg->f->new_Reg();                                                 \
+    cg->instrs.emplace_back(                                                   \
+        new BinaryOpInstr(r0, r, b.r, BinaryCompute::name));                   \
+    return cg->reg(r0);                                                        \
+  }
+    bop(fadd, FADD) bop(fsub, FSUB) bop(fmul, FMUL) bop(fdiv, FDIV)
+#undef bop
+#define bop(op, name)                                                          \
   friend RegRef operator op(RegRef a, RegRef b) {                              \
     Reg r = a.cg->f->new_Reg();                                                \
     a.cg->instrs.emplace_back(                                                 \
         new BinaryOpInstr(r, a.r, b.r, BinaryCompute::name));                  \
     return a.cg->reg(r);                                                       \
   }
-    bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD) bop(<, LESS)
-        bop(<=, LEQ) bop(==, EQ) bop(!=, NEQ)
+        bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD) bop(<, LESS)
+            bop(<=, LEQ) bop(==, EQ) bop(!=, NEQ)
 #undef bop
   };
   RegRef reg(Reg r) { return RegRef{r, this}; }

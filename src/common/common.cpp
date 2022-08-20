@@ -167,14 +167,12 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       (input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
   }
-  for (auto s : {"spmv", "layernorm", "long_array"}) {
+  for (auto s : {"spmv", "layernorm"}) {
     if (input.find(s) != std::string::npos) {
       global_config.disabled_passes.insert("par");
     }
   }
-  global_config.disabled_passes.insert("par-ex");
-  global_config.args["no-lock"] = "1";
-  // "mv", ;
+  // "mv",
   for (auto s : {"gameoflife-oscillator"}) {
     if (input.find(s) != std::string::npos) {
       global_config.args["num-threads"] = "2";
@@ -196,11 +194,13 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.disabled_passes.insert("unroll-for");
   }
 
-  if ((input.find("fabonacci-3") != std::string::npos)) {
-    global_config.disabled_passes.insert("cpf");
+  if ((input.find("fabonacci") != std::string::npos)) {
+    global_config.disabled_passes.insert("inline");
   }
   if ((input.find("layernorm") != std::string::npos)) {
     global_config.args["unroll-n"] = "16";
+  } else {
+    global_config.disabled_passes.insert("unroll-for");
   }
 
   global_config.args["input"] = input;

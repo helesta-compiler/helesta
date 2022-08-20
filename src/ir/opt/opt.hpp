@@ -61,7 +61,7 @@ inline void optimize_ir(IR::CompileUnit *ir) {
       dag_ir(ir);
       gvn(ir);
       PassEnabled("func-inline") {
-        func_inline(ir);
+        PassEnabled("inline") func_inline(ir);
         remove_unused_func(ir);
         PassEnabled("g2l") PassEnabled("gvn") {
           global_to_local(ir);

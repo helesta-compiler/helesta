@@ -852,6 +852,7 @@ int exec(CompileUnit &c) {
               assert(args.size() == 1);
               int addr = args[0].int_value();
               wMem(addr, 0);
+              continue;
             } else if (x->f->name == "__create_threads") {
               assert(args.size() == 0);
               threads.push(ThreadContext{
