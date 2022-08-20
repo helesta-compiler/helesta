@@ -656,17 +656,34 @@ void DAG_IR_ALL::remove_unused_memobj() {
   });
 }
 
-void load_store_offset(NormalFunc *);
+void remove_placeholder_call(NormalFunc *f) {
+  f->for_each([&](BB *bb) {
+    bb->for_each([&](Instr *x) {
+      Case(CallInstr, call, x) {
+        if (call->f->name == "__ld_volatile") {
+          bb->replace(new LoadInstr(call->d1, call->args.at(0).first));
+        } else if (call->f->name == "__st_volatile") {
+          bb->replace(
+              new StoreInstr(call->args.at(0).first, call->args.at(1).first));
+        }
+      }
+    });
+  });
+}
+
 void split_live_range(NormalFunc *);
 void remove_phi(NormalFunc *);
 void code_reorder(NormalFunc *);
 void remove_trivial_BB(NormalFunc *);
-void mod2div(NormalFunc *);
-void muldiv(NormalFunc *);
+void merge_BB(NormalFunc *);
 
 namespace IR {
 void compute_data_offset(CompileUnit &c);
-}
+void mod2div(NormalFunc *);
+void muldiv(NormalFunc *);
+void merge_inst(CompileUnit *ir, NormalFunc *f);
+void load_store_offset(NormalFunc *);
+} // namespace IR
 DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
   remove_unused_memobj();
   remove_unused_BB();
@@ -675,11 +692,14 @@ DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
   if (type == BEFORE_BACKEND) {
     ir->for_each([&](NormalFunc *f) {
       code_reorder(f);
+      remove_placeholder_call(f);
       load_store_offset(f);
+      merge_inst(ir, f);
       split_live_range(f);
       remove_phi(f);
       code_reorder(f);
       remove_trivial_BB(f);
+      merge_BB(f);
     });
     compute_data_offset(*ir);
     return;

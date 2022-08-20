@@ -237,10 +237,81 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
   }
 };
 
+struct SIMDScheme {
+  int cnt = 4;
+  std::list<std::unique_ptr<Instr>> instrs, c_instrs;
+  void code_motion() {
+    PassDisabled("simd-cm") return;
+    decltype(instrs) new_instrs;
+    for (auto &x : instrs) {
+      bool flag = 1;
+      Case(SIMDInstr, simd, x.get()) {
+        if (simd->type == SIMDInstr::VDUP_32) {
+          flag = 0;
+        }
+      }
+      (flag ? new_instrs : c_instrs).push_back(std::move(x));
+    }
+    instrs = std::move(new_instrs);
+  }
+  void try_unroll(NormalFunc *f) {
+    PassDisabled("simd-unroll") return;
+    int max_r = 1;
+    for (auto &x0 : instrs) {
+      Case(SIMDInstr, x, x0.get()) {
+        for (int r : x->regs) {
+          max_r = std::max(max_r, r + 1);
+        }
+      }
+    }
+    assert(max_r <= 8);
+    int n = std::min(4, 8 / max_r);
+    if (n == 1)
+      return;
+    cnt *= n;
+
+    dbg("simd unroll: ", n, '\n');
+
+    decltype(instrs) new_instrs;
+    for (auto &x0 : instrs) {
+      Case(SIMDInstr, x, x0.get()) {
+        switch (x->type) {
+        case SIMDInstr::VLDM:
+        case SIMDInstr::VSTM: {
+          SIMDInstr *xi = (SIMDInstr *)x->copy();
+          for (int &r : xi->regs) {
+            r *= n;
+          }
+          xi->size *= n;
+          new_instrs.emplace_back(xi);
+          break;
+        }
+        default: {
+          for (int i = 0; i < n; ++i) {
+            SIMDInstr *xi = (SIMDInstr *)x->copy();
+            for (int &r : xi->regs) {
+              r = r * n + i;
+            }
+            xi->d1 = f->new_Reg();
+            new_instrs.emplace_back(xi);
+          }
+          break;
+        }
+        }
+      }
+      else {
+        new_instrs.emplace_back(x0->copy());
+      }
+    }
+    instrs = std::move(new_instrs);
+  }
+};
+
 struct ArrayReadWrite : SimpleLoopVisitor {
   struct LoopInfo {
     uset<Reg> rs, ws;
     bool call = 0;
+    bool rwc = 0;
     void operator|=(LoopInfo &x) {
       rs.insert(BE(x.rs));
       ws.insert(BE(x.ws));
@@ -271,6 +342,7 @@ struct ArrayReadWrite : SimpleLoopVisitor {
   umap<BB *, LoopInfo> loop_info;
   FindLoopVar &S;
   ArrayReadWrite(FindLoopVar &_S) : S(_S) {}
+  bool no_rwc(BB *bb) { return !loop_info.at(bb).rwc; }
   bool dependent(const EqContext &ctx, Reg r1, Reg r2) {
     auto &v1 = reg_info.at(r1).addr;
     auto &v2 = reg_info.at(r2).addr;
@@ -367,14 +439,18 @@ struct ArrayReadWrite : SimpleLoopVisitor {
         }
         else Case(LoadInstr, ld, rw) {
           wi.rs.insert(ld->addr);
+          wi.rwc = 1;
         }
         else Case(CallInstr, call, rw) {
-          (void)call;
-          wi.call = 1;
+          if (!(call->no_load && call->no_store && call->args.size() <= 4)) {
+            wi.call = 1;
+            wi.rwc = 1;
+          }
         }
       }
       else Case(StoreInstr, st, x) {
         wi.ws.insert(st->addr);
+        wi.rwc = 1;
       }
     });
   }
@@ -396,8 +472,12 @@ struct ArrayReadWrite : SimpleLoopVisitor {
       }
     }
   }
-  bool loop_parallel(BB *w, CompileUnit *ir);
+  std::optional<SIMDScheme> loop_simd(BB *w, CompileUnit *ir);
+  bool loop_parallel_ex(BB *w, CompileUnit *ir);
   bool simplify_reduction_var(BB *w, CompileUnit *ir);
+
+private:
+  bool loop_parallel(BB *w, CompileUnit *ir);
 };
 
 struct LoopCopyTool {
@@ -431,6 +511,7 @@ struct LoopCopyTool {
       bbs_rev[v] = k;
       v->disable_parallel = k->disable_parallel;
       v->disable_unroll = k->disable_unroll;
+      v->thread_id = k->thread_id;
     }
     auto mp_regs = partial_map(regs);
     auto mp_bbs = partial_map(bbs);
@@ -499,6 +580,7 @@ struct LoopCopyTool {
     }
   }
 };
+void before_gcm_func(NormalFunc *f);
 void code_reorder(NormalFunc *f);
 void remove_unused_BB(NormalFunc *f);
 void global_value_numbering_func(IR::NormalFunc *func);
@@ -523,6 +605,208 @@ int parseIntArg(int v, std::string s) {
     }
   }
   return v;
+}
+
+std::optional<SIMDScheme> ArrayReadWrite::loop_simd(BB *w, CompileUnit *ir) {
+  PassDisabled("simd") return std::nullopt;
+  if (dependent(w))
+    return std::nullopt;
+  bool dbg_on = (global_config.args["dbg-simd"] == "1");
+#define dbg_(...)                                                              \
+  if (dbg_on)                                                                  \
+  dbg(__VA_ARGS__)
+  dbg_("simd?\n", *w);
+  if (w->instrs.size() != 3)
+    return std::nullopt;
+  auto ilr = S.get_ilr(w, 1);
+  if (!ilr)
+    return std::nullopt;
+  auto [i_0, l, r, op] = *ilr;
+  auto i_ = i_0;
+  if (!(op.less))
+    return std::nullopt;
+  auto &wi0 = S.loop_info.at(w);
+  if (wi0.node->dfn.size() != 2)
+    return std::nullopt;
+  auto simd = ir->lib_funcs.at("__simd").get();
+  SIMDScheme ls;
+  uset<Reg> new_defs;
+  new_defs.insert(i_);
+  bool bad = 0;
+  auto push = [&](Instr *x) {
+    dbg_(">>> ", *x, '\n');
+    x->map_use([&](Reg &r) {
+      if (wi0.defs.count(r) && !new_defs.count(r)) {
+        bad = 1;
+      }
+    });
+    Case(RegWriteInstr, rw, x) { new_defs.insert(rw->d1); }
+    ls.instrs.emplace_back(x);
+  };
+  umap<Reg, std::pair<int, int>> mp_reg;
+  int32_t alloc = 0, max_alloc = 0;
+  auto alloc_reg = [&](Reg r, int pos) -> int {
+    dbg_("alloc reg: ", r, '\n');
+    for (int i = pos; i < 8; ++i) {
+      if ((1 << i) & (~alloc)) {
+        alloc |= 1 << i;
+        mp_reg[r] = {i, wi0.use_count.at(r)};
+        dbg_("alloc reg: ", r, " => ", i, '\n');
+        max_alloc = std::max(i + 1, max_alloc);
+        return i;
+      }
+    }
+    dbg_("alloc reg: ", r, " failed\n");
+    return -1;
+  };
+  auto free_reg = [&](int r) {
+    dbg_("free reg: ", r, '\n');
+    alloc &= ~(1 << r);
+  };
+  auto get_reg = [&](Reg r) -> int {
+    dbg_("get_reg: ", r, '\n');
+    if (mp_reg.count(r)) {
+      auto &[r0, n] = mp_reg.at(r);
+      assert(n);
+      dbg_("get_reg: ", r, " => ", r0, "  use_cnt: ", n, '\n');
+      return r0;
+    }
+    if (!wi0.defs.count(r)) {
+      int d1 = alloc_reg(r, max_alloc);
+      if (d1 == -1)
+        return -1;
+      // this instr can be moved to BB before loop w
+      mp_reg.at(r).second = -1;
+      push(new SIMDInstr(S.f->new_Reg(), simd, SIMDInstr::VDUP_32, r, {d1}));
+      return d1;
+    }
+    dbg_("get_reg: ", r, " failed\n");
+    return -1;
+  };
+  auto on_use = [&](Reg r) {
+    dbg_("on_use: ", r, '\n');
+    auto &[r0, n] = mp_reg.at(r);
+    if (!--n) {
+      free_reg(r0);
+    }
+  };
+  auto gen_unary = [&](UnaryOpInstr *uop, SIMDInstr::Type type) -> bool {
+    int s1 = get_reg(uop->s1);
+    if (s1 == -1)
+      return 1;
+    on_use(uop->s1);
+    int d1 = alloc_reg(uop->d1, 0);
+    if (d1 == -1)
+      return 1;
+    push(new SIMDInstr(S.f->new_Reg(), simd, type, {d1, s1}));
+    return 0;
+  };
+  auto gen = [&](BinaryOpInstr *bop, SIMDInstr::Type type) -> bool {
+    int s1 = get_reg(bop->s1);
+    if (s1 == -1)
+      return 1;
+    int s2 = get_reg(bop->s2);
+    if (s2 == -1)
+      return 1;
+    on_use(bop->s1);
+    on_use(bop->s2);
+    int d1 = alloc_reg(bop->d1, 0);
+    if (d1 == -1)
+      return 1;
+    push(new SIMDInstr(S.f->new_Reg(), simd, type, {d1, s1, s2}));
+    return 0;
+  };
+  auto gen_mem = [&](bool store, Reg reg, Reg addr) -> bool {
+    Case(ArrayIndex, ai, S.defs.at(addr)) {
+      if (ai->size != 4)
+        return 1;
+      if (wi0.defs.count(ai->s1))
+        return 1;
+      for (auto &[m, k] : reg_info.at(ai->s2).add.cs) {
+        if (m.empty())
+          continue;
+        if (m.size() != 1)
+          return 1;
+        auto [r, k0] = *m.begin();
+        if (!(r == i_ && k0 == 1 && k == 1))
+          return 1;
+      }
+    }
+    else return 1;
+    if (store) {
+      int s1 = get_reg(reg);
+      if (s1 == -1)
+        return 1;
+      on_use(reg);
+      push(new SIMDInstr(S.f->new_Reg(), simd, SIMDInstr::VSTM, addr, {s1}));
+    } else {
+      int d1 = alloc_reg(reg, 0);
+      if (d1 == -1)
+        return 1;
+      push(new SIMDInstr(S.f->new_Reg(), simd, SIMDInstr::VLDM, addr, {d1}));
+    }
+    return 0;
+  };
+  BB *bb = wi0.node->dfn.at(1);
+  dbg_(*bb);
+  bool flag = bb->for_each_until([&](Instr *x) -> bool {
+    dbg_("simd?  ", *x, '\n');
+    Case(ArrayIndex, x0, x) {
+      push(new ArrayIndex(*x0));
+      return 0;
+    }
+    Case(LoadInstr, x0, x) { return gen_mem(0, x0->d1, x0->addr); }
+    Case(StoreInstr, x0, x) { return gen_mem(1, x0->s1, x0->addr); }
+    Case(BinaryOpInstr, x0, x) {
+      switch (x0->op.type) {
+      case BinaryCompute::ADD:
+        if (gen(x0, SIMDInstr::VADD_I32)) {
+          push(new BinaryOpInstr(*x0));
+        }
+        return 0;
+      case BinaryCompute::SUB:
+        if (gen(x0, SIMDInstr::VSUB_I32)) {
+          push(new BinaryOpInstr(*x0));
+        }
+        return 0;
+      case BinaryCompute::MUL:
+        return gen(x0, SIMDInstr::VMUL_S32);
+      case BinaryCompute::FADD:
+        return gen(x0, SIMDInstr::VADD_F32);
+      case BinaryCompute::FSUB:
+        return gen(x0, SIMDInstr::VSUB_F32);
+      case BinaryCompute::FMUL:
+        return gen(x0, SIMDInstr::VMUL_F32);
+      default:
+        return 1;
+      }
+    }
+    Case(UnaryOpInstr, x0, x) {
+      switch (x0->op.type) {
+      case UnaryCompute::F2I:
+        return gen_unary(x0, SIMDInstr::VCVT_S32_F32);
+      case UnaryCompute::I2F:
+        return gen_unary(x0, SIMDInstr::VCVT_F32_S32);
+      default:
+        return 1;
+      }
+    }
+    Case(JumpInstr, x0, x) {
+      if (x0->target == w) {
+        push(new JumpInstr(w));
+        return 0;
+      }
+    }
+    return 1;
+  });
+  if (flag || bad) {
+    dbg_("cannot simd\n");
+    return std::nullopt;
+  }
+  ls.try_unroll(S.f);
+  ls.code_motion();
+#undef dbg_
+  return ls;
 }
 
 bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
@@ -562,7 +846,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 
       std::deque<LoopCopyTool> loops;
       loops.emplace_back(wi0.bbs, w, w, S.f);
-      size_t cnt = parseIntArg(2, "num-threads");
+      size_t cnt = parseIntArg(4, "num-threads");
       for (size_t i = 1; i <= cnt; ++i) {
         loops.emplace_back(loops[0]);
         loops.back().copy(std::string(":") + std::to_string(i) + ":");
@@ -576,6 +860,17 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       BB *head = S.f->new_BB();
       BB *bb1 = S.f->new_BB();
       BB *tail = S.f->new_BB();
+      auto new_global_var = [&](std::string name) {
+        MemObject *mem = ir->scope.new_MemObject(name);
+        mem->size = 4;
+        mem->global = 1;
+        mem->scalar_type = ScalarType::Int;
+        mem->is_volatile = 1;
+        return mem;
+      };
+      auto mutex = new_global_var("mutex_" + w->name);
+      auto barrier = new_global_var("barrier_" + w->name);
+
       CodeGen cg(S.f);
 
       auto n = cg.reg(r) - cg.reg(l);
@@ -588,6 +883,12 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
 
       auto fork = ir->lib_funcs.at("__create_threads").get();
       auto join = ir->lib_funcs.at("__join_threads").get();
+      auto bind_core = ir->lib_funcs.at("__bind_core").get();
+      bool use_bind_core = 0;
+      auto lock = ir->lib_funcs.at("__lock").get();
+      auto unlock = ir->lib_funcs.at("__unlock").get();
+
+      cg.st(cg.la(barrier), cg.lc(cnt - 1));
 
       auto l0 = cg.reg(l);
       auto step = n / cg.lc(cnt);
@@ -600,12 +901,12 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       for (size_t i = 1; i <= cnt; ++i) {
         auto &p1 = loops[i];
         auto l0_0 = l0.r;
-        BB *bb1_0 = bb1;
+        BB *new_entry = S.f->new_BB();
 
         if (i < cnt) {
           BB *bb2 = S.f->new_BB();
           auto r0 = l0 + step;
-          cg.branch(cg.call(fork, ScalarType::Int), p1.entry, bb2);
+          cg.branch(cg.call(fork, ScalarType::Int), new_entry, bb2);
           bb1->push(std::move(cg.instrs));
           bb1 = bb2;
           l0 = r0;
@@ -617,29 +918,52 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
           }
           else assert(0);
         } else {
-          cg.jump(p1.entry);
+          cg.jump(new_entry);
           bb1->push(std::move(cg.instrs));
         }
+        if (use_bind_core)
+          cg.call(bind_core, ScalarType::Void,
+                  {{cg.lc(i - 1), ScalarType::Int},
+                   {cg.lc(1 << (i - 1)), ScalarType::Int}});
+        cg.jump(p1.entry);
+        new_entry->push(std::move(cg.instrs));
 
         p1.entry->map_phi_use([&](Reg &r, BB *&bb) {
           if (bb == prev) {
             r = l0_0;
-            bb = bb1_0;
+            bb = new_entry;
           }
         });
       }
-      std::vector<BB *> joins;
       for (size_t i = 1; i <= cnt; ++i) {
         BB *bb = S.f->new_BB();
         auto &p1 = loops[i];
         p1.exit->map_BB(partial_map(next, bb));
-        if (i != cnt)
+        if (i != cnt) {
           cg.call(join, ScalarType::Void,
                   {{cg.lc(0), ScalarType::Int}}); // wait
-        if (i != 1)
+        }
+        if (i != 1) {
+          auto _mutex = cg.la(mutex);
+          cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+          auto t = cg.la(barrier);
+          cg.st_volatile(ir, t, cg.ld_volatile(ir, t) - cg.lc(1));
+          cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
           cg.call(join, ScalarType::Void,
                   {{cg.lc(1), ScalarType::Int}}); // exit
-        cg.jump(tail);
+          cg.jump(tail);
+        } else {
+          // auto _mutex = cg.la(mutex);
+          // cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+
+          auto t = cg.la(barrier);
+          auto v = cg.ld_volatile(ir, t);
+          // cg.call(putint, ScalarType::Void, {{v, ScalarType::Int}});
+          // cg.call(putch, ScalarType::Void, {{cg.lc(10), ScalarType::Int}});
+
+          // cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+          cg.branch(v == cg.lc(0), tail, bb);
+        }
         bb->push(std::move(cg.instrs));
       }
 
@@ -648,6 +972,10 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       }
       next->map_BB(partial_map(p0.exit, tail));
 
+      if (use_bind_core)
+        cg.call(bind_core, ScalarType::Void,
+                {{cg.lc(0), ScalarType::Int},
+                 {cg.lc((1 << 4) - 1), ScalarType::Int}});
       cg.jump(next);
       tail->push(std::move(cg.instrs));
 
@@ -669,6 +997,230 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
   return 0;
 }
 
+bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
+  if (w->disable_parallel)
+    return 0;
+  if (!dependent(w) && loop_parallel(w, ir))
+    return 1;
+  auto &wi0 = S.loop_info.at(w);
+  // auto &wi = loop_info.at(w);
+  // bool dbg_on = (global_config.args["dbg-par"] == "1");
+  auto ilr = S.get_ilr(w, 1);
+  auto [i_, l, r, op] = *ilr;
+  if (!(op.less))
+    return 0;
+  std::vector<BB *> ch_loops;
+  umap<BB *, std::tuple<Reg, Reg, Reg, CmpOp>> u_ilrs;
+  if (!no_rwc(w))
+    return 0;
+  for (BB *u : wi0.node->dfn) {
+    if (u == w)
+      continue;
+    auto &ui0 = S.loop_info.at(u);
+    if (ui0.node->is_loop_head) {
+      auto u_ilr = S.get_ilr(u, 1);
+      if (!u_ilr)
+        return 0;
+      if (dependent(u))
+        return 0;
+      auto [i, l, r, op] = *u_ilr;
+      if (wi0.defs.count(l) || wi0.defs.count(r))
+        return 0;
+      ch_loops.push_back(u);
+      u_ilrs[u] = *u_ilr;
+    } else {
+      if (!no_rwc(u))
+        return 0;
+    }
+  }
+  if (ch_loops.empty()) {
+    return 0;
+  }
+  dbg(">>> loop_parallel_ex\n");
+
+  std::deque<LoopCopyTool> loops;
+  loops.emplace_back(wi0.bbs, w, w, S.f);
+  size_t cnt = parseIntArg(4, "num-threads");
+  for (size_t i = 1; i <= cnt; ++i) {
+    loops.emplace_back(loops[0]);
+    loops.back().copy(std::string(":") + std::to_string(i) + ":");
+  }
+  auto &p0 = loops[0];
+
+  BB *prev = p0.get_entry_prev();
+  BB *next = p0.get_exit_next();
+
+  BB *head = S.f->new_BB();
+  BB *bb1 = S.f->new_BB();
+  BB *tail = S.f->new_BB();
+  auto new_global_var = [&](std::string name) {
+    MemObject *mem = ir->scope.new_MemObject(name);
+    mem->size = 4;
+    mem->global = 1;
+    mem->scalar_type = ScalarType::Int;
+    mem->is_volatile = 1;
+    return mem;
+  };
+  auto mutex = new_global_var("mutex_" + w->name);
+  auto barrier = new_global_var("barrier_" + w->name);
+  auto barrier1 = new_global_var("barrier1_" + w->name);
+  auto barrier2 = new_global_var("barrier2_" + w->name);
+
+  CodeGen cg(S.f);
+
+  cg.branch(cg.lc(1), bb1, p0.entry);
+  head->push(std::move(cg.instrs));
+
+  prev->map_BB(partial_map(p0.entry, head));
+
+  auto fork = ir->lib_funcs.at("__create_threads").get();
+  auto join = ir->lib_funcs.at("__join_threads").get();
+  auto bind_core = ir->lib_funcs.at("__bind_core").get();
+  bool use_bind_core = 0;
+  auto lock = ir->lib_funcs.at("__lock").get();
+  auto unlock = ir->lib_funcs.at("__unlock").get();
+  auto on_barrier = ir->lib_funcs.at("__barrier").get();
+
+  cg.st_volatile(ir, cg.la(barrier), cg.lc(cnt - 1));
+
+  p0.entry->map_BB(partial_map(prev, head));
+
+  for (size_t i = 1; i <= cnt; ++i) {
+    auto &p1 = loops[i];
+    BB *new_entry = S.f->new_BB();
+    p1.entry->map_BB(partial_map(prev, new_entry));
+
+    if (i < cnt) {
+      BB *bb2 = S.f->new_BB();
+      cg.branch(cg.call(fork, ScalarType::Int), new_entry, bb2);
+      bb1->push(std::move(cg.instrs));
+      bb1 = bb2;
+    } else {
+      cg.jump(new_entry);
+      bb1->push(std::move(cg.instrs));
+    }
+    if (use_bind_core)
+      cg.call(bind_core, ScalarType::Void,
+              {{cg.lc(i - 1), ScalarType::Int},
+               {cg.lc(1 << (i - 1)), ScalarType::Int}});
+    cg.jump(p1.entry);
+    new_entry->push(std::move(cg.instrs));
+  }
+
+  for (BB *u : ch_loops) {
+    for (size_t i = 1; i <= cnt; ++i) {
+      auto &p1 = loops[i];
+      BB *u0 = p1.bbs.at(u);
+      BB *u0_prev = nullptr;
+      auto u_ilr = u_ilrs.at(u);
+      auto [i_, l, r, op] = u_ilr;
+      auto mp = partial_map(p1.regs);
+      mp(i_);
+      mp(l);
+      mp(r);
+      CodeGen cg2(S.f);
+      cg2.call(on_barrier, ScalarType::Void,
+               {{cg2.la(barrier1), ScalarType::Int},
+                {cg2.lc(cnt), ScalarType::Int}});
+      cg2.call(on_barrier, ScalarType::Void,
+               {{cg2.la(barrier2), ScalarType::Int},
+                {cg2.lc(cnt), ScalarType::Int}});
+      auto lv = cg2.reg(l);
+      auto rv = cg2.reg(r);
+      auto step = (rv - lv) / cg2.lc(cnt);
+      auto new_l = lv + step * cg2.lc(i - 1);
+      u0->map_phi_use([&](Reg &r, BB *&bb) {
+        if (r == lv.r) {
+          r = new_l.r;
+          assert(!u0_prev);
+          u0_prev = bb;
+        }
+      });
+      assert(u0_prev);
+      u0_prev->push1(std::move(cg2.instrs));
+      if (i != cnt) {
+        auto new_r = new_l + step;
+        Case(BranchInstr, br, u0->back()) {
+          auto tg1 = br->target1, tg0 = br->target0;
+          cg2.branch(cg2.reg(i_) < new_r, tg1, tg0);
+          u0->pop();
+          u0->push(std::move(cg2.instrs));
+        }
+        else assert(0);
+      }
+    }
+  }
+  for (size_t i = 1; i <= cnt; ++i) {
+    BB *bb = S.f->new_BB();
+    auto &p1 = loops[i];
+    p1.exit->map_BB(partial_map(next, bb));
+    if (i != cnt) {
+      cg.call(join, ScalarType::Void, {{cg.lc(0), ScalarType::Int}}); // wait
+    }
+    if (i != 1) {
+      auto _mutex = cg.la(mutex);
+      cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+      auto t = cg.la(barrier);
+      cg.st_volatile(ir, t, cg.ld_volatile(ir, t) - cg.lc(1));
+      cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+      cg.call(join, ScalarType::Void, {{cg.lc(1), ScalarType::Int}}); // exit
+      cg.jump(tail);
+    } else {
+      auto t = cg.la(barrier);
+      auto v = cg.ld_volatile(ir, t);
+      cg.branch(v == cg.lc(0), tail, bb);
+    }
+    bb->push(std::move(cg.instrs));
+
+    p1.exit = bb;
+  }
+
+  loops[0].exit->map_BB(partial_map(next, tail));
+
+  next->map_BB(partial_map(p0.exit, tail));
+
+  if (use_bind_core)
+    cg.call(
+        bind_core, ScalarType::Void,
+        {{cg.lc(0), ScalarType::Int}, {cg.lc((1 << 4) - 1), ScalarType::Int}});
+  cg.jump(next);
+  tail->push(std::move(cg.instrs));
+
+  umap<Reg, Reg> mp_reg;
+  for (auto [r, rw] : wi0.defs) {
+    if (wi0.use_count[r] != S.use_count[r]) {
+      Reg d1 = S.f->new_Reg();
+      mp_reg[r] = d1;
+      auto phi = new PhiInstr(d1);
+      tail->push1(phi);
+      for (size_t i = 0; i <= cnt; ++i) {
+        auto &p1 = loops[i];
+        phi->add_use(p1.regs.at(r), p1.exit);
+      }
+    }
+  }
+
+  uset<BB *> bbs;
+  for (size_t i = 0; i <= cnt; ++i) {
+    for (auto &kv : loops[i].bbs) {
+      bbs.insert(kv.second);
+    }
+  }
+  S.f->for_each([&](BB *bb) {
+    if (!bbs.count(bb)) {
+      bb->map_use(partial_map(mp_reg));
+    }
+  });
+
+  for (size_t i = 0; i <= cnt; ++i) {
+    for (auto &kv : loops[i].bbs) {
+      kv.second->disable_parallel = 1;
+      kv.second->thread_id = i;
+    }
+  }
+  return 1;
+}
+
 bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
   PassDisabled("sr") return 0;
   auto &wi0 = S.loop_info.at(w);
@@ -679,26 +1231,25 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
     auto i0 = S.get_const(i1);
     CodeGen cg(S.f);
     using RegRef = CodeGen::RegRef;
+    auto Int = ScalarType::Int;
     auto umulmod = [&](RegRef a, RegRef b, RegRef c) {
-      return cg.call(
-          ir->lib_funcs.at("__umulmod").get(), ScalarType::Int,
-          {{a, ScalarType::Int}, {b, ScalarType::Int}, {c, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__umulmod").get(), Int,
+                     {{a, Int}, {b, Int}, {c, Int}});
     };
     auto u_c_np1_2_mod = [&](RegRef a, RegRef b) {
-      return cg.call(ir->lib_funcs.at("__u_c_np1_2_mod").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__u_c_np1_2_mod").get(), Int,
+                     {{a, Int}, {b, Int}});
     };
     auto s_c_np1_2 = [&](RegRef a) {
-      return cg.call(ir->lib_funcs.at("__s_c_np1_2").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__s_c_np1_2").get(), Int, {{a, Int}});
     };
     auto umod = [&](RegRef a, RegRef b) {
-      return cg.call(ir->lib_funcs.at("__umod").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__umod").get(), Int,
+                     {{a, Int}, {b, Int}});
     };
     auto fixmod = [&](RegRef a, RegRef b) {
-      return cg.call(ir->lib_funcs.at("__fixmod").get(), ScalarType::Int,
-                     {{a, ScalarType::Int}, {b, ScalarType::Int}});
+      return cg.call(ir->lib_funcs.at("__fixmod").get(), Int,
+                     {{a, Int}, {b, Int}});
     };
 
     umap<Reg, Reg> mp;
@@ -709,7 +1260,23 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
       if (wi0.use_count[r] != 1)
         continue;
       auto &reduce = *var.reduce;
-      if (reduce.op == BinaryCompute::ADD) {
+      if (reduce.op == BinaryCompute::DIV) {
+        auto v_ = S.get_const(reduce.step);
+        if (!v_)
+          continue;
+        int v = *v_;
+        if (!(v > 1 && v == (v & -v)))
+          continue;
+        int log2v = __builtin_ctz(v);
+        auto loop_cnt = cg.reg(i2) - cg.reg(i1);
+        if (op.eq) {
+          loop_cnt = loop_cnt + cg.lc(1);
+        }
+        auto index = loop_cnt * cg.lc(log2v);
+        auto s = cg.call(ir->lib_funcs.at("__divpow2").get(), Int,
+                         {{cg.reg(reduce.init), Int}, {index, Int}});
+        mp[r] = s.r;
+      } else if (reduce.op == BinaryCompute::ADD) {
         auto &step = reg_info.at(reduce.step).add;
         if (step.bad)
           continue;
@@ -920,7 +1487,7 @@ struct UnrollLoop {
     PassDisabled("par") return 0;
     if (!last)
       return 0;
-    return arw.loop_parallel(w, ir);
+    return arw.loop_parallel_ex(w, ir);
   }
   void _unroll_simple_for_loop(BB *w, size_t cnt, Reg i, Reg l, Reg r,
                                CmpOp op) {
@@ -931,6 +1498,10 @@ struct UnrollLoop {
     dbg("instr_cnt: ", wi.instr_cnt, "\n");
     dbg("BB_cnt: ", wi.bbs.size(), "\n");
     std::deque<LoopCopyTool> loops;
+    auto simd = arw.loop_simd(w, ir);
+    if (simd) {
+      cnt = 1;
+    }
     loops.emplace_back(wi.bbs, w, w, S.f);
     for (size_t i = 1; i <= cnt; ++i) {
       loops.emplace_back(loops[0]);
@@ -982,14 +1553,41 @@ struct UnrollLoop {
     p4.entry->disable_unroll = 1;
     p4.entry->disable_parallel = 1;
 
+    if (simd) {
+      BB *prev = p0.get_entry_prev();
+      cnt = simd->cnt;
+      BB *bb = wi.node->dfn.at(1);
+      dbg(">>> simd:\n");
+      dbg(*prev);
+      dbg(*bb);
+      prev->push1(std::move(simd->c_instrs));
+      bb->instrs = std::move(simd->instrs);
+      dbg(*prev);
+      dbg(*bb);
+    }
+
     size_t n = 0;
     w->for_each([&](Instr *x) {
       Case(BranchInstr, br, x) {
         CodeGen cg(S.f);
+        auto i_nxt = cg.reg(i) + cg.lc(cnt);
         if (op.eq) {
-          br->cond = (cg.reg(i) + cg.lc(cnt) <= cg.reg(r)).r;
+          br->cond = (i_nxt <= cg.reg(r)).r;
         } else {
-          br->cond = (cg.reg(i) + cg.lc(cnt) < cg.reg(r)).r;
+          br->cond = (i_nxt < cg.reg(r)).r;
+        }
+        if (simd) {
+          w->for_each([&](Instr *x) {
+            Case(PhiInstr, phi, x) {
+              if (phi->d1 == i) {
+                for (auto &[r_, bb_] : phi->uses) {
+                  if (bb_ == wi.node->dfn.at(1)) {
+                    r_ = i_nxt.r;
+                  }
+                }
+              }
+            }
+          });
         }
         w->ins(std::move(cg.instrs));
         ++n;
@@ -1059,8 +1657,8 @@ struct UnrollLoop {
     auto op = ind->op;
     // for(i=l;i<r;i{op}=step);
     int32_t i0 = *l, i1 = *r, i2 = *step;
-    dbg("for(i=", i0, ";i", wi.cond->name(), i1, ";i=i", BinaryOp(op), i2,
-        "){...}\n");
+    // dbg("for(i=", i0, ";i", wi.cond->name(), i1, ";i=i", BinaryOp(op), i2,
+    //     "){...}\n");
     size_t cnt = 0;
     size_t MAX_UNROLL = parseIntArg(32, "max-unroll"),
            MAX_UNROLL_INSTR = parseIntArg(1024, "max-unroll-instr");
@@ -1068,7 +1666,7 @@ struct UnrollLoop {
       i0 = std::get<int32_t>(typed_compute(op, i0, i2));
       cnt += 1;
     }
-    dbg("cnt=", cnt, "  instr_cnt=", wi.instr_cnt, '\n');
+    // dbg("cnt=", cnt, "  instr_cnt=", wi.instr_cnt, '\n');
     if (cnt <= MAX_UNROLL) {
       if (cnt * wi.instr_cnt > MAX_UNROLL_INSTR)
         return 0;
@@ -1088,7 +1686,7 @@ struct UnrollLoop {
   }
   bool unroll_simple_for_loop(BB *w) {
     constexpr size_t MAX_UNROLL_SIMPLE_FOR_INSTR = 256;
-    constexpr size_t UNROLL_SIMPLE_FOR_CNT = 3;
+    constexpr size_t UNROLL_SIMPLE_FOR_CNT = 4;
     if (w->disable_unroll || !last)
       return 0;
     auto &wi = S.loop_info.at(w);
@@ -1180,6 +1778,7 @@ struct LoopOps {
   }
   bool parallel_only;
   bool run() {
+    before_gcm_func(f);
     DAG_IR dag(f);
     FindLoopVar S(f);
     dag.visit(S);

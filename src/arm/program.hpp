@@ -11,15 +11,12 @@
 
 #include "arm/func.hpp"
 #include "arm/inst.hpp"
+#include "arm/irc_coloring_alloc.hpp"
+#include "arm/regalloc.hpp"
 #include "arm/simple_coloring_alloc.hpp"
 #include "ir/ir.hpp"
 
 namespace ARMv7 {
-
-struct AsmContext {
-  int32_t temp_sp_offset;
-  std::function<bool(std::ostream &)> epilogue;
-};
 
 struct Program {
   std::vector<std::unique_ptr<Func>> funcs;
@@ -29,6 +26,7 @@ struct Program {
   Program(IR::CompileUnit *ir);
   void gen_global_var_asm(std::ostream &out);
   void gen_asm(std::ostream &out);
+  void allocate_register();
 };
 
 } // namespace ARMv7

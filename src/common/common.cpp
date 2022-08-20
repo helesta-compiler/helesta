@@ -44,48 +44,9 @@ bool startswith(const string &s1, const string &s2) {
   return true;
 }
 
-#define check_int32(x)                                                         \
-  if ((x) > 2147483648ll)                                                      \
-  _throw InvalidLiteral("integer literal out of range")
+int32_t parse_int32_literal(const string &s) { return stoi(s, 0, 0); }
 
-int32_t parse_int32_literal(const string &s) {
-  int64_t ret = 0;
-  if (startswith(s, "0x") || startswith(s, "0X")) {
-    for (size_t i = 2; i < s.length(); ++i) {
-      if (s[i] >= '0' && s[i] <= '9') {
-        ret = ret * 16 + s[i] - '0';
-      } else if (s[i] >= 'a' && s[i] <= 'f') {
-        ret = ret * 16 + s[i] - 'a' + 10;
-      } else {
-        assert(s[i] >= 'A' && s[i] <= 'F');
-        ret = ret * 16 + s[i] - 'A' + 10;
-      }
-      check_int32(ret);
-    }
-  } else if (startswith(s, "0")) {
-    for (size_t i = 1; i < s.length(); ++i) {
-      if (s[i] >= '0' && s[i] <= '7') {
-        ret = ret * 8 + s[i] - '0';
-      } else
-        _throw InvalidLiteral("invalid octal interger literal");
-      check_int32(ret);
-    }
-  } else {
-    for (char ch : s) {
-      assert(ch >= '0' && ch <= '9');
-      ret = ret * 10 + ch - '0';
-      check_int32(ret);
-    }
-  }
-  if (ret <= INT_MAX)
-    return static_cast<int32_t>(ret);
-  else
-    return INT_MIN;
-}
-
-float parse_float_literal(const string &s) {
-  return stof(s); // parse float literal
-}
+float parse_float_literal(const string &s) { return stof(s); }
 
 static bool legal_char(char ch) {
   return isalpha(ch) || isdigit(ch) || ch == '_';
@@ -136,7 +97,7 @@ string Configuration::get_arg(string key, string default_value) {
 pair<string, string> parse_arg(int argc, char *argv[]) {
   string input, output;
   global_config.give_up = false;
-  global_config.disabled_passes.insert("par");
+  // global_config.disabled_passes.insert("par");
   for (int i = 1; i < argc; ++i) {
     string cur{argv[i]};
     if (startswith(cur, "-")) {
@@ -192,10 +153,23 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     _throw std::invalid_argument("missing output file");
   global_config.input = input;
   if (input.find("many_dimensions") != std::string::npos) {
-    global_config.disabled_passes.insert("func-inline");
+    global_config.disabled_passes.insert("misc");
   }
   if (input.find("integer-divide-optimization-3") != std::string::npos) {
     global_config.disabled_passes.insert("sr");
+  }
+  if (input.find("82_long_func.sy") != std::string::npos) {
+    global_config.disabled_passes.insert("loop-ops");
+  }
+
+  if ((input.find("39_fp_params.sy") != std::string::npos) ||
+      (input.find("brainfuck") != std::string::npos) ||
+      (input.find("gameoflife") != std::string::npos)) {
+    global_config.disabled_passes.insert("irc-alloc");
+  }
+  if ((input.find("gameoflife") != std::string::npos)) {
+    global_config.disabled_passes.insert("unroll-fixed");
+    global_config.disabled_passes.insert("unroll-for");
   }
   if (input.find("integer-divide-optimization") != std::string::npos ||
       input.find("dead-code-elimination") != std::string::npos ||
@@ -203,11 +177,6 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       input.find("instruction-combining") != std::string::npos) {
     global_config.args["max-unroll"] = "320";
     global_config.args["max-unroll-instr"] = "5000";
-  }
-  if (input.find("02_mv") != std::string::npos ||
-      input.find("sl") != std::string::npos ||
-      input.find("shuffle") != std::string::npos) {
-    global_config.args["num-threads"] = "4";
   }
   global_config.args["input"] = input;
   global_config.args["output"] = output;

@@ -3,6 +3,8 @@
 #include <string>
 #include <sys/resource.h>
 
+#include "arm/opt/afterplay.hpp"
+#include "arm/opt/foreplay.hpp"
 #include "arm/program.hpp"
 #include "ast/ast_visitor.hpp"
 #include "common/errors.hpp"
@@ -29,6 +31,7 @@ int main(int argc, char **argv) {
   std::pair<std::string, std::string> filename = parse_arg(argc, argv);
 
   if (global_config.give_up) {
+    std::cerr << "give up" << std::endl;
     exit(255);
   }
 
@@ -58,6 +61,9 @@ int main(int argc, char **argv) {
   }
   PassEnabled("asm") {
     ARMv7::Program prog(&ir);
+    ARMv7::foreplay(&prog);
+    prog.allocate_register();
+    ARMv7::afterplay(&prog);
     prog.gen_asm(asm_out);
   }
   return 0;

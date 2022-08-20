@@ -199,16 +199,16 @@ void RegRegInst::gen_asm(ostream &out, AsmContext *) {
 void FRegRegInst::gen_asm(ostream &out, AsmContext *) {
   switch (op) {
   case Add:
-    out << "vadd.f32";
+    out << "vadd" << cond << ".f32";
     break;
   case Sub:
-    out << "vsub.f32";
+    out << "vsub" << cond << ".f32";
     break;
   case Mul:
-    out << "vmul.f32";
+    out << "vmul" << cond << ".f32";
     break;
   case Div:
-    out << "vdiv.f32";
+    out << "vdiv" << cond << ".f32";
     break;
   default:
     unreachable();
@@ -216,7 +216,7 @@ void FRegRegInst::gen_asm(ostream &out, AsmContext *) {
   assert(dst.type == ScalarType::Float);
   assert(lhs.type == ScalarType::Float);
   assert(rhs.type == ScalarType::Float);
-  out << cond << ' ' << dst << ',' << lhs << ',' << rhs << '\n';
+  out << ' ' << dst << ',' << lhs << ',' << rhs << '\n';
 }
 
 void ML::gen_asm(ostream &out, AsmContext *) {
@@ -276,7 +276,7 @@ void RegImmInst::gen_asm(ostream &out, AsmContext *) {
 void MoveReg::gen_asm(ostream &out, AsmContext *) {
   if (dst.type == ScalarType::Float) {
     if (src.type == ScalarType::Float) {
-      out << "vmov.f32" << cond << ' ' << dst << ',' << src << '\n';
+      out << "vmov" << cond << ".f32" << ' ' << dst << ',' << src << '\n';
     } else {
       out << "vmov" << cond << ' ' << dst << ',' << src << '\n';
     }
@@ -294,21 +294,21 @@ void FRegInst::gen_asm(ostream &out, AsmContext *) {
   assert(src.type == ScalarType::Float);
   switch (op) {
   case Neg:
-    out << "vneg.f32";
+    out << "vneg" << cond << ".f32";
     break;
   case F2I:
-    out << "vcvt.s32.f32";
+    out << "vcvt" << cond << ".s32.f32";
     break;
   case I2F:
-    out << "vcvt.f32.s32";
+    out << "vcvt" << cond << ".f32.s32";
     break;
   case F2D0:
-    out << "vcvt.f64.f32 d8," << src << '\n';
-    out << "vmov.f32 " << dst << ",s16\n";
+    out << "vcvt" << cond << ".f64.f32 d8," << src << '\n';
+    out << "vmov" << cond << ".f32 " << dst << ",s16\n";
     return;
   case F2D1:
-    out << "vcvt.f64.f32 d8," << src << '\n';
-    out << "vmov.f32 " << dst << ",s17\n";
+    out << "vcvt" << cond << ".f64.f32 d8," << src << '\n';
+    out << "vmov" << cond << ".f32 " << dst << ",s17\n";
     return;
   default:
     assert(0);
@@ -433,6 +433,41 @@ void Store::gen_asm(ostream &out, AsmContext *) {
   }
   out << "str" << cond << ' ' << src << ",[" << base << ",#" << offset_imm
       << "]\n";
+}
+
+void SIMD::gen_asm(ostream &out, AsmContext *) {
+  switch (ir->type) {
+  case IR::SIMDInstr::VDUP_32: {
+    if (src->type == ScalarType::Float) {
+      out << "vmov r0," << *src << '\n';
+    }
+    out << ir->name() << ' ';
+    out << 'q' << ir->get_id(ir->regs[0]) << ',';
+    if (src->type == ScalarType::Float) {
+      out << "r0";
+    } else {
+      out << *src;
+    }
+    break;
+  }
+  case IR::SIMDInstr::VLDM:
+  case IR::SIMDInstr::VSTM: {
+    out << ir->name() << ' ';
+    out << *src << ",{";
+    int id = ir->get_id(ir->regs[0]) * 2;
+    for (int j = 0; j < ir->size * 2; ++j) {
+      if (j)
+        out << ',';
+      out << 'd' << (id + j);
+    }
+    out << '}';
+    break;
+  }
+  default:
+    out << *ir;
+    break;
+  }
+  out << '\n';
 }
 
 void ComplexLoad::gen_asm(ostream &out, AsmContext *) {
@@ -571,7 +606,7 @@ void RegRegCmp::gen_asm(ostream &out, AsmContext *) {
 void FRegRegCmp::gen_asm(ostream &out, AsmContext *) {
   assert(lhs.type == ScalarType::Float);
   assert(rhs.type == ScalarType::Float);
-  out << "vcmp.f32" << cond << ' ' << lhs << ',' << rhs << '\n';
+  out << "vcmp" << cond << ".f32" << ' ' << lhs << ',' << rhs << '\n';
   out << "vmrs APSR_nzcv,fpscr" << '\n';
 }
 

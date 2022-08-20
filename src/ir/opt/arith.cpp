@@ -1,10 +1,10 @@
 #include "add_expr.hpp"
 #include "ir/opt/dag_ir.hpp"
-
+namespace IR {
 struct Mod2Div : ForwardLoopVisitor<std::map<std::pair<Reg, Reg>, Reg>>,
+                 Defs,
                  CounterOutput {
-  NormalFunc *f;
-  Mod2Div(NormalFunc *_f) : CounterOutput("Mod2Div"), f(_f) {}
+  Mod2Div(NormalFunc *_f) : Defs(_f), CounterOutput("Mod2Div") {}
   void visitBB(BB *bb) {
     auto &w = info[bb];
     w.out = w.in;
@@ -15,6 +15,9 @@ struct Mod2Div : ForwardLoopVisitor<std::map<std::pair<Reg, Reg>, Reg>>,
           w.out[{bop->s1, bop->s2}] = bop->d1;
           break;
         case BinaryCompute::MOD: {
+          if (auto c = get_const(bop->s2); c && *c == 2) {
+            break;
+          }
           auto key = std::make_pair(bop->s1, bop->s2);
           if (w.out.count(key)) {
             CodeGen cg(f);
@@ -65,6 +68,142 @@ void muldiv(NormalFunc *f) {
   DAG_IR dag(f);
   MulDiv w(f);
   dag.visit(w);
+}
+
+void merge_inst_muladd(CompileUnit *ir, NormalFunc *f) {
+  auto Int = ScalarType::Int;
+  auto use_count = build_use_count(f);
+  auto mla = ir->lib_funcs.at("__mla").get();
+  auto mls = ir->lib_funcs.at("__mls").get();
+  f->for_each([&](BB *bb) {
+    std::unordered_map<Reg, std::pair<Reg, Reg>> muls;
+    bb->for_each([&](Instr *x) {
+      Case(BinaryOpInstr, bop, x) {
+        switch (bop->op.type) {
+        case BinaryCompute::ADD: {
+          Reg s1 = bop->s1, s2 = bop->s2;
+          if (!muls.count(s2))
+            std::swap(s1, s2);
+          if (muls.count(s2)) {
+            auto [r1, r2] = muls.at(s2);
+            bb->replace(new CallInstr(bop->d1, mla,
+                                      {{s1, Int}, {r1, Int}, {r2, Int}}, Int));
+          }
+          break;
+        }
+        case BinaryCompute::SUB:
+          if (muls.count(bop->s2)) {
+            auto [r1, r2] = muls.at(bop->s2);
+            bb->replace(new CallInstr(
+                bop->d1, mls, {{bop->s1, Int}, {r1, Int}, {r2, Int}}, Int));
+          }
+          break;
+        case BinaryCompute::MUL:
+          if (use_count[bop->d1] == 1) {
+            muls[bop->d1] = {bop->s1, bop->s2};
+          }
+          break;
+        default:
+          break;
+        }
+      }
+    });
+  });
+  remove_unused_def_func(f);
+}
+
+void merge_inst_store_simd(CompileUnit *ir, NormalFunc *f) {
+  auto simd = ir->lib_funcs.at("__simd").get();
+  f->for_each([&](BB *bb) {
+    struct MergeStore {
+      NormalFunc *f;
+      LibFunc *simd;
+      BB *bb;
+      decltype(bb->instrs)::iterator first;
+      Reg addr, s1;
+      int offset, cnt = 0, dup_cnt = 0;
+      void reset(decltype(first) cur) {
+        _reset(cur);
+        cnt = 0;
+      }
+      void _reset(decltype(first) cur) {
+        if (cnt < 8)
+          return;
+        dbg("store cnt = ", cnt, '\n');
+        if (cnt % 4) {
+          cur = std::prev(cur, cnt % 4);
+          cnt -= cnt % 4;
+        }
+        CodeGen cg(f);
+        int new_dup_cnt = std::max(dup_cnt, std::min<int>(8, cnt / 8));
+        for (int i = dup_cnt; i < new_dup_cnt; ++i) {
+          auto vdup =
+              new SIMDInstr(f->new_Reg(), simd, SIMDInstr::VDUP_32, s1, {i});
+          cg.instrs.emplace_back(vdup);
+        }
+        dup_cnt = new_dup_cnt;
+        auto addr0 = cg.reg(addr);
+        if (offset) {
+          addr0 = addr0 + cg.lc(offset);
+        }
+        for (;;) {
+          int size = std::min<int>(dup_cnt, cnt / 4);
+          auto vstm =
+              new SIMDInstr(f->new_Reg(), simd, SIMDInstr::VSTM, addr0.r, {0});
+          vstm->size = size;
+          cnt -= size * 4;
+          cg.instrs.emplace_back(vstm);
+          if (!cnt)
+            break;
+          addr0 = addr0 + cg.lc(size * 16);
+        }
+        /*
+                for (auto it = first; it != cur; ++it) {
+          dbg("- ", **it, '\n');
+        }
+        for (auto &x : cg.instrs) {
+          dbg("+ ", *x, '\n');
+        }*/
+        bb->instrs.erase(first, cur);
+        bb->instrs.splice(cur, cg.instrs);
+      }
+    } ms;
+    ms.f = f;
+    ms.simd = simd;
+    ms.bb = bb;
+    bb->for_each([&](Instr *x) {
+      Case(StoreInstr, st, x) {
+        if (ms.cnt > 0 && ms.addr == st->addr && ms.s1 == st->s1 &&
+            ms.offset + ms.cnt * 4 == st->offset) {
+          ms.cnt += 1;
+        } else {
+          ms.reset(bb->cur_iter());
+        }
+        if (ms.cnt == 0) {
+          ms.first = bb->cur_iter();
+          ms.addr = st->addr;
+          if (ms.dup_cnt && ms.s1 != st->s1) {
+            ms.dup_cnt = 0;
+          }
+          ms.s1 = st->s1;
+          ms.offset = st->offset;
+          ms.cnt = 1;
+        }
+      }
+      else {
+        ms.reset(bb->cur_iter());
+        Case(CallInstr, call, x) {
+          (void)call;
+          ms.dup_cnt = 0;
+        }
+      }
+    });
+  });
+}
+
+void merge_inst(CompileUnit *ir, NormalFunc *f) {
+  merge_inst_muladd(ir, f);
+  merge_inst_store_simd(ir, f);
 }
 
 struct LoadStoreOffset
@@ -145,8 +284,11 @@ struct LoadStoreOffset
     });
   }
 };
+} // namespace IR
 
 void remove_unused_def_func(NormalFunc *f);
+
+namespace IR {
 void load_store_offset(NormalFunc *f) {
   DAG_IR dag(f);
   LoadStoreOffset w;
@@ -154,3 +296,4 @@ void load_store_offset(NormalFunc *f) {
   if (w.cnt)
     remove_unused_def_func(f);
 }
+} // namespace IR

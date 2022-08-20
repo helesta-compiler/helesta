@@ -157,6 +157,21 @@ void CallInstr::print(ostream &os) const {
     os << c;
   os << ')';
 }
+void SIMDInstr::print(ostream &os) const {
+  // os << d1 << " = ";
+  os << name() << ' ';
+  if (s1)
+    os << *s1 << ' ';
+  bool flag = 0;
+  for (int x : regs) {
+    if (flag)
+      os << ',';
+    os << 'q' << get_id(x);
+    flag = 1;
+  }
+  if (size)
+    os << "(x" << size << ")";
+}
 void PhiInstr::print(ostream &os) const {
   os << d1 << " = phi";
   char c = '(';
@@ -170,6 +185,11 @@ void PhiInstr::print(ostream &os) const {
 }
 
 CompileUnit::CompileUnit() : scope("global", 1) {
+  auto pure_func = [&](const char *name) {
+    LibFunc *f = new_LibFunc(name, 0);
+    f->pure = 1;
+    return f;
+  };
   LibFunc *f;
   f = new_LibFunc("__create_threads", 0);
   f->in = 1;
@@ -177,16 +197,92 @@ CompileUnit::CompileUnit() : scope("global", 1) {
   f = new_LibFunc("__join_threads", 1);
   f->in = 1;
   f->out = 1;
-  f = new_LibFunc("__umulmod", 0);
-  f->pure = 1;
-  f = new_LibFunc("__u_c_np1_2_mod", 0);
-  f->pure = 1;
-  f = new_LibFunc("__s_c_np1_2", 0);
-  f->pure = 1;
-  f = new_LibFunc("__umod", 0);
-  f->pure = 1;
-  f = new_LibFunc("__fixmod", 0);
-  f->pure = 1;
+  f = new_LibFunc("__bind_core", 1);
+  f->in = 1;
+  f->out = 1;
+  f = new_LibFunc("__lock", 1);
+  f->in = 1;
+  f->out = 1;
+  f = new_LibFunc("__unlock", 1);
+  f->in = 1;
+  f->out = 1;
+  f = new_LibFunc("__ld_volatile", 0);
+  f->in = 1;
+  f->out = 1;
+  f = new_LibFunc("__st_volatile", 1);
+  f->in = 1;
+  f->out = 1;
+  f = new_LibFunc("__barrier", 1);
+  f->in = 1;
+  f->out = 1;
+
+  pure_func("__umulmod")->impl = [](typeless_scalar_t *args,
+                                    int argc) -> typeless_scalar_t {
+    assert(argc == 3);
+    uint32_t a = args[0].int_value();
+    uint32_t b = args[1].int_value();
+    uint32_t c = args[2].int_value();
+    return int(1ull * a * b % c);
+  };
+  pure_func("__u_c_np1_2_mod")->impl = [](typeless_scalar_t *args,
+                                          int argc) -> typeless_scalar_t {
+    assert(argc == 2);
+    uint32_t a = args[0].int_value();
+    uint32_t b = args[1].int_value();
+    return int((1ull * a * a + a) / 2ull % b);
+  };
+  pure_func("__s_c_np1_2")->impl = [](typeless_scalar_t *args,
+                                      int argc) -> typeless_scalar_t {
+    assert(argc == 1);
+    int32_t a = args[0].int_value();
+    return int((1ll * a * a + a) / 2ll);
+  };
+  pure_func("__umod")->impl = [](typeless_scalar_t *args,
+                                 int argc) -> typeless_scalar_t {
+    assert(argc == 2);
+    uint32_t a = args[0].int_value();
+    uint32_t b = args[1].int_value();
+    return int(a % b);
+  };
+  pure_func("__fixmod")->impl = [](typeless_scalar_t *args,
+                                   int argc) -> typeless_scalar_t {
+    assert(argc == 2);
+    int32_t a = args[0].int_value();
+    int32_t b = args[1].int_value();
+    a %= b;
+    if (a < 0)
+      a += b;
+    return a;
+  };
+  pure_func("__mla")->impl = [](typeless_scalar_t *args,
+                                int argc) -> typeless_scalar_t {
+    assert(argc == 3);
+    int32_t a = args[0].int_value();
+    int32_t b = args[1].int_value();
+    int32_t c = args[2].int_value();
+    return a + b * c;
+  };
+  pure_func("__mls")->impl = [](typeless_scalar_t *args,
+                                int argc) -> typeless_scalar_t {
+    assert(argc == 3);
+    int32_t a = args[0].int_value();
+    int32_t b = args[1].int_value();
+    int32_t c = args[2].int_value();
+    return a - b * c;
+  };
+  pure_func("__divpow2")->impl = [](typeless_scalar_t *args,
+                                    int argc) -> typeless_scalar_t {
+    assert(argc == 2);
+    int32_t a = args[0].int_value();
+    uint32_t b = args[1].int_value();
+    if (b >= 32)
+      return 0;
+    return a / (1 << b);
+  };
+
+  f = new_LibFunc("__simd", 1);
+  f->in = 1;
+  f->out = 1;
 
   for (auto name : {"getint", "getch", "getfloat"}) {
     f = new_LibFunc(name, 0);
@@ -350,6 +446,14 @@ Instr *Instr::map(function<void(Reg &)> f1, function<void(BB *&)> f2,
     f1(u->s1);
     return u;
   }
+  Case(SIMDInstr, w, this) {
+    auto u = w;
+    if (copy)
+      u = new SIMDInstr(*w);
+    if (u->s1)
+      f1(*u->s1);
+    return u;
+  }
   Case(CallInstr, w, this) {
     auto u = w;
     if (copy)
@@ -379,6 +483,65 @@ typeless_scalar_t UnaryOpInstr::compute(typeless_scalar_t s1) {
 typeless_scalar_t BinaryOpInstr::compute(typeless_scalar_t s1,
                                          typeless_scalar_t s2) {
   return op.compute(s1, s2);
+}
+
+void SIMDInstr::compute(typeless_scalar_t simd_regs[][4]) {
+#define at_(j, type) simd_regs[regs[j]][i].type##_value()
+  switch (type) {
+  case VCVT_S32_F32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, int) = at_(1, float);
+    }
+    break;
+  case VCVT_F32_S32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, float) = at_(1, int);
+    }
+    break;
+  case VADD_I32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, int) = at_(1, int) + at_(2, int);
+    }
+    break;
+  case VADD_F32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, float) = at_(1, float) + at_(2, float);
+    }
+    break;
+  case VSUB_I32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, int) = at_(1, int) - at_(2, int);
+    }
+    break;
+  case VSUB_F32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, float) = at_(1, float) - at_(2, float);
+    }
+    break;
+  case VMUL_S32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, int) = at_(1, int) * at_(2, int);
+    }
+    break;
+  case VMUL_F32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, float) = at_(1, float) * at_(2, float);
+    }
+    break;
+  case VMLA_S32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, int) += at_(1, int) * at_(2, int);
+    }
+    break;
+  case VMLA_F32:
+    for (int i = 0; i < 4; ++i) {
+      at_(0, float) += at_(1, float) * at_(2, float);
+    }
+    break;
+  default:
+    assert(0);
+  }
+#undef case_
 }
 
 void map_use(NormalFunc *f, const std::unordered_map<Reg, Reg> &mp_reg) {
@@ -455,6 +618,7 @@ int exec(CompileUnit &c) {
     int id = -1, waiting_id = -1;
     bool waiting = 0;
     std::optional<std::pair<Reg, int32_t>> write_reg;
+    typeless_scalar_t simd_regs[8][4];
   } cur_thread;
   cur_thread.id = 0;
   std::queue<ThreadContext> threads;
@@ -472,6 +636,7 @@ int exec(CompileUnit &c) {
             std::vector<typeless_scalar_t> args) -> typeless_scalar_t {
     BB *last_bb = NULL;
     cur = func->entry;
+    assert(func->bbs.size());
     int sz = func->scope.size;
     std::unordered_map<int, typeless_scalar_t> regs, tmps;
     auto wReg = [&](Reg x, typeless_scalar_t v) {
@@ -568,6 +733,40 @@ int exec(CompileUnit &c) {
                   d1 = s1 + s2 * x->size;
           wReg(x->d1, d1);
         }
+        else Case(SIMDInstr, x, x0) {
+          switch (x->type) {
+          case SIMDInstr::VDUP_32: {
+            auto s1 = rReg(*x->s1);
+            for (int i = 0; i < 4; ++i) {
+              cur_thread.simd_regs[x->regs[0]][i] = s1;
+            }
+            break;
+          }
+          case SIMDInstr::VLDM: {
+            int s1 = rReg(*x->s1).int_value();
+            for (int j = 0; j < x->size; ++j) {
+              for (int i = 0; i < 4; ++i) {
+                cur_thread.simd_regs[x->regs[0] + j][i] =
+                    rMem(s1 + i * 4 + j * 16);
+              }
+            }
+            break;
+          }
+          case SIMDInstr::VSTM: {
+            int s1 = rReg(*x->s1).int_value();
+            for (int j = 0; j < x->size; ++j) {
+              for (int i = 0; i < 4; ++i) {
+                wMem(s1 + i * 4 + j * 16,
+                     cur_thread.simd_regs[x->regs[0] + j][i]);
+              }
+            }
+            break;
+          }
+          default:
+            x->compute(cur_thread.simd_regs);
+            break;
+          }
+        }
         else Case(LoadInstr, x, x0) {
           wReg(x->d1, rMem(rReg(x->addr).int_value() + x->offset));
         }
@@ -619,10 +818,24 @@ int exec(CompileUnit &c) {
           }
           else {
 #define FLOAT_FMT "%a"
-            if (x->f->name == "__create_threads") {
+            if (x->f->name == "__lock") {
+              assert(args.size() == 1);
+              int addr = args[0].int_value();
+              if (rMem(addr).int_value() == 0) {
+                wMem(addr, 1);
+              } else {
+                threads.push(cur_thread);
+                schedule();
+              }
+              continue;
+            } else if (x->f->name == "__unlock") {
+              assert(args.size() == 1);
+              int addr = args[0].int_value();
+              wMem(addr, 0);
+            } else if (x->f->name == "__create_threads") {
               assert(args.size() == 0);
-              threads.push(ThreadContext{cur, it, ++fork_cnt, -1, 0,
-                                         std::make_pair(x->d1, 0)});
+              threads.push(ThreadContext{
+                  cur, it, ++fork_cnt, -1, 0, std::make_pair(x->d1, 0), {}});
               cur_thread.waiting_id = fork_cnt;
               if (dbg_thread_on)
                 dbg(cur_thread.id, " fork ", fork_cnt, "\n");
@@ -725,35 +938,17 @@ int exec(CompileUnit &c) {
               assert(0);
             } else if (x->f->name == "starttime") {
             } else if (x->f->name == "stoptime") {
-            } else if (x->f->name == "__umulmod") {
-              assert(args.size() == 3);
-              uint32_t a = args[0].int_value();
-              uint32_t b = args[1].int_value();
-              uint32_t c = args[2].int_value();
-              ret.int_value() = 1ull * a * b % c;
-            } else if (x->f->name == "__umod") {
-              assert(args.size() == 2);
-              uint32_t a = args[0].int_value();
-              uint32_t b = args[1].int_value();
-              ret.int_value() = a % b;
-            } else if (x->f->name == "__fixmod") {
-              assert(args.size() == 2);
-              int32_t a = args[0].int_value();
-              int32_t b = args[1].int_value();
-              a %= b;
-              if (a < 0)
-                a += b;
-              ret.int_value() = a;
-            } else if (x->f->name == "__u_c_np1_2_mod") {
-              assert(args.size() == 2);
-              uint32_t a = args[0].int_value();
-              uint32_t b = args[1].int_value();
-              ret.int_value() = (1ull * a * a + a) / 2ull % b;
-            } else if (x->f->name == "__s_c_np1_2") {
-              assert(args.size() == 1);
-              int32_t a = args[0].int_value();
-              ret.int_value() = (1ll * a * a + a) / 2ll;
-            } else {
+            } else
+              Case(LibFunc, f0, x->f) {
+                if (f0->impl) {
+                  ret = (*(f0->impl))(args.data(), (int)args.size());
+                } else {
+                  std::cerr << "unimplemented func: " << x->f->name
+                            << std::endl;
+                  assert(0);
+                }
+              }
+            else {
               std::cerr << "unknown func: " << x->f->name << std::endl;
               assert(0);
             }
