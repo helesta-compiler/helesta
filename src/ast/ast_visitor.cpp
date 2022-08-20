@@ -967,7 +967,7 @@ antlrcpp::Any ASTVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
         if (Type *interface_type =
                 std::get_if<Type>(&entry->interface.args_type[i])) {
           // if (!interface_type->check_assign(cur->type))
-            // _throw InvalidFuncCallArg("type error on function argument");
+          // _throw InvalidFuncCallArg("type error on function argument");
           if (interface_type->is_array())
             arg_regs.push_back({cur->reg, ScalarType::Int});
           else
