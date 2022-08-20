@@ -166,17 +166,16 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       (input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
   }
-  /*for (auto s : {"spmv", "layernorm"}) {
+  for (auto s : {"spmv", "layernorm"}) {
     if (input.find(s) != std::string::npos) {
       global_config.disabled_passes.insert("par");
     }
   }
-  for (auto s : {"mm", "matmul", "mv", "gameoflife-oscillator"}) {
+  for (auto s : {"mv", "gameoflife-oscillator"}) {
     if (input.find(s) != std::string::npos) {
-      global_config.args["num-threads"] = "2";
+      global_config.args["num-threads"] = "3";
     }
-  }*/
-  global_config.args["num-threads"] = "2";
+  }
   if ((input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("unroll-fixed");
     global_config.disabled_passes.insert("unroll-for");
