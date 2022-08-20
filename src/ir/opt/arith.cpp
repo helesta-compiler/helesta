@@ -124,6 +124,7 @@ struct FMulDivC : ForwardLoopVisitor<std::map<bool, bool>>,
 };
 
 void fmuldivc(NormalFunc *f) {
+  PassDisabled("fast-math") return;
   DAG_IR dag(f);
   FMulDivC w(f);
   dag.visit(w);
