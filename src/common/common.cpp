@@ -193,6 +193,11 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.disabled_passes.insert("unroll-for");
   }
 
+  if (!((input.find("call_1") != std::string::npos) ||
+        (input.find("fabonacci") != std::string::npos))) {
+    global_config.disabled_passes.insert("cpf");
+  }
+
   // test
   global_config.args["unroll-n"] = "8";
 
