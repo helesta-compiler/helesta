@@ -681,6 +681,7 @@ namespace IR {
 void compute_data_offset(CompileUnit &c);
 void mod2div(NormalFunc *);
 void muldiv(NormalFunc *);
+void fmuldivc(NormalFunc *);
 void merge_inst(CompileUnit *ir, NormalFunc *f);
 } // namespace IR
 DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
@@ -778,6 +779,7 @@ void arith(CompileUnit *ir) {
     global_value_numbering_func(f);
     mod2div(f);
     muldiv(f);
+    fmuldivc(f);
   });
 }
 

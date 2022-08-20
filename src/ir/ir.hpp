@@ -864,9 +864,15 @@ struct CodeGen {
 #undef bop
   };
   RegRef reg(Reg r) { return RegRef{r, this}; }
+  RegRef lc(size_t x) { return lc(int32_t(x)); }
   RegRef lc(int32_t x) {
     Reg r = f->new_Reg();
     instrs.emplace_back(new LoadConst<int32_t>(r, x));
+    return reg(r);
+  }
+  RegRef lc(float x) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadConst<float>(r, x));
     return reg(r);
   }
   RegRef la(MemObject *x) {

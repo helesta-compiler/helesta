@@ -74,6 +74,61 @@ void muldiv(NormalFunc *f) {
   dag.visit(w);
 }
 
+struct FMulDivC : ForwardLoopVisitor<std::map<bool, bool>>,
+                  Defs,
+                  CounterOutput {
+  FMulDivC(NormalFunc *_f) : Defs(_f), CounterOutput("FMulDivC") {}
+  void visitBB(BB *bb) {
+    bb->for_each([&](Instr *x) {
+      replace_reg(x);
+      Case(BinaryOpInstr, bop, x) {
+        switch (bop->op.type) {
+        case BinaryCompute::FMUL:
+          if (get_const_f(bop->s1))
+            std::swap(bop->s1, bop->s2);
+          if (auto c = get_const_f(bop->s2); c) {
+            float v = *c;
+            Case(BinaryOpInstr, bop2, defs.at(bop->s1)) {
+              if (bop2->op.type == BinaryCompute::FMUL) {
+                auto c2 = get_const_f(bop2->s2);
+                if (c2) {
+                  float v2 = *c2;
+                  CodeGen cg(f);
+                  bop->s1 = bop2->s1;
+                  bop->s2 = cg.lc(v * v2).r;
+                  update_defs(cg.instrs);
+                  bb->ins(std::move(cg.instrs));
+                  ++cnt;
+                }
+              }
+            }
+          }
+          break;
+        case BinaryCompute::FDIV:
+          if (auto c = get_const_f(bop->s2); c) {
+            float v = 1.0f / *c;
+            bop->op.type = BinaryCompute::FMUL;
+            CodeGen cg(f);
+            bop->s2 = cg.lc(v).r;
+            update_defs(cg.instrs);
+            bb->ins(std::move(cg.instrs));
+            ++cnt;
+          }
+          break;
+        default:
+          break;
+        }
+      }
+    });
+  }
+};
+
+void fmuldivc(NormalFunc *f) {
+  DAG_IR dag(f);
+  FMulDivC w(f);
+  dag.visit(w);
+}
+
 void merge_inst_muladd(CompileUnit *ir, NormalFunc *f) {
   auto Int = ScalarType::Int;
   auto use_count = build_use_count(f);
