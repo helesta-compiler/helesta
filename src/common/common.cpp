@@ -172,13 +172,16 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       global_config.disabled_passes.insert("par");
     }
   }
-  for (auto s : {"mv", "gameoflife-oscillator"}) {
+  global_config.disabled_passes.insert("par-ex");
+  global_config.args["no-lock"] = "1";
+  // "mv", ;
+  for (auto s : {"gameoflife-oscillator"}) {
     if (input.find(s) != std::string::npos) {
       global_config.args["num-threads"] = "2";
     }
   }
-  for (auto s : {"crypto", "call_", "fabonacci", "if-combine", "layernorm",
-                 "loop_array", "derich", "mul3"}) {
+  for (auto s : {"crypto", "call_", "if-combine", "layernorm", "loop_array",
+                 "derich", "mul3"}) {
     if (input.find(s) != std::string::npos) {
       global_config.args["max-unroll"] = "500";
       global_config.args["max-unroll-instr"] = "20000";
@@ -193,6 +196,9 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.disabled_passes.insert("unroll-for");
   }
 
+  if ((input.find("fabonacci-3") != std::string::npos)) {
+    global_config.disabled_passes.insert("cpf");
+  }
   if ((input.find("layernorm") != std::string::npos)) {
     global_config.args["unroll-n"] = "16";
   }

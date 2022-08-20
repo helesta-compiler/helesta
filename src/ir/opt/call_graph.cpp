@@ -372,7 +372,7 @@ struct CallGraph {
       return;
     if (!ret_bb)
       return;
-    const int N = 10100;
+    const int N = 1010;
     MemObject *mem_key = ir->scope.new_MemObject(f->name + "::key");
     mem_key->size = 4 * N;
     mem_key->dims = {N};
@@ -399,7 +399,7 @@ struct CallGraph {
     }
     cg.branch(argv != cg.lc(0), bb2, f->entry);
     bb1->push(std::move(cg.instrs));
-    auto P = cg.lc(10007);
+    auto P = cg.lc(1007);
     auto hash = (argv % P + P) % P;
     auto key = cg.ld(cg.ai(cg.la(mem_key), hash, 4));
     cg.branch(argv == key, bb3, f->entry);

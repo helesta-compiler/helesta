@@ -815,6 +815,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
   auto &wi0 = S.loop_info.at(w);
   auto &wi = loop_info.at(w);
   bool dbg_on = (global_config.args["dbg-par"] == "1");
+  bool use_lock = !(global_config.args["no-lock"] == "1");
   if (auto ilr = S.get_ilr(w, 1)) {
     bool flag = dependent(w);
     if (dbg_on) {
@@ -944,25 +945,24 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
                   {{cg.lc(0), ScalarType::Int}}); // wait
         }
         if (i != 1) {
-          auto _mutex = cg.la(mutex);
-          cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
-          auto t = cg.la(barrier);
-          cg.st_volatile(ir, t, cg.ld_volatile(ir, t) - cg.lc(1));
-          cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+          if (use_lock) {
+            auto _mutex = cg.la(mutex);
+            cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+            auto t = cg.la(barrier);
+            cg.st_volatile(ir, t, cg.ld_volatile(ir, t) - cg.lc(1));
+            cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+          }
           cg.call(join, ScalarType::Void,
                   {{cg.lc(1), ScalarType::Int}}); // exit
           cg.jump(tail);
         } else {
-          // auto _mutex = cg.la(mutex);
-          // cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
-
-          auto t = cg.la(barrier);
-          auto v = cg.ld_volatile(ir, t);
-          // cg.call(putint, ScalarType::Void, {{v, ScalarType::Int}});
-          // cg.call(putch, ScalarType::Void, {{cg.lc(10), ScalarType::Int}});
-
-          // cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
-          cg.branch(v == cg.lc(0), tail, bb);
+          if (use_lock) {
+            auto t = cg.la(barrier);
+            auto v = cg.ld_volatile(ir, t);
+            cg.branch(v == cg.lc(0), tail, bb);
+          } else {
+            cg.jump(tail);
+          }
         }
         bb->push(std::move(cg.instrs));
       }
@@ -1002,6 +1002,7 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
     return 0;
   if (!dependent(w) && loop_parallel(w, ir))
     return 1;
+  PassDisabled("par-ex") return 0;
   auto &wi0 = S.loop_info.at(w);
   // auto &wi = loop_info.at(w);
   // bool dbg_on = (global_config.args["dbg-par"] == "1");
