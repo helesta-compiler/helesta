@@ -19,23 +19,16 @@ void phi_src_rewrite(IR::BB *bb_cur, IR::BB *bb_old) {
     });
   }
 }
-// IR::NormalFunc *copy_func(IR::NormalFunc *src){
-//   using namespace IR;
-//   NormalFunc dst = new NormalFunc(src->name);
-//   dst->type = src->type;
-//     vector<string> reg_names;
-//   std::vector<ScalarType> arg_types;
 
-//   return dst;
-// }
 // inline son to fa
 void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
   using namespace IR;
 
-  // std::cerr << "Start move func" << std::endl;
   static std::unordered_map<NormalFunc *, int> is;
 
   Case(NormalFunc, son_func, call->f) {
+    ++is[son_func];
+    son_func = son_func->copy();
     // map local var to fa
     // move all local vars to fa
     // if (son_func == fa){
@@ -48,19 +41,15 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
     son_func->scope.for_each([&](MemObject *x0, MemObject *x1) {
       assert(!x1->global);
       if (x1->arg) {
-        // delete x1;
+        delete x1;
       } else {
         // alloc local vars
         map_mm[x0] = x1;
         fa->scope.add(x1);
       }
     });
-    // std::cerr << "First Blood" << std::endl;
-    ++is[son_func];
-    std::vector<IR::BB *> bbs;
-    son_func->for_each([&](BB *bb) { bbs.push_back(bb); });
-    // son_func->for_each([&](BB *bb) {
-    for (auto bb : bbs) {
+
+    son_func->for_each([&](BB *bb) {
       map_bb[bb] = fa->new_BB();
       bb->for_each([&](Instr *instr) {
         Case(RegWriteInstr, rwinstr, instr) {
@@ -69,13 +58,10 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
             map_reg[r] =
                 fa->new_Reg(son_func->get_name(r) + "_" + son_func->name + "_" +
                             std::to_string(is[son_func]));
-            // std::cerr << fa->reg_names[map_reg[r].id] << std::endl;
           }
         }
       });
-    }
-    // std::cerr << "Second\n";
-    // std::cerr << "start to copy all BBs" << std::endl;
+    });
     BB *nxt = fa->new_BB();
     auto find_nxt_instr = [](BB *bb, CallInstr *instr) {
       for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
@@ -89,33 +75,17 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
     nxt->instrs.splice(nxt->instrs.begin(), fa_bb->instrs,
                        find_nxt_instr(fa_bb, call), fa_bb->instrs.end());
 
-    auto map_reg_f = [&](Reg &reg) {
-      // std::cerr << "map reg (" << reg;
-      reg = map_reg.at(reg);
-      // std::cerr << ")" << std::endl;
-    };
-    auto map_bb_f = [&](BB *&bb) {
-      // std::cerr << "map bb (";
-      bb = map_bb.at(bb);
-      // std::cerr << ")" << std::endl;
-    };
+    auto map_reg_f = [&](Reg &reg) { reg = map_reg.at(reg); };
+    auto map_bb_f = [&](BB *&bb) { bb = map_bb.at(bb); };
     auto map_mem_f = [&](MemObject *&mm) {
       if (!mm->global) {
-        // std::cerr << "map mem (" << mm->name << " ";
         mm = map_mm.at(mm);
-        // std::cerr << ")" << std::endl;
       }
     };
-
-    // std::cerr << "Third\n";
-    // son_func->for_each([&](BB *bb) {
-    for (auto bb : bbs) {
+    son_func->for_each([&](BB *bb) {
       // copy all BBs
-      // std::cerr << "bb->name : " << bb->name << std::endl;
       BB *bb1 = map_bb.at(bb);
-      // std::cerr << "start" << std::endl;
       bb->for_each([&](Instr *instr) {
-        // instr->print(std::cerr);
         Instr *instr1 = nullptr;
         Case(LoadArg<ScalarType::Int>, load_arg, instr) {
           UnaryOpInstr *uo_instr =
@@ -134,8 +104,6 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
         else Case(ReturnInstr<ScalarType::Int>, return_instr, instr) {
           UnaryOpInstr *uo_instr =
               new UnaryOpInstr(call->d1, return_instr->s1, UnaryCompute::ID);
-          // std::cerr << "call->d1 = " << call->d1 << "\nReturn Instr"
-          // << std::endl;
           map_reg_f(uo_instr->s1);
           bb1->push(uo_instr);
           instr1 = new JumpInstr(nxt);
@@ -143,8 +111,6 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
         else Case(ReturnInstr<ScalarType::Float>, return_instr, instr) {
           UnaryOpInstr *uo_instr =
               new UnaryOpInstr(call->d1, return_instr->s1, UnaryCompute::ID);
-          // std::cerr << "call->d1 = " << call->d1 << "\nReturn Instr"
-          // << std::endl;
           map_reg_f(uo_instr->s1);
           bb1->push(uo_instr);
           instr1 = new JumpInstr(nxt);
@@ -154,13 +120,12 @@ void move_func(IR::NormalFunc *fa, IR::CallInstr *call, IR::BB *fa_bb) {
         }
         bb1->push(instr1);
       });
-    }
+    });
     fa_bb->pop();
     fa_bb->push(new JumpInstr(map_bb.at(son_func->entry)));
     phi_src_rewrite(nxt, fa_bb);
     fa_bb = nxt;
   }
-
   // assert(0);
 }
 
@@ -216,18 +181,15 @@ void func_inline(IR::CompileUnit *ir) {
   for (auto &[func, state] : map) {
     if (state.count == 0) {
       order.push_back(func);
-      // std::cerr << func->name << ";\n";
     }
   }
   while (!order.empty()) {
     IR::NormalFunc *func = order.back();
     order.pop_back();
 
-    // IR::print_all_bb(*ir, std::cerr);
     search_call_instr(ir, func);
 
     for (auto &in_node : map[func].in_nodes) {
-      // std::cerr << "in_node : " << in_node->name << std::endl;
       map[in_node].count--;
       if (map[in_node].count == 0) {
         order.push_back(in_node);
@@ -236,23 +198,20 @@ void func_inline(IR::CompileUnit *ir) {
   }
 
   // 迭代 3 次内联所有函数
-  // ir->print(std::cerr);
-  // for(int i = 0; i < 3; ++i){
-  //   ir->for_each([&](IR::NormalFunc *func) {
-  //     std::vector<IR::BB *> bbs;
-  //     func->for_each([&](IR::BB *bb) { bbs.push_back(bb); });
-  //     for (auto bb : bbs) {
-  //       for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
-  //         Case(IR::CallInstr, call, it->get()) {
-  //           Case(IR::NormalFunc, func_t, call->f) {
-  //             std::cerr << func->name << " -> " << func_t->name << std::endl;
-  //             move_func(func, call, bb);
-  //             break;
-  //           }
-  //         }
-  //       }
-  //     }
-  //   });
-  // }
-  // ir->print(std::cerr);
+  for (int i = 0; i < 1; ++i) {
+    ir->for_each([&](IR::NormalFunc *func) {
+      std::vector<IR::BB *> bbs;
+      func->for_each([&](IR::BB *bb) { bbs.push_back(bb); });
+      for (auto bb : bbs) {
+        for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
+          Case(IR::CallInstr, call, it->get()) {
+            Case(IR::NormalFunc, func_t, call->f) {
+              move_func(func, call, bb);
+              break;
+            }
+          }
+        }
+      }
+    });
+  }
 }

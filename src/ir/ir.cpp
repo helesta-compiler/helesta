@@ -999,4 +999,37 @@ void print_all_bb(CompileUnit &c, std::ostream &os) {
     func->for_each([&](IR::BB *bb) { bb->print(os); });
   });
 }
+
+NormalFunc *NormalFunc::copy() {
+  NormalFunc *x = new NormalFunc(name);
+  // x->entry = entry->copy();
+  std::unordered_map<BB *, BB *> map_bb;
+  for_each([&](BB *bb) {
+    BB *new_bb = bb->copy();
+    x->bbs.emplace_back(new_bb);
+    map_bb[bb] = new_bb;
+  });
+  x->for_each([&](BB *bb) {
+    bb->for_each([&](Instr *instr) {
+      Case(JumpInstr, jump_instr, instr) {
+        jump_instr->target = map_bb.at(jump_instr->target);
+      }
+      Case(BranchInstr, branch_instr, instr) {
+        branch_instr->target0 = map_bb.at(branch_instr->target0);
+        branch_instr->target1 = map_bb.at(branch_instr->target1);
+      }
+      Case(PhiInstr, phi_instr, instr) {
+        for (auto &x : phi_instr->uses)
+          x.second = map_bb.at(x.second);
+      }
+    });
+  });
+  x->entry = map_bb.at(entry);
+  x->max_reg_id = max_reg_id;
+  x->max_bb_id = max_bb_id;
+  x->reg_names = reg_names;
+  x->arg_types = arg_types;
+  // x->thread_local_regs = thread_local_regs;
+  return x;
+}
 } // namespace IR

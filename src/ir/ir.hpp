@@ -238,6 +238,12 @@ struct BB : Printable, Traversable<BB> {
     (void)std::prev(_it)->release();
     del();
   }
+  BB *copy() {
+    BB *x = new BB(name);
+    x->id = id;
+    for_each([&](Instr *instr) { x->instrs.emplace_back(instr->copy()); });
+    return x;
+  }
   void del() { _del = 1; }
   void ins(Instr *x) { instrs.insert(std::prev(_it), unique_ptr<Instr>(x)); }
   void ins(decltype(instrs) &&ls) {
@@ -375,6 +381,7 @@ struct NormalFunc : Func {
   }
   void print(ostream &os) const override;
   string get_name(Reg r) const { return reg_names.at(r.id); }
+  NormalFunc *copy();
 
 private:
   friend struct CompileUnit;
