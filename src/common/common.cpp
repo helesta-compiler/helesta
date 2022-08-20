@@ -191,6 +191,10 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.disabled_passes.insert("unroll-fixed");
     global_config.disabled_passes.insert("unroll-for");
   }
+
+  // test:
+  global_config.disabled_passes.insert("irc-alloc");
+
   global_config.args["input"] = input;
   global_config.args["output"] = output;
   return pair{input, output};
