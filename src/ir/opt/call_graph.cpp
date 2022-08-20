@@ -372,12 +372,15 @@ struct CallGraph {
       return;
     if (!ret_bb)
       return;
+    const int N = 10100;
     MemObject *mem_key = ir->scope.new_MemObject(f->name + "::key");
-    mem_key->size = 4 * 1010;
+    mem_key->size = 4 * N;
+    mem_key->dims = {N};
     mem_key->global = 1;
     mem_key->scalar_type = ScalarType::Int;
     MemObject *mem_val = ir->scope.new_MemObject(f->name + "::val");
-    mem_val->size = 4 * 1010;
+    mem_val->size = 4 * N;
+    mem_val->dims = {N};
     mem_val->global = 1;
     mem_val->scalar_type = ret_t;
     BB *bb1 = f->new_BB();
@@ -396,7 +399,7 @@ struct CallGraph {
     }
     cg.branch(argv != cg.lc(0), bb2, f->entry);
     bb1->push(std::move(cg.instrs));
-    auto P = cg.lc(1009);
+    auto P = cg.lc(10007);
     auto hash = (argv % P + P) % P;
     auto key = cg.ld(cg.ai(cg.la(mem_key), hash, 4));
     cg.branch(argv == key, bb3, f->entry);
