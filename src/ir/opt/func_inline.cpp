@@ -197,7 +197,6 @@ void func_inline(IR::CompileUnit *ir) {
       }
     }
   }
-
   // 迭代 3 次内联所有函数
   for (int i = 0; i < 3; ++i) {
     ir->for_each([&](IR::NormalFunc *func) {
@@ -207,6 +206,10 @@ void func_inline(IR::CompileUnit *ir) {
         for (auto it = bb->instrs.begin(); it != bb->instrs.end(); ++it) {
           Case(IR::CallInstr, call_instr, it->get()) {
             Case(IR::NormalFunc, func_t, call_instr->f) {
+              int instr_cnt = 0, bb_cnt = func_t->bbs.size();
+              func_t->for_each([&](IR::BB *bb){ instr_cnt += bb->instrs.size(); });
+              if (instr_cnt >= 1000) continue;
+              // std::cerr << func->name << "(" << bb->name << ") -> " << func_t->name << " [" << i << "," << instr_cnt << "," << bb_cnt << "]" << std::endl;
               move_func(func, call_instr, bb);
               // func->print(std::cerr);
               break;
