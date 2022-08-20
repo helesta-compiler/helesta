@@ -1977,6 +1977,8 @@ void remove_branch_by_range(NormalFunc *f) {
   }
 }
 
+void fast_math(NormalFunc *) {}
+
 void loop_ops(CompileUnit *ir, NormalFunc *f, bool last) {
   PassDisabled("loop-ops") return;
   LoopOps ops(f, last, ir);

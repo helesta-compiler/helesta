@@ -173,19 +173,19 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   }
   for (auto s : {"mv", "gameoflife-oscillator"}) {
     if (input.find(s) != std::string::npos) {
-      global_config.args["num-threads"] = "3";
+      global_config.args["num-threads"] = "2";
+    }
+  }
+  for (auto s : {"crypto", "call_", "fabonacci", "if-combine", "layernorm",
+                 "loop_array", "derich", "mul3"}) {
+    if (input.find(s) != std::string::npos) {
+      global_config.args["max-unroll"] = "500";
+      global_config.args["max-unroll-instr"] = "20000";
     }
   }
   if ((input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("unroll-fixed");
     global_config.disabled_passes.insert("unroll-for");
-  }
-  if (input.find("integer-divide-optimization") != std::string::npos ||
-      input.find("dead-code-elimination") != std::string::npos ||
-      input.find("crypto") != std::string::npos ||
-      input.find("instruction-combining") != std::string::npos) {
-    global_config.args["max-unroll"] = "320";
-    global_config.args["max-unroll-instr"] = "5000";
   }
   global_config.args["input"] = input;
   global_config.args["output"] = output;
