@@ -159,10 +159,6 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual antlrcpp::Any visitUnaryOp(SysYParser::UnaryOpContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
   virtual antlrcpp::Any visitFuncRParams(SysYParser::FuncRParamsContext *ctx) override {
     return visitChildren(ctx);
   }

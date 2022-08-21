@@ -124,9 +124,6 @@ public:
   virtual void enterUnary3(SysYParser::Unary3Context * /*ctx*/) override { }
   virtual void exitUnary3(SysYParser::Unary3Context * /*ctx*/) override { }
 
-  virtual void enterUnaryOp(SysYParser::UnaryOpContext * /*ctx*/) override { }
-  virtual void exitUnaryOp(SysYParser::UnaryOpContext * /*ctx*/) override { }
-
   virtual void enterFuncRParams(SysYParser::FuncRParamsContext * /*ctx*/) override { }
   virtual void exitFuncRParams(SysYParser::FuncRParamsContext * /*ctx*/) override { }
 

@@ -91,8 +91,6 @@ public:
 
     virtual antlrcpp::Any visitUnary3(SysYParser::Unary3Context *context) = 0;
 
-    virtual antlrcpp::Any visitUnaryOp(SysYParser::UnaryOpContext *context) = 0;
-
     virtual antlrcpp::Any visitFuncRParams(SysYParser::FuncRParamsContext *context) = 0;
 
     virtual antlrcpp::Any visitExpAsRParam(SysYParser::ExpAsRParamContext *context) = 0;
