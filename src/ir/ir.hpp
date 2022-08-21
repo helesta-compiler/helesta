@@ -852,6 +852,14 @@ struct CodeGen {
       }
       assign(a);
     }
+#define uop(op, name)                                                          \
+  RegRef op() const {                                                          \
+    Reg r0 = cg->f->new_Reg();                                                 \
+    cg->instrs.emplace_back(new UnaryOpInstr(r0, r, UnaryCompute::name));      \
+    return cg->reg(r0);                                                        \
+  }
+    uop(i2f, I2F) uop(f2i, F2I)
+#undef uop
 #define bop(op, name)                                                          \
   RegRef op(RegRef b) const {                                                  \
     Reg r0 = cg->f->new_Reg();                                                 \
@@ -859,7 +867,7 @@ struct CodeGen {
         new BinaryOpInstr(r0, r, b.r, BinaryCompute::name));                   \
     return cg->reg(r0);                                                        \
   }
-    bop(fadd, FADD) bop(fsub, FSUB) bop(fmul, FMUL) bop(fdiv, FDIV)
+        bop(fadd, FADD) bop(fsub, FSUB) bop(fmul, FMUL) bop(fdiv, FDIV)
 #undef bop
 #define bop(op, name)                                                          \
   friend RegRef operator op(RegRef a, RegRef b) {                              \
@@ -868,8 +876,8 @@ struct CodeGen {
         new BinaryOpInstr(r, a.r, b.r, BinaryCompute::name));                  \
     return a.cg->reg(r);                                                       \
   }
-        bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD) bop(<, LESS)
-            bop(<=, LEQ) bop(==, EQ) bop(!=, NEQ)
+            bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD)
+                bop(<, LESS) bop(<=, LEQ) bop(==, EQ) bop(!=, NEQ)
 #undef bop
   };
   RegRef reg(Reg r) { return RegRef{r, this}; }

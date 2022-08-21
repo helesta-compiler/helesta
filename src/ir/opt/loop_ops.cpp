@@ -177,18 +177,24 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
         if (u1.size() == 1 && u2.size() == 1) {
           Reg r1 = u1[0];
           Reg r2 = u2[0];
-          // dbg(r, r1, r2, *phi, '\n');
+          dbg(">> ", r, r1, r2, *phi, '\n');
           if (wi.defs.count(r2)) {
             auto def = wi.defs[r2];
             Case(BinaryOpInstr, bop, def) {
-              // dbg(*bop, '\n');
+              dbg("bop: ", *bop, '\n');
               if (bop->s1 == phi->d1) {
                 if (!wi.defs.count(bop->s2)) {
                   ri.ind = SimpleIndVar{r1, bop->s2, bop->op.type};
-                  // dbg(w->name, ": ", r, " ind ", *ri.ind, '\n');
+                  dbg(">>> ind: ", w->name, ": ", r, " ind ", *ri.ind, '\n');
+                  ri.reduce = SimpleReductionVar{r1, bop->s2, bop->op.type,
+                                                 std::nullopt};
                 } else {
                   ri.reduce = SimpleReductionVar{r1, bop->s2, bop->op.type,
                                                  std::nullopt};
+                  auto &reduce = *ri.reduce;
+                  dbg(">>>>>>>> reduce: ", r, "  init: ", reduce.init,
+                      "  step: ", reduce.step,
+                      "  op: ", BinaryOp(reduce.op).get_name(), '\n');
                 }
               } else if (bop->op.type == BinaryCompute::MOD) {
                 if (auto mod = get_const(bop->s2)) {
@@ -1261,6 +1267,8 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
       if (wi0.use_count[r] != 1)
         continue;
       auto &reduce = *var.reduce;
+      dbg("reduce: ", r, "  init: ", reduce.init, "step: ", reduce.step,
+          "  op: ", BinaryOp(reduce.op).get_name(), '\n');
       if (reduce.op == BinaryCompute::DIV) {
         auto v_ = S.get_const(reduce.step);
         if (!v_)
@@ -1277,6 +1285,28 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
         auto s = cg.call(ir->lib_funcs.at("__divpow2").get(), Int,
                          {{cg.reg(reduce.init), Int}, {index, Int}});
         mp[r] = s.r;
+      } else if (reduce.op == BinaryCompute::FADD ||
+                 reduce.op == BinaryCompute::FSUB ||
+                 reduce.op == BinaryCompute::SUB) {
+        if (wi0.defs.count(reduce.step))
+          continue;
+        auto loop_cnt = cg.reg(i2) - cg.reg(i1);
+        if (op.eq) {
+          loop_cnt = loop_cnt + cg.lc(1);
+        }
+        if (reduce.op == BinaryCompute::SUB) {
+          auto s = cg.reg(reduce.init) - loop_cnt * (cg.reg(reduce.step));
+          mp[r] = s.r;
+        } else {
+          auto s = loop_cnt.i2f().fmul(cg.reg(reduce.step));
+          auto s0 = cg.reg(reduce.init);
+          if (reduce.op == BinaryCompute::FADD) {
+            s = s0.fadd(s);
+          } else {
+            s = s0.fsub(s);
+          }
+          mp[r] = s.r;
+        }
       } else if (reduce.op == BinaryCompute::ADD) {
         auto &step = reg_info.at(reduce.step).add;
         if (step.bad)

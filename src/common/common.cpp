@@ -196,9 +196,6 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   if ((input.find("fabonacci") != std::string::npos)) {
     global_config.disabled_passes.insert("inline");
   }
-  /*if ((input.find("fabonacci-3") != std::string::npos)) {
-    global_config.disabled_passes.insert("cpf");
-  }*/
   if ((input.find("layernorm") != std::string::npos)) {
     global_config.args["unroll-n"] = "16";
   }
@@ -206,9 +203,10 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
     global_config.disabled_passes.insert("unroll-for");
   }
 
-  // test
-  global_config.disabled_passes.insert("eliminate-branch");
-  global_config.args["num-threads"] = "3";
+  if (0) {
+    global_config.disabled_passes.insert("eliminate-branch");
+    global_config.args["num-threads"] = "3";
+  }
 
   global_config.args["input"] = input;
   global_config.args["output"] = output;
