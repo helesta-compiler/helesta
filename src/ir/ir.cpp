@@ -282,6 +282,11 @@ CompileUnit::CompileUnit() : scope("global", 1) {
       return 0;
     return a / (1 << b);
   };
+  pure_func("__f_mov_to_i")->impl = [](typeless_scalar_t *args,
+                                       int argc) -> typeless_scalar_t {
+    assert(argc == 1);
+    return args[0].int_value();
+  };
 
   f = new_LibFunc("__simd", 1);
   f->in = 1;
@@ -847,6 +852,7 @@ int exec(CompileUnit &c) {
               assert(args.size() == 1);
               int addr = args[0].int_value();
               wMem(addr, 0);
+              continue;
             } else if (x->f->name == "__create_threads") {
               assert(args.size() == 0);
               threads.push(ThreadContext{

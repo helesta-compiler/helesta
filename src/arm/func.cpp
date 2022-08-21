@@ -144,8 +144,21 @@ void Func::allocate_register() {
         }
         out << "}\n";
       }
+      int min_id = 100;
+      int max_id = -1;
       for (auto reg : save_float_regs) {
-        out << "vpush {" << reg << "}" << std::endl;
+        min_id = std::min(min_id, reg.id);
+        max_id = std::max(max_id, reg.id);
+        // out << "vpush {" << reg << "}" << std::endl;
+      }
+      if (min_id <= max_id) {
+        out << "vpush {";
+        for (int i = min_id; i <= max_id; ++i) {
+          if (i != min_id)
+            out << ',';
+          out << 's' << i;
+        }
+        out << "}\n";
       }
       if (stack_size != 0)
         sp_move_asm(-stack_size, out);
@@ -154,10 +167,25 @@ void Func::allocate_register() {
                     stack_size](std::ostream &out) -> bool {
       if (stack_size != 0)
         sp_move_asm(stack_size, out);
-      for (auto it = save_float_regs.rbegin(); it != save_float_regs.rend();
+      /*for (auto it = save_float_regs.rbegin(); it != save_float_regs.rend();
            it++) {
         auto reg = *it;
         out << "vpop {" << reg << "}" << std::endl;
+      }*/
+      int min_id = 100;
+      int max_id = -1;
+      for (auto reg : save_float_regs) {
+        min_id = std::min(min_id, reg.id);
+        max_id = std::max(max_id, reg.id);
+      }
+      if (min_id <= max_id) {
+        out << "vpop {";
+        for (int i = min_id; i <= max_id; ++i) {
+          if (i != min_id)
+            out << ',';
+          out << 's' << i;
+        }
+        out << "}\n";
       }
       bool pop_lr = false;
       if (save_int_regs.size()) {

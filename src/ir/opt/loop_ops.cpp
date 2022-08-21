@@ -177,18 +177,24 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
         if (u1.size() == 1 && u2.size() == 1) {
           Reg r1 = u1[0];
           Reg r2 = u2[0];
-          // dbg(r, r1, r2, *phi, '\n');
+          // dbg(">> ", r, r1, r2, *phi, '\n');
           if (wi.defs.count(r2)) {
             auto def = wi.defs[r2];
             Case(BinaryOpInstr, bop, def) {
-              // dbg(*bop, '\n');
+              // dbg("bop: ", *bop, '\n');
               if (bop->s1 == phi->d1) {
                 if (!wi.defs.count(bop->s2)) {
                   ri.ind = SimpleIndVar{r1, bop->s2, bop->op.type};
-                  // dbg(w->name, ": ", r, " ind ", *ri.ind, '\n');
+                  // dbg(">>> ind: ", w->name, ": ", r, " ind ", *ri.ind, '\n');
+                  ri.reduce = SimpleReductionVar{r1, bop->s2, bop->op.type,
+                                                 std::nullopt};
                 } else {
                   ri.reduce = SimpleReductionVar{r1, bop->s2, bop->op.type,
                                                  std::nullopt};
+                  // auto &reduce = *ri.reduce;
+                  // dbg(">>>>>>>> reduce: ", r, "  init: ", reduce.init,
+                  //     "  step: ", reduce.step,
+                  //     "  op: ", BinaryOp(reduce.op).get_name(), '\n');
                 }
               } else if (bop->op.type == BinaryCompute::MOD) {
                 if (auto mod = get_const(bop->s2)) {
@@ -815,6 +821,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
   auto &wi0 = S.loop_info.at(w);
   auto &wi = loop_info.at(w);
   bool dbg_on = (global_config.args["dbg-par"] == "1");
+  bool use_lock = !(global_config.args["no-lock"] == "1");
   if (auto ilr = S.get_ilr(w, 1)) {
     bool flag = dependent(w);
     if (dbg_on) {
@@ -884,7 +891,7 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
       auto fork = ir->lib_funcs.at("__create_threads").get();
       auto join = ir->lib_funcs.at("__join_threads").get();
       auto bind_core = ir->lib_funcs.at("__bind_core").get();
-      bool use_bind_core = 0;
+      bool use_bind_core = (global_config.args["bind-core"] == "1");
       auto lock = ir->lib_funcs.at("__lock").get();
       auto unlock = ir->lib_funcs.at("__unlock").get();
 
@@ -944,25 +951,24 @@ bool ArrayReadWrite::loop_parallel(BB *w, CompileUnit *ir) {
                   {{cg.lc(0), ScalarType::Int}}); // wait
         }
         if (i != 1) {
-          auto _mutex = cg.la(mutex);
-          cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
-          auto t = cg.la(barrier);
-          cg.st_volatile(ir, t, cg.ld_volatile(ir, t) - cg.lc(1));
-          cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+          if (use_lock) {
+            auto _mutex = cg.la(mutex);
+            cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+            auto t = cg.la(barrier);
+            cg.st_volatile(ir, t, cg.ld_volatile(ir, t) - cg.lc(1));
+            cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
+          }
           cg.call(join, ScalarType::Void,
                   {{cg.lc(1), ScalarType::Int}}); // exit
           cg.jump(tail);
         } else {
-          // auto _mutex = cg.la(mutex);
-          // cg.call(lock, ScalarType::Void, {{_mutex, ScalarType::Int}});
-
-          auto t = cg.la(barrier);
-          auto v = cg.ld_volatile(ir, t);
-          // cg.call(putint, ScalarType::Void, {{v, ScalarType::Int}});
-          // cg.call(putch, ScalarType::Void, {{cg.lc(10), ScalarType::Int}});
-
-          // cg.call(unlock, ScalarType::Void, {{_mutex, ScalarType::Int}});
-          cg.branch(v == cg.lc(0), tail, bb);
+          if (use_lock) {
+            auto t = cg.la(barrier);
+            auto v = cg.ld_volatile(ir, t);
+            cg.branch(v == cg.lc(0), tail, bb);
+          } else {
+            cg.jump(tail);
+          }
         }
         bb->push(std::move(cg.instrs));
       }
@@ -1002,6 +1008,7 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
     return 0;
   if (!dependent(w) && loop_parallel(w, ir))
     return 1;
+  PassDisabled("par-ex") return 0;
   auto &wi0 = S.loop_info.at(w);
   // auto &wi = loop_info.at(w);
   // bool dbg_on = (global_config.args["dbg-par"] == "1");
@@ -1076,7 +1083,7 @@ bool ArrayReadWrite::loop_parallel_ex(BB *w, CompileUnit *ir) {
   auto fork = ir->lib_funcs.at("__create_threads").get();
   auto join = ir->lib_funcs.at("__join_threads").get();
   auto bind_core = ir->lib_funcs.at("__bind_core").get();
-  bool use_bind_core = 0;
+  bool use_bind_core = (global_config.args["bind-core"] == "1");
   auto lock = ir->lib_funcs.at("__lock").get();
   auto unlock = ir->lib_funcs.at("__unlock").get();
   auto on_barrier = ir->lib_funcs.at("__barrier").get();
@@ -1260,6 +1267,8 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
       if (wi0.use_count[r] != 1)
         continue;
       auto &reduce = *var.reduce;
+      dbg("reduce: ", r, "  init: ", reduce.init, "step: ", reduce.step,
+          "  op: ", BinaryOp(reduce.op).get_name(), '\n');
       if (reduce.op == BinaryCompute::DIV) {
         auto v_ = S.get_const(reduce.step);
         if (!v_)
@@ -1276,6 +1285,36 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
         auto s = cg.call(ir->lib_funcs.at("__divpow2").get(), Int,
                          {{cg.reg(reduce.init), Int}, {index, Int}});
         mp[r] = s.r;
+      } else if (reduce.op == BinaryCompute::FADD ||
+                 reduce.op == BinaryCompute::FSUB ||
+                 reduce.op == BinaryCompute::SUB) {
+        if (wi0.defs.count(reduce.step)) {
+          /*auto input = global_config.args["input"];
+          if (input.find("mul3") != std::string::npos) {
+            assert(0);
+          }
+          if (input.find("loop_array_3") != std::string::npos) {
+            assert(0);
+          }*/
+          continue;
+        }
+        auto loop_cnt = cg.reg(i2) - cg.reg(i1);
+        if (op.eq) {
+          loop_cnt = loop_cnt + cg.lc(1);
+        }
+        if (reduce.op == BinaryCompute::SUB) {
+          auto s = cg.reg(reduce.init) - loop_cnt * (cg.reg(reduce.step));
+          mp[r] = s.r;
+        } else {
+          auto s = loop_cnt.i2f().fmul(cg.reg(reduce.step));
+          auto s0 = cg.reg(reduce.init);
+          if (reduce.op == BinaryCompute::FADD) {
+            s = s0.fadd(s);
+          } else {
+            s = s0.fsub(s);
+          }
+          mp[r] = s.r;
+        }
       } else if (reduce.op == BinaryCompute::ADD) {
         auto &step = reg_info.at(reduce.step).add;
         if (step.bad)
@@ -1686,7 +1725,7 @@ struct UnrollLoop {
   }
   bool unroll_simple_for_loop(BB *w) {
     constexpr size_t MAX_UNROLL_SIMPLE_FOR_INSTR = 256;
-    constexpr size_t UNROLL_SIMPLE_FOR_CNT = 4;
+    size_t UNROLL_SIMPLE_FOR_CNT = parseIntArg(4, "unroll-n");
     if (w->disable_unroll || !last)
       return 0;
     auto &wi = S.loop_info.at(w);
@@ -1976,6 +2015,8 @@ void remove_branch_by_range(NormalFunc *f) {
     dbg("RemoveBranchByRange: ", cnt, '\n');
   }
 }
+
+void fast_math(NormalFunc *) {}
 
 void loop_ops(CompileUnit *ir, NormalFunc *f, bool last) {
   PassDisabled("loop-ops") return;

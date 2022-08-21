@@ -852,6 +852,23 @@ struct CodeGen {
       }
       assign(a);
     }
+#define uop(op, name)                                                          \
+  RegRef op() const {                                                          \
+    Reg r0 = cg->f->new_Reg();                                                 \
+    cg->instrs.emplace_back(new UnaryOpInstr(r0, r, UnaryCompute::name));      \
+    return cg->reg(r0);                                                        \
+  }
+    uop(i2f, I2F) uop(f2i, F2I)
+#undef uop
+#define bop(op, name)                                                          \
+  RegRef op(RegRef b) const {                                                  \
+    Reg r0 = cg->f->new_Reg();                                                 \
+    cg->instrs.emplace_back(                                                   \
+        new BinaryOpInstr(r0, r, b.r, BinaryCompute::name));                   \
+    return cg->reg(r0);                                                        \
+  }
+        bop(fadd, FADD) bop(fsub, FSUB) bop(fmul, FMUL) bop(fdiv, FDIV)
+#undef bop
 #define bop(op, name)                                                          \
   friend RegRef operator op(RegRef a, RegRef b) {                              \
     Reg r = a.cg->f->new_Reg();                                                \
@@ -859,19 +876,40 @@ struct CodeGen {
         new BinaryOpInstr(r, a.r, b.r, BinaryCompute::name));                  \
     return a.cg->reg(r);                                                       \
   }
-    bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD) bop(<, LESS)
-        bop(<=, LEQ) bop(==, EQ) bop(!=, NEQ)
+            bop(+, ADD) bop(-, SUB) bop(*, MUL) bop(/, DIV) bop(%, MOD)
+                bop(<, LESS) bop(<=, LEQ) bop(==, EQ) bop(!=, NEQ)
 #undef bop
   };
   RegRef reg(Reg r) { return RegRef{r, this}; }
+  RegRef lc(size_t x) { return lc(int32_t(x)); }
   RegRef lc(int32_t x) {
     Reg r = f->new_Reg();
     instrs.emplace_back(new LoadConst<int32_t>(r, x));
     return reg(r);
   }
+  RegRef lc(float x) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadConst<float>(r, x));
+    return reg(r);
+  }
   RegRef la(MemObject *x) {
     Reg r = f->new_Reg();
     instrs.emplace_back(new LoadAddr(r, x));
+    return reg(r);
+  }
+  RegRef la_int(int id) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadArg<ScalarType::Int>(r, id));
+    return reg(r);
+  }
+  RegRef la_float(int id) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new LoadArg<ScalarType::Float>(r, id));
+    return reg(r);
+  }
+  RegRef ai(RegRef s1, RegRef s2, int size) {
+    Reg r = f->new_Reg();
+    instrs.emplace_back(new ArrayIndex(r, s1.r, s2.r, size, -1));
     return reg(r);
   }
   RegRef ld_volatile(CompileUnit *ir, RegRef x) {

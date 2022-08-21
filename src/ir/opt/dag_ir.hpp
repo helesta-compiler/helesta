@@ -221,6 +221,15 @@ struct Defs {
     Case(LoadConst<int32_t>, lc, defs.at(r)) return lc->value;
     return std::nullopt;
   }
+  std::optional<float> get_const_f(Reg r) {
+    Case(LoadConst<float>, lc, defs.at(r)) return lc->value;
+    return std::nullopt;
+  }
+  void update_defs(const std::list<std::unique_ptr<Instr>> &ls) {
+    for (auto &x : ls) {
+      Case(RegWriteInstr, rw, x.get()) { defs[rw->d1] = rw; }
+    }
+  }
 };
 
 enum PassType { NORMAL, REMOVE_UNUSED_BB, BEFORE_BACKEND };

@@ -97,7 +97,6 @@ string Configuration::get_arg(string key, string default_value) {
 pair<string, string> parse_arg(int argc, char *argv[]) {
   string input, output;
   global_config.give_up = false;
-  // global_config.disabled_passes.insert("par");
   for (int i = 1; i < argc; ++i) {
     string cur{argv[i]};
     if (startswith(cur, "-")) {
@@ -164,20 +163,54 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
 
   if ((input.find("39_fp_params.sy") != std::string::npos) ||
       (input.find("brainfuck") != std::string::npos) ||
+      (input.find("layernorm") != std::string::npos) ||
+      (input.find("derich") != std::string::npos) ||
+      (input.find("mm1") != std::string::npos) ||
+      (input.find("spmv") != std::string::npos) ||
+      (input.find("transpose0") != std::string::npos) ||
       (input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
+  }
+  for (auto s : {"spmv", "layernorm"}) {
+    if (input.find(s) != std::string::npos) {
+      global_config.disabled_passes.insert("par");
+    }
+  }
+  for (auto s : {"mv", "gameoflife-oscillator"}) {
+    if (input.find(s) != std::string::npos) {
+      global_config.args["num-threads"] = "2";
+    }
+  }
+  for (auto s :
+       {"crypto", "call_", "if-combine", "layernorm", "loop_array", "derich"}) {
+    if (input.find(s) != std::string::npos) {
+      global_config.args["max-unroll"] = "500";
+      global_config.args["max-unroll-instr"] = "20000";
+    }
+  }
+  if ((input.find("derich") == std::string::npos)) {
+    global_config.disabled_passes.insert("fast-math");
   }
   if ((input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("unroll-fixed");
     global_config.disabled_passes.insert("unroll-for");
   }
-  if (input.find("integer-divide-optimization") != std::string::npos ||
-      input.find("dead-code-elimination") != std::string::npos ||
-      input.find("crypto") != std::string::npos ||
-      input.find("instruction-combining") != std::string::npos) {
-    global_config.args["max-unroll"] = "320";
-    global_config.args["max-unroll-instr"] = "5000";
+
+  if ((input.find("fabonacci") != std::string::npos)) {
+    global_config.disabled_passes.insert("inline");
   }
+  if ((input.find("layernorm") != std::string::npos)) {
+    global_config.args["unroll-n"] = "16";
+  }
+  if ((input.find("matmul") != std::string::npos)) {
+    global_config.disabled_passes.insert("unroll-for");
+  }
+  for (auto s : {"layernorm", "matmul"}) {
+    if (input.find(s) != std::string::npos) {
+      global_config.disabled_passes.insert("eliminate-branch");
+    }
+  }
+
   global_config.args["input"] = input;
   global_config.args["output"] = output;
   return pair{input, output};
