@@ -81,7 +81,7 @@
 			\begin{itemize}
 				\item 对于循环次数固定且展开后指令数较小的循环，展开为顺序执行
 				\item 对于循环次数不固定的循环，进行循环展开
-				\item 消除 Reduction Variable
+				\item 对于循环内部形如 \lstinline{s += i * c1 + c2}, \lstinline{s = (s + c1 * i + c2) \% P}, \lstinline{s /= 1 << c} 的表达式进行化简
 			\end{itemize}
 		\end{frame}
 		
