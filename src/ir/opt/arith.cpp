@@ -161,14 +161,14 @@ struct FMulAssoc : ForwardLoopVisitor<std::map<bool, bool>>,
   }
 };
 
-void fmuldivc(NormalFunc *f, bool last) {
+void fmuldivc(NormalFunc *f, bool) {
   PassDisabled("fast-math") return;
   DAG_IR dag(f);
   {
     FMulDivC w(f);
     dag.visit(w);
   }
-  if (last) {
+  /*if (last) {
     FMulAssoc w(f);
     size_t cnt0 = 0;
     for (;;) {
@@ -178,7 +178,7 @@ void fmuldivc(NormalFunc *f, bool last) {
       cnt0 = w.cnt;
       w.changed1.clear();
     }
-  }
+  }*/
 }
 
 void merge_inst_muladd(CompileUnit *ir, NormalFunc *f) {
