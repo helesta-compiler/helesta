@@ -1,6 +1,14 @@
 \documentclass[aspectratio=169,UTF-8]{ctexbeamer}
 
 \usepackage{graphicx}
+\usepackage{listings}
+\lstset{language=C++,
+                basicstyle=\ttfamily,
+                keywordstyle=\color{blue}\ttfamily,
+                stringstyle=\color{red}\ttfamily,
+                commentstyle=\color{green}\ttfamily,
+                morecomment=[l][\color{magenta}]{\#}
+}
 
 \usetheme{CambridgeUS}
 
@@ -93,15 +101,21 @@
 		\end{frame}
 		
 		\begin{frame}{指令合并}
-			
+		
+			\begin{itemize}
+				\item 将 \lstinline{a + b * c} 和 \lstinline{a - b * c} 替换成 \lstinline{mla} 和 \lstinline{mls}
+				\item 将多条 \lstinline{store} 替换成 \lstinline{vdup} 和 \lstinline{vstm}
+				\item 如果多条 \lstinline{load / store} 地址相差不超过 1024，则只计算第一次地址，后续地址使用偏移量
+				\item 将形如 \lstinline{a[b]} 的数组访问使用 \lstinline{(ldr|str) a,[b,c,LSL 2]} 表示
+			\end{itemize}
 		\end{frame}
 		
 		\begin{frame}{寄存器分配}
 			\begin{itemize}
 				\item 基于图染色问题的寄存器分配算法，优先保证生成代码的运行速度。
-				\item 对int和float类型的伪寄存器分别执行寄存器分配。
+				\item 对 \lstinline{int} 和 \lstinline{float} 类型的伪寄存器分别执行寄存器分配。
 				\item spill估价：优先spill保存常量的寄存器，优先spill使用频率较低的寄存器。
-				spill策略考虑伪寄存器所在的循环深度depth与使用次数cnt,计算$cnt * 4^{depth}$。
+				spill策略考虑伪寄存器所在的循环深度\lstinline{depth} 与使用次数 \lstinline{cnt},计算$cnt * 4^{depth}$。
 				\end{itemize}
 		\end{frame}
 	
