@@ -97,7 +97,12 @@
 		\end{frame}
 		
 		\begin{frame}{寄存器分配}
-			
+			\begin{itemize}
+				\item 基于图染色问题的寄存器分配算法，优先保证生成代码的运行速度。
+				\item 对int和float类型的伪寄存器分别执行寄存器分配。
+				\item spill估价：优先spill保存常量的寄存器，优先spill使用频率较低的寄存器。
+				spill策略考虑伪寄存器所在的循环深度depth与使用次数cnt,计算$cnt * 4^{depth}$。
+				\end{itemize}
 		\end{frame}
 	
 \end{document}
