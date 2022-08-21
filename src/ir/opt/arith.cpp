@@ -127,11 +127,13 @@ struct FMulAssoc : ForwardLoopVisitor<std::map<bool, bool>>,
                    Defs,
                    CounterOutput {
   FMulAssoc(NormalFunc *_f) : Defs(_f), CounterOutput("FMulAssoc") {}
-  std::unordered_set<Reg> changed;
-  bool bad(BinaryOpInstr *bop) {
+  std::unordered_set<Reg> changed1, changed2;
+  bool bad(BinaryOpInstr *bop, bool flag) {
+    if (bop->op.type != BinaryCompute::FMUL)
+      return 1;
     if (get_const_f(bop->s1) || get_const_f(bop->s2))
       return 1;
-    if (changed.count(bop->s1) || changed.count(bop->s2))
+    if (flag && (changed1.count(bop->s1) || changed2.count(bop->s1)))
       return 1;
     return 0;
   }
@@ -139,40 +141,44 @@ struct FMulAssoc : ForwardLoopVisitor<std::map<bool, bool>>,
     bb->for_each([&](Instr *x) {
       replace_reg(x);
       Case(BinaryOpInstr, bop, x) {
-        if (bop->op.type == BinaryCompute::FMUL) {
-          if (bad(bop))
+        if (bad(bop, 1))
+          return;
+        Case(BinaryOpInstr, bop2, defs.at(bop->s1)) {
+          if (bad(bop2, 0))
             return;
-          Case(BinaryOpInstr, bop2, defs.at(bop->s1)) {
-            if (bop2->op.type == BinaryCompute::FMUL) {
-              if (bad(bop2))
-                return;
-              CodeGen cg(f);
-              bop->s1 = bop2->s1;
-              bop->s2 = cg.reg(bop2->s2).fmul(cg.reg(bop->s2)).r;
-              update_defs(cg.instrs);
-              bb->ins(std::move(cg.instrs));
-              changed.insert(bop->s1);
-              changed.insert(bop->s2);
-              ++cnt;
-            }
-          }
+          // dbg("rotate: ", *bop2, "  ", *bop, '\n');
+          CodeGen cg(f);
+          bop->s1 = bop2->s1;
+          bop->s2 = cg.reg(bop2->s2).fmul(cg.reg(bop->s2)).r;
+          update_defs(cg.instrs);
+          bb->ins(std::move(cg.instrs));
+          changed1.insert(bop->d1);
+          changed2.insert(bop->s2);
+          ++cnt;
         }
       }
     });
   }
 };
 
-void fmuldivc(NormalFunc *f) {
+void fmuldivc(NormalFunc *f, bool last) {
   PassDisabled("fast-math") return;
   DAG_IR dag(f);
   {
     FMulDivC w(f);
     dag.visit(w);
   }
-  /*{
+  if (last) {
     FMulAssoc w(f);
-    dag.visit(w);
-  }*/
+    size_t cnt0 = 0;
+    for (;;) {
+      dag.visit(w);
+      if (w.cnt == cnt0)
+        break;
+      cnt0 = w.cnt;
+      w.changed1.clear();
+    }
+  }
 }
 
 void merge_inst_muladd(CompileUnit *ir, NormalFunc *f) {

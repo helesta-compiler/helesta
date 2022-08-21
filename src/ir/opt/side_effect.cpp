@@ -681,7 +681,7 @@ namespace IR {
 void compute_data_offset(CompileUnit &c);
 void mod2div(NormalFunc *);
 void muldiv(NormalFunc *);
-void fmuldivc(NormalFunc *);
+void fmuldivc(NormalFunc *, bool);
 void merge_inst(CompileUnit *ir, NormalFunc *f);
 } // namespace IR
 DAG_IR_ALL::DAG_IR_ALL(CompileUnit *_ir, PassType type) : ir(_ir) {
@@ -774,12 +774,12 @@ void local_init_to_global(CompileUnit *ir, NormalFunc *f) {
 
 void global_value_numbering_func(IR::NormalFunc *func);
 
-void arith(CompileUnit *ir) {
+void arith(CompileUnit *ir, bool last) {
   ir->for_each([&](NormalFunc *f) {
     global_value_numbering_func(f);
     mod2div(f);
     muldiv(f);
-    fmuldivc(f);
+    fmuldivc(f, last);
   });
 }
 
@@ -788,10 +788,10 @@ void dag_ir(CompileUnit *ir, bool last) {
   dbg("DAG IR Round ", ++round, "\n");
   ir->for_each([&](NormalFunc *f) { local_init_to_global(ir, f); });
   DAG_IR_ALL _(ir, NORMAL);
-  arith(ir);
+  arith(ir, 0);
   ir->for_each([&](NormalFunc *f) { loop_ops(ir, f, last); });
   ir->for_each([&](NormalFunc *f) { local_init_to_global(ir, f); });
-  arith(ir);
+  arith(ir, last);
 }
 void remove_unused_BB(CompileUnit *ir) { DAG_IR_ALL _(ir, REMOVE_UNUSED_BB); }
 void before_backend(CompileUnit *ir) { DAG_IR_ALL _(ir, BEFORE_BACKEND); }
