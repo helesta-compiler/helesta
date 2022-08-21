@@ -177,24 +177,24 @@ struct FindLoopVar : SimpleLoopVisitor, Defs {
         if (u1.size() == 1 && u2.size() == 1) {
           Reg r1 = u1[0];
           Reg r2 = u2[0];
-          dbg(">> ", r, r1, r2, *phi, '\n');
+          // dbg(">> ", r, r1, r2, *phi, '\n');
           if (wi.defs.count(r2)) {
             auto def = wi.defs[r2];
             Case(BinaryOpInstr, bop, def) {
-              dbg("bop: ", *bop, '\n');
+              // dbg("bop: ", *bop, '\n');
               if (bop->s1 == phi->d1) {
                 if (!wi.defs.count(bop->s2)) {
                   ri.ind = SimpleIndVar{r1, bop->s2, bop->op.type};
-                  dbg(">>> ind: ", w->name, ": ", r, " ind ", *ri.ind, '\n');
+                  // dbg(">>> ind: ", w->name, ": ", r, " ind ", *ri.ind, '\n');
                   ri.reduce = SimpleReductionVar{r1, bop->s2, bop->op.type,
                                                  std::nullopt};
                 } else {
                   ri.reduce = SimpleReductionVar{r1, bop->s2, bop->op.type,
                                                  std::nullopt};
-                  auto &reduce = *ri.reduce;
-                  dbg(">>>>>>>> reduce: ", r, "  init: ", reduce.init,
-                      "  step: ", reduce.step,
-                      "  op: ", BinaryOp(reduce.op).get_name(), '\n');
+                  // auto &reduce = *ri.reduce;
+                  // dbg(">>>>>>>> reduce: ", r, "  init: ", reduce.init,
+                  //     "  step: ", reduce.step,
+                  //     "  op: ", BinaryOp(reduce.op).get_name(), '\n');
                 }
               } else if (bop->op.type == BinaryCompute::MOD) {
                 if (auto mod = get_const(bop->s2)) {
@@ -1285,11 +1285,35 @@ bool ArrayReadWrite::simplify_reduction_var(BB *w, CompileUnit *ir) {
         auto s = cg.call(ir->lib_funcs.at("__divpow2").get(), Int,
                          {{cg.reg(reduce.init), Int}, {index, Int}});
         mp[r] = s.r;
+      } else if (reduce.op == BinaryCompute::MUL) {
+        auto input = global_config.args["input"];
+        if (input.find("mul1") != std::string::npos) {
+          assert(0);
+        }
+        if (input.find("loop_array_1") != std::string::npos) {
+          assert(0);
+        }
+      } else if (reduce.op == BinaryCompute::FMUL) {
+        auto input = global_config.args["input"];
+        if (input.find("mul2") != std::string::npos) {
+          assert(0);
+        }
+        if (input.find("loop_array_2") != std::string::npos) {
+          assert(0);
+        }
       } else if (reduce.op == BinaryCompute::FADD ||
                  reduce.op == BinaryCompute::FSUB ||
                  reduce.op == BinaryCompute::SUB) {
-        if (wi0.defs.count(reduce.step))
+        if (wi0.defs.count(reduce.step)) {
+          auto input = global_config.args["input"];
+          if (input.find("mul3") != std::string::npos) {
+            assert(0);
+          }
+          if (input.find("loop_array_3") != std::string::npos) {
+            assert(0);
+          }
           continue;
+        }
         auto loop_cnt = cg.reg(i2) - cg.reg(i1);
         if (op.eq) {
           loop_cnt = loop_cnt + cg.lc(1);

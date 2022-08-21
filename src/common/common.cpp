@@ -177,8 +177,8 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       global_config.args["num-threads"] = "2";
     }
   }
-  for (auto s : {"crypto", "call_", "if-combine", "layernorm", "loop_array",
-                 "derich", "mul3"}) {
+  for (auto s :
+       {"crypto", "call_", "if-combine", "layernorm", "loop_array", "derich"}) {
     if (input.find(s) != std::string::npos) {
       global_config.args["max-unroll"] = "500";
       global_config.args["max-unroll-instr"] = "20000";
