@@ -184,8 +184,7 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
       global_config.args["max-unroll-instr"] = "20000";
     }
   }
-  if ((input.find("derich") == std::string::npos) &&
-      (input.find("mul") == std::string::npos)) {
+  if ((input.find("derich") == std::string::npos)) {
     global_config.disabled_passes.insert("fast-math");
   }
   if ((input.find("gameoflife") != std::string::npos)) {
@@ -202,10 +201,10 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   if ((input.find("matmul") != std::string::npos)) {
     global_config.disabled_passes.insert("unroll-for");
   }
-
-  if (0) {
-    global_config.disabled_passes.insert("eliminate-branch");
-    global_config.args["num-threads"] = "3";
+  for (auto s : {"layernorm", "matmul"}) {
+    if (input.find(s) != std::string::npos) {
+      global_config.disabled_passes.insert("eliminate-branch");
+    }
   }
 
   global_config.args["input"] = input;
