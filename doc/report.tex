@@ -45,6 +45,7 @@
 				\item 消除分支条件可以推断为常量的分支
 				\item 将基本块排列为正常顺序，使得同个循环内的代码是连续的若干个基本块，循环内的基本块按删去回边后 dfs 的逆后序排列
 				\item 将无条件跳转的目标基本块的代码复制到跳转前的基本块，减少基本块个数
+				\item 将基本块排列为正常顺序，使得同个循环内的代码是连续的若干个基本块，循环内的基本块按删去回边后dfs的逆后序排列
 			\end{itemize}
 		\end{frame}
 		
@@ -85,8 +86,34 @@
 			\end{itemize}
 		\end{frame}
 		
+		\begin{frame}{代数化简}
+			\begin{itemize}
+				\item 加法表达式化简，将每个Reg表示为关于若干个Reg的线性函数，在能减少指令数时，直接计算这个线性函数而不是用原来的方式计算
+				\item 如果 \lstinline{a / b} 已经计算过，那么将后续的 \lstinline{a \% b} 替换成 \lstinline{a - a / b * b}
+				\item 将 \lstinline{a * b / b} 替换成 \lstinline{a}
+			\end{itemize}
+		\end{frame}
+		
 		\begin{frame}{SIMD 与多线程}
+			手动实现一个多线程库
 			
+			\begin{itemize}
+				\item \lstinline{__create_threads}：利用系统调用 \lstinline{sys_clone} 创建线程
+				\item \lstinline{__join_threads}：利用系统调用 \lstinline{sys_exit} 和\lstinline{sys_waitid} 结束线程或等待线程结束
+				\item \lstinline{__bind_core}：利用系统调用将线程绑定到 CPU 核心
+				\item \lstinline{__lock}：互斥锁进入操作，用于修改已结束的线程数
+				\item \lstinline{__unlock}：互斥锁退出操作，用于修改已结束的线程数
+				\item \lstinline{__barrier}：barrier，用于线程间同步
+			\end{itemize}
+			
+		\end{frame}
+		
+		\begin{frame}{SIMD 与多线程}
+			\begin{itemize}
+				\item 多线程：对于一个 $k$ 次迭代的循环，如果判断循环间无数据依赖，则将其分为 $\frac{k}{\mathrm{num\_threads}}$ 块并行执行
+				\item SIMD：如果一个循环中没有分支，且每次循环间无数据依赖，且每条指令都能换成 SIMD 指令，且 SIMD 寄存器够用，则替换为 SIMD 指令
+			\end{itemize}
+
 		\end{frame}
 	
 	\section{后端优化}
