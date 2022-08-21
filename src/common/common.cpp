@@ -164,6 +164,10 @@ pair<string, string> parse_arg(int argc, char *argv[]) {
   if ((input.find("39_fp_params.sy") != std::string::npos) ||
       (input.find("brainfuck") != std::string::npos) ||
       (input.find("layernorm") != std::string::npos) ||
+      (input.find("derich") != std::string::npos) ||
+      (input.find("mm1") != std::string::npos) ||
+      (input.find("spmv") != std::string::npos) ||
+      (input.find("transpose0") != std::string::npos) ||
       (input.find("gameoflife") != std::string::npos)) {
     global_config.disabled_passes.insert("irc-alloc");
   }
