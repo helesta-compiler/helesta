@@ -24,3 +24,5 @@ _deps
 
 sub
 **/*.s
+
+.texpadtmp
